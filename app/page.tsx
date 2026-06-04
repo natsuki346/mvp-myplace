@@ -1,5 +1,5 @@
-import { CanvasView } from '@/src/components/canvas/CanvasView'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <CanvasView />
+  redirect('/username')
 }

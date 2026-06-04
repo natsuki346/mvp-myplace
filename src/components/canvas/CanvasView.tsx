@@ -260,13 +260,19 @@ const MODAL_OVERLAY: React.CSSProperties = {
 
 // ── CanvasView ─────────────────────────────────────────────────────────────────
 
-export function CanvasView() {
+export function CanvasView({
+  initialLightItems,
+  initialShadowItems,
+}: {
+  initialLightItems?:  Item[]
+  initialShadowItems?: Item[]
+} = {}) {
 
   // ── core state ────────────────────────────────────────────────────────────
   const [mode,           setMode]           = useState<Mode>('light')
   const [fading,         setFading]         = useState(false)
-  const [lightItems,     setLightItems]     = useState<Item[]>(LIGHT_MOCK)
-  const [shadowItems,    setShadowItems]    = useState<Item[]>(SHADOW_MOCK)
+  const [lightItems,     setLightItems]     = useState<Item[]>(initialLightItems  ?? LIGHT_MOCK)
+  const [shadowItems,    setShadowItems]    = useState<Item[]>(initialShadowItems ?? SHADOW_MOCK)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
 
   // ── edit state ────────────────────────────────────────────────────────────
