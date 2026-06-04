@@ -3,16 +3,18 @@
 import { useState } from 'react'
 
 type Props = {
-  questionNumber: number
-  totalQuestions: number
-  questionText: string
-  onComplete: (tags: string[]) => void
+  questionNumber:  number
+  totalQuestions:  number
+  questionText:    string
+  questionSubText?: string
+  onComplete:      (tags: string[]) => void
 }
 
 export function QuestionCard({
   questionNumber,
   totalQuestions,
   questionText,
+  questionSubText,
   onComplete,
 }: Props) {
   const [text,           setText]           = useState('')
@@ -72,9 +74,16 @@ export function QuestionCard({
         </p>
 
         {/* Question */}
-        <h2 className="text-white text-xl font-semibold leading-relaxed mb-8">
-          {questionText}
-        </h2>
+        <div className="mb-8">
+          <h2 className="text-white text-xl font-semibold leading-relaxed">
+            {questionText}
+          </h2>
+          {questionSubText && (
+            <p className="text-gray-400 text-xs mt-2 leading-relaxed">
+              {questionSubText}
+            </p>
+          )}
+        </div>
 
         {/* ── Registered tags ────────────────────────────────────── */}
         {registeredTags.length > 0 && (

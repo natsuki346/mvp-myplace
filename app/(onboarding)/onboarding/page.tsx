@@ -9,11 +9,12 @@ import { recordTagEvent } from '@/src/lib/supabase/events'
 type QuestionType = 'light' | 'shadow'
 
 // Q1・Q2 → 光タグ / Q3・Q4 → 影タグ
-const QUESTIONS: { text: string; type: QuestionType }[] = [
-  { text: 'あなたという人間を言葉にしてみて！',                                              type: 'light'  },
-  { text: '自分が好きな○○は？思う存分挙げてみて！',                                         type: 'light'  },
-  { text: '本当はこうありたい！みたいな理想像や自分はいる？そんな自分も言葉にしてみて！',      type: 'shadow' },
-  { text: 'あまり人に言わないけど、抱いている本音や感情を吐き出してみて！',                   type: 'shadow' },
+const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
+  { text: 'あなたという人間を言葉にしてみて！',                                             type: 'light'  },
+  { text: '自分が好きな○○は？思う存分挙げてみて！',
+    subText: '例）アーティスト、食べ物、場所など、自分が好きなものを思う存分挙げてみて！',    type: 'light'  },
+  { text: '本当はこうありたい！みたいな理想像や自分はいる？そんな自分も言葉にしてみて！',     type: 'shadow' },
+  { text: 'あまり人に言わないけど、抱いている本音や感情を吐き出してみて！',                  type: 'shadow' },
 ]
 
 // タグの初期配置座標（fraction 0–1）
@@ -78,6 +79,7 @@ export default function OnboardingPage() {
       questionNumber={currentIndex + 1}
       totalQuestions={QUESTIONS.length}
       questionText={QUESTIONS[currentIndex].text}
+      questionSubText={QUESTIONS[currentIndex].subText}
       onComplete={handleComplete}
     />
   )

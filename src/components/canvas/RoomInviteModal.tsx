@@ -72,6 +72,9 @@ export function RoomInviteModal({
             }}>
               光の部屋を訪れてみますか？
             </p>
+            <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.45)', margin: '0 0 20px', lineHeight: 1.6 }}>
+              あなたと同じアイデンティティを持つ人と話せます！
+            </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button
                 onClick={() => go('/room/light')}
@@ -102,6 +105,9 @@ export function RoomInviteModal({
               lineHeight: 1.65, margin: '0 0 28px',
             }}>
               影の部屋も覗いてみますか？
+            </p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.42)', margin: '0 0 20px', lineHeight: 1.6 }}>
+              同じ境遇を持つ人と打ち明けられます！
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button
