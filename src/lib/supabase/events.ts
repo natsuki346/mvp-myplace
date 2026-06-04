@@ -31,6 +31,13 @@ export async function deactivateTag(tagId: string, userId: string): Promise<void
   await recordTagEvent(tagId, userId, 'deactivated')
 }
 
+/** users テーブルを部分更新（fire-and-forget） */
+export async function updateUser(userId: string, data: Record<string, unknown>): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('users') as any).update(data).eq('id', userId)
+  if (error) console.error('updateUser error:', error.message)
+}
+
 /** タグを再アクティブ化 + reactivated イベント記録 */
 export async function reactivateTag(tagId: string, userId: string): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

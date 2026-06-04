@@ -119,13 +119,13 @@ export function RoomInviteModal({
                 }}
               >覗く</button>
               <button
-                onClick={onShadowDecline}
+                onClick={dismiss}
                 style={{
                   padding: '12px', borderRadius: 30, border: 'none',
                   background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)',
                   fontSize: 14, cursor: 'pointer',
                 }}
-              >覗かない</button>
+              >一回抜ける</button>
             </div>
           </>
         )}

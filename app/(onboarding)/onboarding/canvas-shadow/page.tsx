@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CanvasEditor, type TagItem } from '@/src/components/onboarding/CanvasEditor'
+import { TutorialPopup } from '@/src/components/onboarding/TutorialPopup'
 import { supabase } from '@/src/lib/supabase/client'
 import { deactivateTag } from '@/src/lib/supabase/events'
 
 export default function CanvasShadowPage() {
   const router = useRouter()
   const [shadowTags, setShadowTags] = useState<string[]>([])
+  const [edited,     setEdited]     = useState(false)
 
   useEffect(() => {
     const raw = sessionStorage.getItem('onboarding_tags')
@@ -23,10 +25,10 @@ export default function CanvasShadowPage() {
       const current = raw ? JSON.parse(raw) : {}
       sessionStorage.setItem('onboarding_tags', JSON.stringify({ ...current, shadowItems: items }))
     }
-    router.push('/canvas')
+    sessionStorage.setItem('shadow_canvas_edited', edited ? 'true' : 'false')
+    router.push('/onboarding/canvas-shadow/title')
   }
 
-  // × 削除時：Supabase でタグ ID を検索して deactivated 記録
   const handleRemoveTag = (tagText: string) => {
     const userId = sessionStorage.getItem('user_id')
     if (!userId) return
@@ -42,14 +44,18 @@ export default function CanvasShadowPage() {
   }
 
   return (
-    <CanvasEditor
-      variant="shadow"
+    <>
+      <TutorialPopup variant="shadow" />
+      <CanvasEditor
+        variant="shadow"
       title="影キャンバス"
       icon="🌙"
       initialTags={shadowTags}
       onComplete={proceed}
       onSkip={() => proceed()}
       onRemoveTag={handleRemoveTag}
+      onEdit={() => setEdited(true)}
     />
+    </>
   )
 }

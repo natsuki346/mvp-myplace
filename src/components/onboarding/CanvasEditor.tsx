@@ -66,6 +66,7 @@ export function CanvasEditor({
   onComplete,
   onSkip,
   onRemoveTag,
+  onEdit,
 }: {
   variant:       'light' | 'shadow'
   title:         string
@@ -73,7 +74,8 @@ export function CanvasEditor({
   initialTags:   string[]
   onComplete:    (items: TagItem[]) => void
   onSkip:        () => void
-  onRemoveTag?:  (text: string) => void   // タグ削除コールバック
+  onRemoveTag?:  (text: string) => void
+  onEdit?:       () => void             // ドラッグ or HSL 変更時に1回だけ呼ばれる
 }) {
   const isLight = variant === 'light'
 
@@ -81,12 +83,20 @@ export function CanvasEditor({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hsl,        setHsl]        = useState<HSL>({ h: 270, s: 60, l: 55 })
 
-  const canvasRef = useRef<HTMLDivElement | null>(null)
-  const itemsRef  = useRef<TagItem[]>([])
-  itemsRef.current = items
+  const canvasRef    = useRef<HTMLDivElement | null>(null)
+  const itemsRef     = useRef<TagItem[]>([])
+  itemsRef.current   = items
+  const hasEditedRef = useRef(false)       // onEdit は1回だけ
 
   const dragState = useRef<DragState | null>(null)
   const didDrag   = useRef(false)
+
+  const triggerOnEdit = () => {
+    if (!hasEditedRef.current && onEdit) {
+      hasEditedRef.current = true
+      onEdit()
+    }
+  }
 
   useEffect(() => {
     setItems(buildItems(initialTags, isLight))
@@ -125,6 +135,7 @@ export function CanvasEditor({
     if (!didDrag.current) {
       if (Math.hypot(e.clientX - ds.startX, e.clientY - ds.startY) < 5) return
       didDrag.current = true
+      triggerOnEdit()
     }
     const rect = canvasRef.current!.getBoundingClientRect()
     const nx = Math.max(3, Math.min(93, ((e.clientX - rect.left) / rect.width)  * 100 - ds.ox))
@@ -145,6 +156,7 @@ export function CanvasEditor({
 
   const applyHSL = (newHsl: HSL) => {
     setHsl(newHsl)
+    triggerOnEdit()
     if (!selectedId) return
     const color = hslStr(newHsl)
     setItems(prev => prev.map(t => t.id === selectedId ? { ...t, color } : t))
