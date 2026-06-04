@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CanvasEditor, type TagItem } from '@/src/components/onboarding/CanvasEditor'
+import { supabase } from '@/src/lib/supabase/client'
+import { deactivateTag } from '@/src/lib/supabase/events'
 
 export default function CanvasShadowPage() {
   const router = useRouter()
@@ -24,6 +26,21 @@ export default function CanvasShadowPage() {
     router.push('/canvas')
   }
 
+  // × 削除時：Supabase でタグ ID を検索して deactivated 記録
+  const handleRemoveTag = (tagText: string) => {
+    const userId = sessionStorage.getItem('user_id')
+    if (!userId) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(supabase.from('tags') as any)
+      .select('id')
+      .eq('user_id', userId)
+      .eq('text', tagText)
+      .maybeSingle()
+      .then(({ data }: { data: { id: string } | null }) => {
+        if (data?.id) deactivateTag(data.id, userId)
+      })
+  }
+
   return (
     <CanvasEditor
       variant="shadow"
@@ -32,6 +49,7 @@ export default function CanvasShadowPage() {
       initialTags={shadowTags}
       onComplete={proceed}
       onSkip={() => proceed()}
+      onRemoveTag={handleRemoveTag}
     />
   )
 }

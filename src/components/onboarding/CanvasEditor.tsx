@@ -65,13 +65,15 @@ export function CanvasEditor({
   initialTags,
   onComplete,
   onSkip,
+  onRemoveTag,
 }: {
-  variant:     'light' | 'shadow'
-  title:       string
-  icon:        string
-  initialTags: string[]
-  onComplete:  (items: TagItem[]) => void
-  onSkip:      () => void
+  variant:       'light' | 'shadow'
+  title:         string
+  icon:          string
+  initialTags:   string[]
+  onComplete:    (items: TagItem[]) => void
+  onSkip:        () => void
+  onRemoveTag?:  (text: string) => void   // タグ削除コールバック
 }) {
   const isLight = variant === 'light'
 
@@ -230,17 +232,41 @@ export function CanvasEditor({
                 }}>👤</div>
               ) : (
                 // ── タグ ──────────────────────────────────────
-                <span style={{
-                  display: 'block',
-                  fontSize: 14, fontWeight: 600, lineHeight: 1.5,
-                  padding: '4px 12px', borderRadius: 12, whiteSpace: 'nowrap',
-                  fontFamily: 'system-ui, -apple-system, sans-serif',
-                  background: hslToHsla(item.color, isLight ? 0.12 : 0.22),
-                  color:      item.color,
-                  border:     `1.5px solid ${hslToHsla(item.color, isLight ? 0.38 : 0.55)}`,
-                  boxShadow:  selected ? `0 0 0 2.5px ${item.color}` : 'none',
-                  transition: 'box-shadow 0.15s',
-                }}>{item.content}</span>
+                <>
+                  <span style={{
+                    display: 'block',
+                    fontSize: 14, fontWeight: 600, lineHeight: 1.5,
+                    padding: '4px 12px', borderRadius: 12, whiteSpace: 'nowrap',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    background: hslToHsla(item.color, isLight ? 0.12 : 0.22),
+                    color:      item.color,
+                    border:     `1.5px solid ${hslToHsla(item.color, isLight ? 0.38 : 0.55)}`,
+                    boxShadow:  selected ? `0 0 0 2.5px ${item.color}` : 'none',
+                    transition: 'box-shadow 0.15s',
+                  }}>{item.content}</span>
+
+                  {/* ── × 削除ボタン ── */}
+                  {onRemoveTag && (
+                    <button
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => {
+                        e.stopPropagation()
+                        setItems(prev => prev.filter(t => t.id !== item.id))
+                        onRemoveTag(item.content)
+                      }}
+                      style={{
+                        position: 'absolute', top: -8, right: -8,
+                        width: 18, height: 18, borderRadius: '50%',
+                        background: isLight ? 'rgba(0,0,0,0.52)' : 'rgba(255,255,255,0.55)',
+                        color:      isLight ? 'white' : '#0d0c18',
+                        border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 700, lineHeight: 1,
+                        padding: 0, touchAction: 'none', zIndex: 20,
+                      }}
+                    >×</button>
+                  )}
+                </>
               )}
             </div>
           )
