@@ -48,14 +48,14 @@ export default function CanvasShadowPage() {
       <TutorialPopup variant="shadow" />
       <CanvasEditor
         variant="shadow"
-      title="影キャンバス"
-      icon="🌙"
-      initialTags={shadowTags}
-      onComplete={proceed}
-      onSkip={() => proceed()}
-      onRemoveTag={handleRemoveTag}
-      onEdit={() => setEdited(true)}
-    />
+        title="影キャンバス"
+        icon="🌙"
+        initialTags={shadowTags}
+        onComplete={proceed}
+        onSkip={() => proceed()}
+        onRemoveTag={handleRemoveTag}
+        onEdit={() => setEdited(true)}
+      />
     </>
   )
 }

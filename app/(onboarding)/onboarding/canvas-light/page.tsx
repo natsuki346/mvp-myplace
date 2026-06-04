@@ -49,14 +49,14 @@ export default function CanvasLightPage() {
       <TutorialPopup variant="light" />
       <CanvasEditor
         variant="light"
-      title="光キャンバス"
-      icon="☀️"
-      initialTags={lightTags}
-      onComplete={proceed}
-      onSkip={() => proceed()}
-      onRemoveTag={handleRemoveTag}
-      onEdit={() => setEdited(true)}
-    />
+        title="光キャンバス"
+        icon="☀️"
+        initialTags={lightTags}
+        onComplete={proceed}
+        onSkip={() => proceed()}
+        onRemoveTag={handleRemoveTag}
+        onEdit={() => setEdited(true)}
+      />
     </>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { QuestionCard } from '@/src/components/onboarding/QuestionCard'
 import { supabase } from '@/src/lib/supabase/client'
@@ -27,6 +27,11 @@ const SPREAD = [
 export default function OnboardingPage() {
   const router = useRouter()
   const [currentIndex,  setCurrentIndex]  = useState(0)
+
+  // オンボーディング開始時にチュートリアル表示フラグをリセット（毎回表示）
+  useEffect(() => {
+    sessionStorage.removeItem('canvas_tutorial_shown')
+  }, [])
   const [collectedTags, setCollectedTags] = useState<{ tags: string[]; type: QuestionType }[]>([])
 
   const handleComplete = (tags: string[]) => {

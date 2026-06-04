@@ -42,8 +42,13 @@ function CompleteModal({ onClose }: { onClose: () => void }) {
           boxShadow: '0 16px 48px rgba(0,0,0,0.3)',
         }}
       >
-        <p style={{ fontSize: 40, margin: '0 0 8px' }}>✅</p>
-        <p style={{ fontSize: 20, fontWeight: 700, color: '#1a1a1a', margin: '0 0 28px' }}>完了！</p>
+        <p style={{ fontSize: 40, margin: '0 0 12px' }}>✅</p>
+        <p style={{ fontSize: 18, fontWeight: 700, color: '#1a1a1a', margin: '0 0 8px', lineHeight: 1.5 }}>
+          あなたの部屋が完成しました！
+        </p>
+        <p style={{ fontSize: 13, color: 'rgba(0,0,0,0.45)', margin: '0 0 28px', lineHeight: 1.6 }}>
+          いつでもここに戻ってこれます
+        </p>
         <button
           onClick={close}
           style={{
@@ -51,7 +56,7 @@ function CompleteModal({ onClose }: { onClose: () => void }) {
             background: '#1a1a1a', color: 'white',
             fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
-        >あなたの部屋へ</button>
+        >はじめる</button>
       </div>
     </div>
   )
