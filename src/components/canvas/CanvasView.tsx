@@ -1,6 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect, memo } from 'react'
+import { deactivateTag } from '@/src/lib/supabase/events'
+
+// Supabase UUID かどうかを判定（モックIDと区別するため）
+function isUUID(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -340,6 +346,11 @@ export function CanvasView({
     if (mode === 'light') setLightItems(updater)
     else setShadowItems(updater)
     setSelectedItemId(null)
+    // Supabase 保存済みタグなら deactivated イベントを fire-and-forget で記録
+    if (isUUID(id)) {
+      const userId = sessionStorage.getItem('user_id')
+      if (userId) deactivateTag(id, userId)
+    }
   }
 
   const insertTag = (tag: string) => {

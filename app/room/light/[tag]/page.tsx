@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/src/lib/supabase/client'
+import { recordTagEvent } from '@/src/lib/supabase/events'
 
 const MOCK_MESSAGES = [
   { id: 1, text: '同じ気持ちの人がいてうれしい',      time: '12:34', mine: false },
@@ -17,6 +19,21 @@ export default function LightRoomChatPage() {
   const tag    = decodeURIComponent(params.tag ?? '')
 
   const [input, setInput] = useState('')
+
+  // room_entered イベントを fire-and-forget で記録
+  useEffect(() => {
+    const userId = sessionStorage.getItem('user_id')
+    if (!userId || !tag) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(supabase.from('tags') as any)
+      .select('id')
+      .eq('user_id', userId)
+      .eq('text', tag)
+      .maybeSingle()
+      .then(({ data }: { data: { id: string } | null }) => {
+        if (data?.id) recordTagEvent(data.id, userId, 'room_entered')
+      })
+  }, [tag])
 
   return (
     <div
