@@ -49,8 +49,7 @@ export default function ShadowRoomChatPage() {
       }}>
         <button
           onClick={() => {
-            sessionStorage.setItem('show_complete_modal', 'true')
-            router.push('/canvas')
+            router.push('/room/shadow')
           }}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}
         >‹</button>

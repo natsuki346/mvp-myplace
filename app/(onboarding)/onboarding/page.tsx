@@ -10,11 +10,11 @@ type QuestionType = 'light' | 'shadow'
 
 // Q1・Q2 → 光タグ / Q3・Q4 → 影タグ
 const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
-  { text: 'あなたという人間を言葉にしてみて！',                                             type: 'light'  },
-  { text: '自分が好きな○○は？思う存分挙げてみて！',
+  { text: '自分の好きなところ\n思う存分出してみよう！',                                      type: 'light'  },
+  { text: '自分が好きな○○は？\n思う存分挙げてみて！',
     subText: '例）アーティスト、食べ物、場所など、自分が好きなものを思う存分挙げてみて！',    type: 'light'  },
-  { text: '本当はこうありたい！みたいな理想像や自分はいる？そんな自分も言葉にしてみて！',     type: 'shadow' },
-  { text: 'あまり人に言わないけど、抱いている本音や感情を吐き出してみて！',                  type: 'shadow' },
+  { text: 'あんまり言ってないけど、\n「実はこれ好きなんだよね」\nって思うもの、あげてみよう！',  type: 'shadow' },
+  { text: '心の中にしまってるけど、\n実は吐き出したいことある？',                            type: 'shadow' },
 ]
 
 // タグの初期配置座標（fraction 0–1）
@@ -30,7 +30,8 @@ export default function OnboardingPage() {
 
   // オンボーディング開始時にチュートリアル表示フラグをリセット（毎回表示）
   useEffect(() => {
-    sessionStorage.removeItem('canvas_tutorial_shown')
+    sessionStorage.removeItem('canvas_tutorial_shown_light')
+    sessionStorage.removeItem('canvas_tutorial_shown_shadow')
   }, [])
   const [collectedTags, setCollectedTags] = useState<{ tags: string[]; type: QuestionType }[]>([])
 
@@ -75,7 +76,7 @@ export default function OnboardingPage() {
         })
     }
 
-    router.push('/onboarding/canvas-light')
+    router.push('/process-map?step=2')
   }
 
   return (
@@ -85,6 +86,7 @@ export default function OnboardingPage() {
       totalQuestions={QUESTIONS.length}
       questionText={QUESTIONS[currentIndex].text}
       questionSubText={QUESTIONS[currentIndex].subText}
+      addButtonText={currentIndex === 2 ? '+ これも自分' : currentIndex === 3 ? '+ 本当の自分' : undefined}
       onComplete={handleComplete}
     />
   )

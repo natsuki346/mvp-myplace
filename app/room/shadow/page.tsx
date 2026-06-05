@@ -32,7 +32,7 @@ export default function RoomShadowPage() {
     >
 
       <button
-        onClick={() => router.back()}
+        onClick={() => router.push('/canvas?from=shadow-room')}
         className="text-sm mb-8 flex items-center gap-1"
         style={{ color: 'rgba(255,255,255,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}
       >
@@ -58,10 +58,7 @@ export default function RoomShadowPage() {
               key={tag.id}
               onClick={() => router.push('/room/shadow/' + encodeURIComponent(tag.text))}
               className="w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-opacity hover:opacity-70"
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1.5px solid rgba(255,255,255,0.10)',
-              }}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.10)' }}
             >
               <span className="text-base font-semibold" style={{ color: tag.color || 'rgba(200,185,240,0.9)' }}>
                 {tag.text}

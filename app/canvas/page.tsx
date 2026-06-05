@@ -122,7 +122,20 @@ export default function CanvasPage() {
   useEffect(() => {
     if (!loaded) return
 
-    // sessionStorage フラグを優先チェック（Room画面から戻ってきた場合）
+    // URLパラメータ from= を優先チェック（Room一覧から戻ってきた場合）
+    const from = new URLSearchParams(window.location.search).get('from')
+    if (from === 'light-room') {
+      // 光の部屋から → 1秒後に影の部屋誘導ポップアップ
+      const t = setTimeout(() => setModalState('invite-shadow'), 1000)
+      return () => clearTimeout(t)
+    }
+    if (from === 'shadow-room') {
+      // 影の部屋から → 1秒後に完了モーダル
+      const t = setTimeout(() => setModalState('complete'), 1000)
+      return () => clearTimeout(t)
+    }
+
+    // sessionStorage フラグを次に確認（後方互換）
     const showComplete = sessionStorage.getItem('show_complete_modal')
     if (showComplete) {
       sessionStorage.removeItem('show_complete_modal')
@@ -136,8 +149,8 @@ export default function CanvasPage() {
       return
     }
 
-    // 通常フロー: 3秒後に光の部屋誘導
-    const t = setTimeout(() => setModalState('invite-light'), 3000)
+    // 通常フロー: 1秒後に光の部屋誘導
+    const t = setTimeout(() => setModalState('invite-light'), 1000)
     return () => clearTimeout(t)
   }, [loaded])
 

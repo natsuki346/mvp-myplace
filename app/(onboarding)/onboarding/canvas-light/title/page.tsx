@@ -4,13 +4,36 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 
+type TagItem = {
+  id:      string
+  kind?:   'tag' | 'avatar'
+  content: string
+  x:       number
+  y:       number
+  color:   string
+}
+
+function toHsla(hsl: string, alpha: number): string {
+  return hsl.replace(/^hsl\(/, 'hsla(').replace(/\)$/, `,${alpha})`)
+}
+
 export default function CanvasLightTitlePage() {
-  const router    = useRouter()
-  const [title,       setTitle]       = useState('')
-  const [submitting,  setSubmitting]  = useState(false)
+  const router = useRouter()
+  const [title,      setTitle]      = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [bgItems,    setBgItems]    = useState<TagItem[]>([])
   const mountTime = useRef(Date.now())
 
   const isValid = title.trim().length > 0
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('onboarding_tags')
+      if (!raw) return
+      const parsed = JSON.parse(raw) as { lightItems?: TagItem[] }
+      setBgItems((parsed.lightItems ?? []).filter(t => t.kind !== 'avatar'))
+    } catch { /* フォールバック：背景なし */ }
+  }, [])
 
   const handleComplete = async () => {
     if (!isValid || submitting) return
@@ -20,11 +43,9 @@ export default function CanvasLightTitlePage() {
     const duration = Math.round((Date.now() - mountTime.current) / 1000)
     const edited   = sessionStorage.getItem('light_canvas_edited') === 'true'
 
-    // sessionStorage に保存
     sessionStorage.setItem('light_title',          trimmed)
     sessionStorage.setItem('light_title_duration', String(duration))
 
-    // Supabase の users テーブルを更新（fire-and-forget）
     const userId = sessionStorage.getItem('user_id')
     if (userId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,25 +67,61 @@ export default function CanvasLightTitlePage() {
 
   return (
     <div
-      className="flex flex-col min-h-screen bg-white px-8"
-      style={{ maxWidth: 390, margin: '0 auto' }}
+      style={{
+        position: 'relative', height: '100svh',
+        maxWidth: 390, margin: '0 auto',
+        overflow: 'hidden', background: 'white',
+      }}
     >
-      {/* スキップボタン */}
-      <div className="flex justify-end pt-5">
-        <button
-          onClick={handleSkip}
-          className="text-sm"
-          style={{ color: 'rgba(0,0,0,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}
-        >スキップ</button>
+      {/* ── 背景：光キャンバスのタグ（全画面・操作不可） ── */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+        {bgItems.map(item => (
+          <div
+            key={item.id}
+            style={{
+              position: 'absolute',
+              left:      `${item.x}%`, top: `${item.y}%`,
+              transform: 'translate(-50%, -50%)',
+              userSelect: 'none',
+            }}
+          >
+            <span style={{
+              display: 'block',
+              fontSize: 14, fontWeight: 600, lineHeight: 1.5,
+              padding: '4px 12px', borderRadius: 12, whiteSpace: 'nowrap',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              background: toHsla(item.color, 0.12),
+              color:      item.color,
+              border:     `1.5px solid ${toHsla(item.color, 0.38)}`,
+            }}>{item.content}</span>
+          </div>
+        ))}
       </div>
 
-      <div className="w-full flex flex-col justify-center flex-1 pb-16">
-        <h1 className="text-black text-xl font-bold leading-snug mb-2">
-          あなたの光を、<br />あなたの言葉で名前にしてください
+      {/* ── 入力カード（中央浮遊） ── */}
+      <div
+        style={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'calc(100% - 48px)', maxWidth: 320,
+          background: 'rgba(255,255,255,0.82)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          borderRadius: 20,
+          padding: '28px 24px 24px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
+          border: '1px solid rgba(255,255,255,0.9)',
+          zIndex: 10,
+        }}
+      >
+        <h1
+          style={{
+            fontSize: 16, fontWeight: 700, lineHeight: 1.6,
+            textAlign: 'center', color: '#1a1a1a', marginBottom: 24,
+          }}
+        >
+          あなたが広げた<br />光のキャンバスに名前をつけよう！
         </h1>
-        <p className="text-gray-400 text-xs mb-10">
-          光のキャンバスに一言つけよう
-        </p>
 
         <input
           type="text"
@@ -72,21 +129,37 @@ export default function CanvasLightTitlePage() {
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleComplete()}
           autoFocus
-          className="w-full border-b-2 border-gray-200 focus:border-black outline-none text-lg text-black py-3 bg-transparent transition-colors"
-          style={{ caretColor: 'black' }}
+          style={{
+            width: '100%', borderBottom: '2px solid rgba(0,0,0,0.15)',
+            outline: 'none', fontSize: 18, color: '#1a1a1a',
+            padding: '8px 0', background: 'transparent', caretColor: '#1a1a1a',
+            boxSizing: 'border-box',
+          }}
         />
 
         <button
           onClick={handleComplete}
           disabled={!isValid || submitting}
-          className="w-full mt-10 py-4 rounded-full text-sm font-semibold transition-all"
           style={{
+            width: '100%', marginTop: 20, padding: '14px',
+            borderRadius: 30, border: 'none', cursor: isValid && !submitting ? 'pointer' : 'default',
             background: isValid && !submitting ? '#1a1a1a' : 'rgba(0,0,0,0.10)',
             color:      isValid && !submitting ? 'white'   : 'rgba(0,0,0,0.28)',
-            cursor:     isValid && !submitting ? 'pointer' : 'default',
+            fontSize: 14, fontWeight: 700, transition: 'all 0.15s',
           }}
         >
           {submitting ? '保存中...' : '完了'}
+        </button>
+
+        <button
+          onClick={handleSkip}
+          style={{
+            width: '100%', marginTop: 10, padding: '10px',
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 13, color: 'rgba(0,0,0,0.35)',
+          }}
+        >
+          スキップ
         </button>
       </div>
     </div>

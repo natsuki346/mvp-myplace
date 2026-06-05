@@ -49,8 +49,7 @@ export default function LightRoomChatPage() {
       }}>
         <button
           onClick={() => {
-            sessionStorage.setItem('show_shadow_modal', 'true')
-            router.push('/canvas')
+            router.push('/room/light')
           }}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(0,0,0,0.4)', lineHeight: 1 }}
         >‹</button>

@@ -2,23 +2,24 @@
 
 import { useEffect, useState } from 'react'
 
-const SESSION_KEY = 'canvas_tutorial_shown'
-
 export function TutorialPopup({ variant }: { variant: 'light' | 'shadow' }) {
+  // 光・影それぞれ独立したキーを使用
+  const sessionKey = `canvas_tutorial_shown_${variant}`
+
   const [visible, setVisible] = useState(false)
   const [show,    setShow]    = useState(false)
 
   useEffect(() => {
-    // 2回目以降は表示しない
-    if (sessionStorage.getItem(SESSION_KEY)) return
+    if (sessionStorage.getItem(sessionKey)) return
     setShow(true)
     const t = setTimeout(() => setVisible(true), 30)
     return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const dismiss = () => {
     setVisible(false)
-    sessionStorage.setItem(SESSION_KEY, 'true')
+    sessionStorage.setItem(sessionKey, 'true')
     setTimeout(() => setShow(false), 350)
   }
 

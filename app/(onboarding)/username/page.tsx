@@ -42,7 +42,7 @@ export default function UsernamePage() {
         sessionStorage.setItem('user_id',  created.id)
         sessionStorage.setItem('username', created.username)
       }
-      router.push('/onboarding')
+      router.push('/welcome')
     } catch {
       setError('ユーザー名の登録に失敗しました。別の名前を試してください。')
     } finally {

@@ -29,7 +29,7 @@ export default function RoomLightPage() {
     <div className="min-h-screen bg-white px-6 pt-12 pb-10" style={{ maxWidth: 390, margin: '0 auto' }}>
 
       <button
-        onClick={() => router.back()}
+        onClick={() => router.push('/canvas?from=light-room')}
         className="text-sm mb-8 flex items-center gap-1"
         style={{ color: 'rgba(0,0,0,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}
       >
@@ -55,14 +55,9 @@ export default function RoomLightPage() {
               key={tag.id}
               onClick={() => router.push('/room/light/' + encodeURIComponent(tag.text))}
               className="w-full text-left px-5 py-4 rounded-2xl flex items-center justify-between transition-opacity hover:opacity-70"
-              style={{
-                background: `${tag.color}12`,
-                border: `1.5px solid ${tag.color}30`,
-              }}
+              style={{ background: `${tag.color}12`, border: `1.5px solid ${tag.color}30` }}
             >
-              <span className="text-base font-semibold" style={{ color: tag.color }}>
-                {tag.text}
-              </span>
+              <span className="text-base font-semibold" style={{ color: tag.color }}>{tag.text}</span>
               <span style={{ color: 'rgba(0,0,0,0.25)', fontSize: 18 }}>›</span>
             </button>
           ))}

@@ -3,11 +3,12 @@
 import { useState } from 'react'
 
 type Props = {
-  questionNumber:  number
-  totalQuestions:  number
-  questionText:    string
+  questionNumber:   number
+  totalQuestions:   number
+  questionText:     string
   questionSubText?: string
-  onComplete:      (tags: string[]) => void
+  addButtonText?:   string   // タグ追加ボタンのラベル（デフォルト: '+ これ自分！'）
+  onComplete:       (tags: string[]) => void
 }
 
 export function QuestionCard({
@@ -15,6 +16,7 @@ export function QuestionCard({
   totalQuestions,
   questionText,
   questionSubText,
+  addButtonText = '+ これ自分！',
   onComplete,
 }: Props) {
   const [text,           setText]           = useState('')
@@ -74,10 +76,14 @@ export function QuestionCard({
         </p>
 
         {/* Question */}
-        <div className="mb-8">
-          <h2 className="text-white text-xl font-semibold leading-relaxed">
-            {questionText}
-          </h2>
+        <div className="mb-8 text-center" style={{ maxWidth: 320 }}>
+          <div className="text-center">
+            {questionText.split('\n').map((line, i) => (
+              <p key={i} className="text-white text-base font-bold leading-relaxed">
+                {line}
+              </p>
+            ))}
+          </div>
           {questionSubText && (
             <p className="text-gray-400 text-xs mt-2 leading-relaxed">
               {questionSubText}
@@ -166,14 +172,16 @@ export function QuestionCard({
                     <button
                       onClick={() => addTag(tag)}
                       disabled={added}
-                      className="flex items-center justify-center w-7 h-7 rounded-full text-base font-light transition-all flex-shrink-0"
+                      className="flex items-center justify-center h-7 rounded-full text-xs font-semibold transition-all flex-shrink-0"
                       style={{
                         background: added ? 'rgba(255,255,255,0.08)' : 'white',
                         color:      added ? 'rgba(255,255,255,0.2)' : 'black',
                         cursor:     added ? 'default' : 'pointer',
+                        padding:    added ? '0 10px' : '0 10px',
+                        minWidth:   28,
                       }}
                     >
-                      {added ? '✓' : '+'}
+                      {added ? '✓' : addButtonText}
                     </button>
                   </div>
                 )
