@@ -133,7 +133,7 @@ export default function ProcessMapPage() {
       {/* CTA ボタン */}
       <button
         onClick={() => {
-          if (currentStep === 1) router.push('/onboarding')
+          if (currentStep === 1) router.push('/onboarding/steps-preview?step=1')
           else if (currentStep === 2) router.push('/onboarding/steps-preview?step=2')
           else router.push('/onboarding/steps-preview?step=3')
         }}
