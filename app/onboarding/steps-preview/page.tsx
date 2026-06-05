@@ -4,17 +4,20 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ?step=N → 表示開始カード（配列インデックス）と遷移先のマッピング
-const STEP_CONFIG: Record<number, { initialIndex: number; destination: string }> = {
-  1: { initialIndex: 1, destination: '/onboarding' },
-  2: { initialIndex: 2, destination: '/onboarding/canvas-light' },
-  3: { initialIndex: 3, destination: '/canvas' },
+// startIndex  : スライドの表示開始位置（最初に見せるカード）
+// thresholdIdx: 「はじめる」表示 & 「次ここ」バッジの閾値インデックス
+const STEP_CONFIG: Record<number, { startIndex: number; thresholdIdx: number; destination: string }> = {
+  1: { startIndex: 1, thresholdIdx: 2, destination: '/onboarding' },            // 「自分に出会う時」→ 光と影 → /onboarding
+  2: { startIndex: 1, thresholdIdx: 2, destination: '/onboarding' },            // 同上（process-map?step=2 から）
+  3: { startIndex: 4, thresholdIdx: 4, destination: '/canvas' },                // 「共鳴の場が広がる時」→ /canvas
 }
 
 // ── ステップデータ ─────────────────────────────────────────────────────────────
 
 type StepStatus = 'done' | 'current' | 'future'
+type SlideKind = 'standard' | 'light-shadow'
 
-const STEPS: { step: number; title: string; desc: string; image: string; video?: string; status: StepStatus }[] = [
+const STEPS: { step: number; title: string; desc: string; image: string; video?: string; status: StepStatus; kind?: SlideKind }[] = [
   {
     step: 1, title: 'あなたを登録する',
     desc: 'ユーザーネームを設定した',
@@ -24,6 +27,11 @@ const STEPS: { step: number; title: string; desc: string; image: string; video?:
     step: 2, title: '自分に出会う時',
     desc: '4つの問いに答えていくと、\nあなたらしい言葉が集まってくる。\n好きなこと、大切にしていること、\nそのすべてがあなた自身。',
     image: '/images/steps/preview.webp', status: 'done',
+  },
+  {
+    // ── 光と影の説明スライド（STEP 2 の次）────────────────────────────────────
+    step: 2, title: '光と影について',
+    desc: '', image: '', status: 'done', kind: 'light-shadow',
   },
   {
     step: 3, title: '自分をデコる時',
@@ -188,7 +196,7 @@ function StepMedia({ image, video, alt }: { image: string; video?: string; alt: 
 export default function StepsPreviewPage() {
   const router = useRouter()
   const [queryStep,   setQueryStep]   = useState(DEFAULT_STEP)
-  const [activeIndex, setActiveIndex] = useState(STEP_CONFIG[DEFAULT_STEP].initialIndex)
+  const [activeIndex, setActiveIndex] = useState(STEP_CONFIG[DEFAULT_STEP].startIndex)
   const [btnPressed,  setBtnPressed]  = useState(false)
   const [pressedDot,  setPressedDot]  = useState<number | null>(null)
   const pointerStartX = useRef<number | null>(null)
@@ -197,7 +205,7 @@ export default function StepsPreviewPage() {
     const s = parseInt(new URLSearchParams(window.location.search).get('step') ?? String(DEFAULT_STEP), 10)
     const valid = [1, 2, 3].includes(s) ? s : DEFAULT_STEP
     setQueryStep(valid)
-    setActiveIndex(STEP_CONFIG[valid].initialIndex)
+    setActiveIndex(STEP_CONFIG[valid].startIndex)
   }, [])
 
   const goTo = (index: number) => {
@@ -219,7 +227,7 @@ export default function StepsPreviewPage() {
   }
 
   const step        = STEPS[activeIndex]
-  const initialIdx  = STEP_CONFIG[queryStep].initialIndex
+  const initialIdx  = STEP_CONFIG[queryStep].thresholdIdx
   const destination = STEP_CONFIG[queryStep].destination
   const isLast      = activeIndex === STEPS.length - 1
   const isCurrent   = activeIndex === initialIdx   // 「今ここ」バッジ表示
@@ -284,35 +292,57 @@ export default function StepsPreviewPage() {
             )}
           </div>
 
-          {/* アイコン */}
-          <div style={{
-            display: 'flex', justifyContent: 'center',
-            marginBottom: 16, position: 'relative',
-          }}>
-            <StepIcon stepNum={step.step} color={theme.iconColor || theme.badgeColor} />
-          </div>
+          {step.kind === 'light-shadow' ? (
+            /* ── 光と影の説明スライド ── */
+            <div style={{ position: 'relative' }}>
+              {/* 光ラベル */}
+              <p style={{ color: '#EF9F27', fontSize: 13, fontWeight: 600, letterSpacing: '0.08em', textAlign: 'center', margin: '0 0 12px' }}>光</p>
+              {/* 光テキスト */}
+              <p style={{ color: '#b0aac0', fontSize: 14, lineHeight: 1.8, textAlign: 'center', margin: 0, whiteSpace: 'pre-line' }}>
+                {'あなたが自然と外に出している言葉。\n好きなこと、大切にしていること。\nそれはあなたの明るみにある自分。'}
+              </p>
+              {/* 区切り線 */}
+              <div style={{ width: '100%', height: '0.5px', background: 'rgba(255,255,255,0.15)', margin: '20px 0' }} />
+              {/* 影ラベル */}
+              <p style={{ color: '#AFA9EC', fontSize: 13, fontWeight: 600, letterSpacing: '0.08em', textAlign: 'center', margin: '0 0 12px' }}>影</p>
+              {/* 影テキスト */}
+              <p style={{ color: '#b0aac0', fontSize: 14, lineHeight: 1.8, textAlign: 'center', margin: 0, whiteSpace: 'pre-line' }}>
+                {'あなたが心の中にしまっている言葉。\nなかなか言えなかった本音、\n気づいていなかった自分。\n影の言葉は、同じものを持つ人にしか届かない。'}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* アイコン */}
+              <div style={{
+                display: 'flex', justifyContent: 'center',
+                marginBottom: 16, position: 'relative',
+              }}>
+                <StepIcon stepNum={step.step} color={theme.iconColor || theme.badgeColor} />
+              </div>
 
-          {/* タイトル */}
-          <h2 style={{
-            fontSize: 22, fontWeight: 500, lineHeight: 1.35,
-            color: theme.titleColor,
-            marginBottom: 16, position: 'relative',
-            textAlign: 'center',
-            transition: 'color 0.3s ease',
-          }}>
-            {step.title}
-          </h2>
+              {/* タイトル */}
+              <h2 style={{
+                fontSize: 22, fontWeight: 500, lineHeight: 1.35,
+                color: theme.titleColor,
+                marginBottom: 16, position: 'relative',
+                textAlign: 'center',
+                transition: 'color 0.3s ease',
+              }}>
+                {step.title}
+              </h2>
 
-          {/* 説明文 */}
-          <p style={{
-            fontSize: 13, lineHeight: 1.8,
-            color: theme.descColor,
-            whiteSpace: 'pre-line', position: 'relative',
-            textAlign: 'center',
-            transition: 'color 0.3s ease',
-          }}>
-            {step.desc}
-          </p>
+              {/* 説明文 */}
+              <p style={{
+                fontSize: 13, lineHeight: 1.8,
+                color: theme.descColor,
+                whiteSpace: 'pre-line', position: 'relative',
+                textAlign: 'center',
+                transition: 'color 0.3s ease',
+              }}>
+                {step.desc}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -377,14 +407,15 @@ export default function StepsPreviewPage() {
             onTouchEnd={() => setBtnPressed(false)}
             style={{
               width: '100%', padding: '16px', borderRadius: 30, border: 'none',
-              background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)',
+              background: STEPS[activeIndex + 1]?.kind === 'light-shadow' ? '#ffffff' : 'rgba(255,255,255,0.10)',
+              color:      STEPS[activeIndex + 1]?.kind === 'light-shadow' ? '#000000' : 'rgba(255,255,255,0.55)',
               fontSize: 15, fontWeight: 600, cursor: 'pointer',
               transform: btnPressed ? 'scale(0.96)' : 'scale(1)',
               opacity:   btnPressed ? 0.8 : 1,
               transition: 'transform 0.1s ease, opacity 0.1s ease',
             }}
           >
-            次へ →
+            {STEPS[activeIndex + 1]?.kind === 'light-shadow' ? '光と影とは？' : '次へ →'}
           </button>
         )}
       </div>
