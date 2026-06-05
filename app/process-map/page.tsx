@@ -72,7 +72,7 @@ export default function ProcessMapPage() {
           WhyMe でできること
         </p>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f0', lineHeight: 1.4 }}>
-          あなたの旅のステップ
+          主人公になる、その前に。
         </h1>
       </div>
 

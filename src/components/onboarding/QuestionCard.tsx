@@ -67,8 +67,11 @@ export function QuestionCard({
   const overflowCount = registeredTags.length - MAX_VISIBLE
 
   return (
-    <div className="flex flex-col min-h-screen bg-black px-6 pt-12 pb-10">
-      <div style={{ maxWidth: 390, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <div
+      className="bg-black px-6 pt-12 pb-10"
+      style={{ minHeight: '100svh', overflowY: 'auto' }}
+    >
+      <div style={{ maxWidth: 390, width: '100%', margin: '0 auto' }}>
 
         {/* Progress */}
         <p className="text-white/30 text-xs mb-6 tracking-widest uppercase">
@@ -189,9 +192,6 @@ export function QuestionCard({
             </div>
           </div>
         )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
 
         {/* ── Next button ────────────────────────────────────────── */}
         <button

@@ -22,22 +22,22 @@ const STEPS: { step: number; title: string; desc: string; image: string; video?:
   },
   {
     step: 2, title: '自分に出会う時',
-    desc: '4つの問いに答えていくと、あなたらしい言葉が集まってくる。好きなこと、大切にしていること、そのすべてがあなた自身。',
+    desc: '4つの問いに答えていくと、\nあなたらしい言葉が集まってくる。\n好きなこと、大切にしていること、\nそのすべてがあなた自身。',
     image: '/images/steps/preview.webp', status: 'done',
   },
   {
     step: 3, title: '自分をデコる時',
-    desc: '集まった言葉をキャンバスに並べていく。色を変えたり、動かしたり。ありのままの自分がデザインされ、芸術になっていく。',
+    desc: '集まった言葉をキャンバスに並べていく。\n色を変えたり、動かしたり。\nありのままの自分がデザインされ、\n芸術になっていく。',
     image: '/images/steps/preview.webp', video: '/images/steps/step3.mp4', status: 'done',
   },
   {
     step: 4, title: '共鳴の場が広がる時',
-    desc: 'あなたのキャンバスが、Roomへの扉になる。同じ価値観や境遇を持つ人が、必ずいる。名前も顔も関係ない。ありのままの自分で、本物の共鳴が生まれる場所。',
+    desc: 'あなたのキャンバスが、Roomへの扉になる。\n同じ価値観や境遇を持つ人が、必ずいる。\n名前も顔も関係ない。\nありのままの自分で、本物の共鳴が生まれる場所。',
     image: '/images/steps/preview.webp', video: '/images/steps/step4.mp4', status: 'current',
   },
   {
     step: 5, title: '本物のつながりへ',
-    desc: '〇〇での出会いは、自然と共鳴する。飾らなくていい、合わせなくていい。ありのままの自分でいられる、本物のつながりがここにある。',
+    desc: '〇〇での出会いは、自然と共鳴する。\n飾らなくていい、合わせなくていい。\nありのままの自分でいられる、\n本物のつながりがここにある。',
     image: '/images/steps/preview.webp', status: 'future',
   },
 ]
@@ -189,6 +189,8 @@ export default function StepsPreviewPage() {
   const router = useRouter()
   const [queryStep,   setQueryStep]   = useState(DEFAULT_STEP)
   const [activeIndex, setActiveIndex] = useState(STEP_CONFIG[DEFAULT_STEP].initialIndex)
+  const [btnPressed,  setBtnPressed]  = useState(false)
+  const [pressedDot,  setPressedDot]  = useState<number | null>(null)
   const pointerStartX = useRef<number | null>(null)
 
   useEffect(() => {
@@ -233,16 +235,12 @@ export default function StepsPreviewPage() {
         transition: 'background 0.4s ease',
       }}
     >
-      {/* ── 上部：スキップ ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px 0', flexShrink: 0 }}>
-        <button
-          onClick={() => router.push(destination)}
-          style={{
-            fontSize: 13, color: 'rgba(255,255,255,0.35)',
-            background: 'none', border: 'none', cursor: 'pointer',
-          }}
-        >スキップ</button>
-      </div>
+      <style>{`
+        @keyframes cardEnter {
+          from { opacity: 0; transform: translateX(10px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
 
       {/* ── カードエリア（スワイプ可） ── */}
       <div
@@ -252,13 +250,14 @@ export default function StepsPreviewPage() {
         onPointerUp={onPointerUp}
       >
         {/* ── テーマカード ── */}
-        <div style={{
+        <div key={activeIndex} style={{
           position: 'relative',
           borderRadius: 16, padding: '36px 28px',
           background: theme.cardBg,
           border: `1px solid ${theme.cardBorder}`,
           overflow: 'hidden',
           transition: 'background 0.4s ease, border-color 0.4s ease',
+          animation: 'cardEnter 0.2s ease',
         }}>
           {/* グロー装飾（右上） */}
           <div style={{
@@ -325,7 +324,11 @@ export default function StepsPreviewPage() {
           {STEPS.map((_, i) => (
             <button
               key={i}
-              onClick={() => goTo(i)}
+              onClick={() => {
+                goTo(i)
+                setPressedDot(i)
+                setTimeout(() => setPressedDot(null), 150)
+              }}
               style={{
                 width:  i === activeIndex ? 20 : 6,
                 height: 6,
@@ -336,7 +339,8 @@ export default function StepsPreviewPage() {
                   : i === initialIdx
                     ? 'rgba(255,255,255,0.4)'
                     : 'rgba(255,255,255,0.18)',
-                transition: 'width 0.2s ease, background 0.2s ease',
+                transform: pressedDot === i ? 'scale(1.3)' : 'scale(1)',
+                transition: 'width 0.2s ease, background 0.2s ease, transform 0.15s ease',
               }}
             />
           ))}
@@ -346,11 +350,19 @@ export default function StepsPreviewPage() {
         {showStart ? (
           <button
             onClick={() => router.push(destination)}
+            onMouseDown={() => setBtnPressed(true)}
+            onMouseUp={() => setBtnPressed(false)}
+            onMouseLeave={() => setBtnPressed(false)}
+            onTouchStart={() => setBtnPressed(true)}
+            onTouchEnd={() => setBtnPressed(false)}
             style={{
               width: '100%', padding: '16px', borderRadius: 30, border: 'none',
               background: 'white', color: '#0d0c18',
               fontSize: 15, fontWeight: 700, cursor: 'pointer',
               boxShadow: '0 4px 20px rgba(255,255,255,0.15)',
+              transform: btnPressed ? 'scale(0.96)' : 'scale(1)',
+              opacity:   btnPressed ? 0.8 : 1,
+              transition: 'transform 0.1s ease, opacity 0.1s ease',
             }}
           >
             はじめる →
@@ -358,10 +370,18 @@ export default function StepsPreviewPage() {
         ) : (
           <button
             onClick={() => goTo(activeIndex + 1)}
+            onMouseDown={() => setBtnPressed(true)}
+            onMouseUp={() => setBtnPressed(false)}
+            onMouseLeave={() => setBtnPressed(false)}
+            onTouchStart={() => setBtnPressed(true)}
+            onTouchEnd={() => setBtnPressed(false)}
             style={{
               width: '100%', padding: '16px', borderRadius: 30, border: 'none',
               background: 'rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.55)',
               fontSize: 15, fontWeight: 600, cursor: 'pointer',
+              transform: btnPressed ? 'scale(0.96)' : 'scale(1)',
+              opacity:   btnPressed ? 0.8 : 1,
+              transition: 'transform 0.1s ease, opacity 0.1s ease',
             }}
           >
             次へ →

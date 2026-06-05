@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 const client = new Anthropic()
 
 const SYSTEM_PROMPT =
-  'ユーザーの入力文章から、その人のアイデンティティや感情を表す日本語ハッシュタグを3〜5個生成してください。' +
+  'ユーザーの入力文章から、その人のアイデンティティや感情を表す日本語ハッシュタグをちょうど5個生成してください。' +
   '#をつけて、カンマ区切りで返してください。他の文章は不要です。'
 
 export async function POST(req: NextRequest) {

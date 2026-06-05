@@ -27,6 +27,12 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Dancing+Script&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="m-0 p-0">{children}</body>
     </html>
   );
