@@ -132,7 +132,11 @@ export default function ProcessMapPage() {
 
       {/* CTA ボタン */}
       <button
-        onClick={() => router.push(`/onboarding/steps-preview?step=${currentStep}`)}
+        onClick={() => {
+          if (currentStep === 1) router.push('/onboarding')
+          else if (currentStep === 2) router.push('/onboarding/steps-preview?step=2')
+          else router.push('/onboarding/steps-preview?step=3')
+        }}
         style={{
           width: '100%', padding: '16px',
           borderRadius: 30, border: 'none', cursor: 'pointer',

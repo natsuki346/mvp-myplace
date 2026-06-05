@@ -8,8 +8,8 @@ import { useRouter } from 'next/navigation'
 // thresholdIdx: 「はじめる」表示 & 「次ここ」バッジの閾値インデックス
 const STEP_CONFIG: Record<number, { startIndex: number; thresholdIdx: number; destination: string }> = {
   1: { startIndex: 1, thresholdIdx: 2, destination: '/onboarding' },            // 「自分に出会う時」→ 光と影 → /onboarding
-  2: { startIndex: 1, thresholdIdx: 2, destination: '/onboarding' },            // 同上（process-map?step=2 から）
-  3: { startIndex: 4, thresholdIdx: 4, destination: '/canvas' },                // 「共鳴の場が広がる時」→ /canvas
+  2: { startIndex: 3, thresholdIdx: 3, destination: '/onboarding/canvas-light' }, // 「自分をデコる時」→ キャンバス編集へ
+  3: { startIndex: 4, thresholdIdx: 4, destination: '/canvas' },                  // 「共鳴の場が広がる時」→ /canvas（Roomポップアップ）
 }
 
 // ── ステップデータ ─────────────────────────────────────────────────────────────
