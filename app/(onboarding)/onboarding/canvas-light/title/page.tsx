@@ -120,7 +120,7 @@ export default function CanvasLightTitlePage() {
             textAlign: 'center', color: '#1a1a1a', marginBottom: 24,
           }}
         >
-          あなたが広げた<br />光のキャンバスに名前をつけよう！
+          あなたが広げた<br />実のキャンバスに名前をつけよう！
         </h1>
 
         <input

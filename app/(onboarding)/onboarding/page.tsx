@@ -10,11 +10,10 @@ type QuestionType = 'light' | 'shadow'
 
 // Q1・Q2 → 光タグ / Q3・Q4 → 影タグ
 const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
-  { text: '自分の好きなところ\n思う存分出してみよう！',                                      type: 'light'  },
-  { text: '自分が好きな○○は？\n思う存分挙げてみて！',
-    subText: '例）アーティスト、食べ物、場所など、自分が好きなものを思う存分挙げてみて！',    type: 'light'  },
-  { text: 'あんまり言ってないけど、\n「実はこれ好きなんだよね」\nって思うもの、あげてみよう！',  type: 'shadow' },
-  { text: '心の中にしまってるけど、\n実は吐き出したいことある？',                            type: 'shadow' },
+  { text: '自分の好きなところ、思う存分出してみよう',                                         type: 'light'  },
+  { text: '自分がテンション上がる瞬間って、どんな時？',                                        type: 'light'  },
+  { text: '自分ではわかってるけど\nあまり人に言わないこと、何かある？',                         type: 'shadow' },
+  { text: 'なんとなくずっと感じてるけど\n誰にも言ったことないこと、思うがままに出してみない？',  type: 'shadow' },
 ]
 
 // タグの初期配置座標（fraction 0–1）

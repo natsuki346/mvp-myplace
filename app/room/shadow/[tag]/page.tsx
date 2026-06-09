@@ -57,7 +57,7 @@ export default function ShadowRoomChatPage() {
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'white' }}>
             {tag} の部屋
           </p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.32)' }}>🌙 影の部屋</p>
+          <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.32)' }}>🌙 根の部屋</p>
         </div>
       </div>
 

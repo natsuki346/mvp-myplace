@@ -57,7 +57,7 @@ export default function LightRoomChatPage() {
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>
             {tag} の部屋
           </p>
-          <p style={{ margin: 0, fontSize: 11, color: 'rgba(0,0,0,0.35)' }}>☀️ 光の部屋</p>
+          <p style={{ margin: 0, fontSize: 11, color: 'rgba(0,0,0,0.35)' }}>☀️ 実の部屋</p>
         </div>
       </div>
 

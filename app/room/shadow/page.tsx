@@ -41,7 +41,7 @@ export default function RoomShadowPage() {
 
       <div className="flex items-center gap-2 mb-2">
         <span style={{ fontSize: 22 }}>🌙</span>
-        <h1 className="text-xl font-bold text-white">影の部屋</h1>
+        <h1 className="text-xl font-bold text-white">根の部屋</h1>
       </div>
       <p className="text-sm mb-8" style={{ color: 'rgba(255,255,255,0.38)' }}>
         タグを選んで入室してください

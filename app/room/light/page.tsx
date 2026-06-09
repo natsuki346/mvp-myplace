@@ -38,7 +38,7 @@ export default function RoomLightPage() {
 
       <div className="flex items-center gap-2 mb-2">
         <span style={{ fontSize: 22 }}>☀️</span>
-        <h1 className="text-xl font-bold text-black">光の部屋</h1>
+        <h1 className="text-xl font-bold text-black">実の部屋</h1>
       </div>
       <p className="text-sm mb-8" style={{ color: 'rgba(0,0,0,0.45)' }}>
         タグを選んで入室してください

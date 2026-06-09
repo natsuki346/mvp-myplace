@@ -48,7 +48,7 @@ export default function CanvasShadowPage() {
       <TutorialPopup variant="shadow" />
       <CanvasEditor
         variant="shadow"
-        title="影キャンバス"
+        title="根のキャンバス"
         icon="🌙"
         initialTags={shadowTags}
         onComplete={proceed}

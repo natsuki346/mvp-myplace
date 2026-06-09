@@ -49,7 +49,7 @@ export default function CanvasLightPage() {
       <TutorialPopup variant="light" />
       <CanvasEditor
         variant="light"
-        title="光キャンバス"
+        title="実のキャンバス"
         icon="☀️"
         initialTags={lightTags}
         onComplete={proceed}

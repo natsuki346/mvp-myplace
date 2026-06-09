@@ -491,7 +491,7 @@ export function CanvasView({
         {/* ── PiP sub-canvas ── メインキャンバスのすぐ上・左端に接して配置 ── */}
         <div
           onClick={() => { if (!fading) toggleMode() }}
-          aria-label={`${subMode === 'light' ? '光' : '影'}モードのプレビュー。タップして切り替え`}
+          aria-label={`${subMode === 'light' ? '実' : '根'}モードのプレビュー。タップして切り替え`}
           style={{
             position: 'absolute', top: '-142px', left: '0px',
             width: '80px', height: '142px',
@@ -537,7 +537,7 @@ export function CanvasView({
             color: subMode === 'light' ? 'rgba(0,0,0,0.32)' : 'rgba(200,185,240,0.50)',
             fontFamily: 'system-ui, sans-serif', pointerEvents: 'none',
           }}>
-            {subMode === 'light' ? '光' : '影'}
+            {subMode === 'light' ? '実' : '根'}
           </span>
         </div>
 
@@ -757,7 +757,7 @@ export function CanvasView({
             {/* Header */}
             <div style={{ padding: '16px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <p style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.90)', margin: 0 }}>
-                {mode === 'light' ? 'タグを選ぶ' : '影タグを選ぶ'}
+                {mode === 'light' ? 'タグを選ぶ' : '根タグを選ぶ'}
               </p>
               <button onClick={closeTagPicker}
                 style={{ color: 'rgba(255,255,255,0.45)', fontSize: 20, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1 }}>×</button>

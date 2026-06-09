@@ -1,355 +1,312 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-// ── 型 ──────────────────────────────────────────────────────────────────────────
-
-interface Particle {
-  x: number; y: number; vx: number; vy: number
-  alpha: number; fade: number; size: number; color: string
-}
-interface Star {
-  x: number; y: number; vx: number; vy: number
-  trail: Array<{ x: number; y: number }>
-  color: string; active: boolean
-}
-type Phase = 'stars' | 'infinity' | 'text' | 'door'
-
-const GOLD   = '#c9a84c'
-const PURPLE = '#8a5aff'
-
-// ── ヘルパー ──────────────────────────────────────────────────────────────────
-
-function makeParticle(x: number, y: number, color: string): Particle {
-  const a = Math.random() * Math.PI * 2, s = 0.4 + Math.random() * 1.2
-  return { x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
-    alpha: 0.7+Math.random()*0.3, fade: 0.01+Math.random()*0.01,
-    size: 1+Math.random()*2, color }
-}
-function lemni(t: number, cx: number, cy: number, a: number) {
-  const s2 = Math.sin(t)**2, d = 1+s2
-  return { x: cx + a*Math.cos(t)/d, y: cy + a*Math.sin(t)*Math.cos(t)/d }
-}
-const easeInOut = (t: number) => t < 0.5 ? 4*t**3 : 1-(-2*t+2)**3/2
-
-// ── コンポーネント ────────────────────────────────────────────────────────────
-
 export default function WelcomePage() {
-  const router = useRouter()
-
-  // canvas / text
-  const canvasRef  = useRef<HTMLCanvasElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [textVis,  setTextVis]  = useState(false)
-  const [username, setUsername] = useState('')
-
-  // 扉
-  const leftDoorRef  = useRef<HTMLDivElement>(null)
-  const rightDoorRef = useRef<HTMLDivElement>(null)
-  const flashRef     = useRef<HTMLDivElement>(null)
-  const doorShownRef = useRef(false)
-  const [showDoors, setShowDoors] = useState(false)
+  const router    = useRouter()
+  const [loaded,    setLoaded]    = useState(false)
+  const [isLeaving, setIsLeaving] = useState(false)
 
   useEffect(() => {
-    setUsername(sessionStorage.getItem('username') ?? '')
+    const t = setTimeout(() => setLoaded(true), 60)
+    return () => clearTimeout(t)
   }, [])
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const parent = canvas.parentElement!
-    const W = canvas.width  = parent.clientWidth  || 390
-    const H = canvas.height = parent.clientHeight || window.innerHeight
-    const ctx = canvas.getContext('2d')!
-    const cx = W / 2, cy = H * 0.26, a = 75
-
-    let phase: Phase = 'stars'
-    let frame        = 0
-    const particles: Particle[] = []
-
-    const star1: Star = { x:-140, y:cy-28, vx:16, vy:1.5,  trail:[], color:GOLD,   active:true  }
-    const star2: Star = { x:-140, y:cy+22, vx:13, vy:-1.2, trail:[], color:PURPLE, active:false }
-
-    let t = -Math.PI
-    const tMax = Math.PI
-    const pts: Array<{ x:number; y:number; color:string }> = []
-
-    let waitFrames   = 0
-    let doorProgress = 0
-    let navigated    = false
-
-    const addPtc = (x: number, y: number, col: string, n=1) => {
-      for (let i=0; i<n; i++) particles.push(makeParticle(x, y, col))
-    }
-    const updatePtc = () => {
-      for (let i=particles.length-1; i>=0; i--) {
-        const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.018; p.alpha-=p.fade
-        if (p.alpha<=0) particles.splice(i,1)
-      }
-    }
-    const drawPtc = () => {
-      for (const p of particles) {
-        ctx.save(); ctx.globalAlpha=p.alpha; ctx.fillStyle=p.color
-        ctx.shadowBlur=6; ctx.shadowColor=p.color
-        ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); ctx.restore()
-      }
-    }
-    const redrawInfinity = (alpha=1) => {
-      if (pts.length<2) return
-      ctx.save(); ctx.globalAlpha=alpha; let i=0
-      while (i<pts.length) {
-        const col=pts[i].color; ctx.strokeStyle=col; ctx.lineWidth=9
-        ctx.lineCap='round'; ctx.lineJoin='round'; ctx.shadowBlur=14; ctx.shadowColor=col
-        ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); let j=i+1
-        while (j<pts.length && pts[j].color===col) { ctx.lineTo(pts[j].x,pts[j].y); j++ }
-        ctx.stroke(); i=j
-      }
-      ctx.restore()
-    }
-
-    let rafId: number
-    const loop = () => {
-      ctx.clearRect(0,0,W,H); frame++
-
-      // 背景グロー
-      const g1=ctx.createRadialGradient(W*.28,cy,0,W*.28,cy,200)
-      g1.addColorStop(0,'rgba(201,168,76,0.07)'); g1.addColorStop(1,'transparent')
-      ctx.fillStyle=g1; ctx.fillRect(0,0,W,H)
-      const g2=ctx.createRadialGradient(W*.72,cy,0,W*.72,cy,200)
-      g2.addColorStop(0,'rgba(138,90,255,0.07)'); g2.addColorStop(1,'transparent')
-      ctx.fillStyle=g2; ctx.fillRect(0,0,W,H)
-
-      // ── Phase 0: 流れ星 ────────────────────────────────────────────────────
-      if (phase==='stars') {
-        if (frame>=20) star2.active=true
-        for (const star of [star1,star2]) {
-          if (!star.active) continue
-          star.trail.push({x:star.x,y:star.y})
-          if (star.trail.length>22) star.trail.shift()
-          star.x+=star.vx; star.y+=star.vy
-          for (let i=0; i<star.trail.length-1; i++) {
-            ctx.save(); ctx.globalAlpha=(i/star.trail.length)*0.85
-            ctx.strokeStyle=star.color; ctx.lineWidth=2.8-(star.trail.length-i)*0.09
-            ctx.shadowBlur=10; ctx.shadowColor=star.color
-            ctx.beginPath(); ctx.moveTo(star.trail[i].x,star.trail[i].y)
-            ctx.lineTo(star.trail[i+1].x,star.trail[i+1].y); ctx.stroke(); ctx.restore()
-          }
-          ctx.save(); ctx.shadowBlur=18; ctx.shadowColor=star.color
-          ctx.fillStyle=star.color; ctx.globalAlpha=0.95
-          ctx.beginPath(); ctx.arc(star.x,star.y,3.5,0,Math.PI*2); ctx.fill(); ctx.restore()
-          if (Math.random()<0.4) addPtc(star.x,star.y,star.color)
-        }
-        updatePtc(); drawPtc()
-        if (star1.x>W+80 && (star2.active?star2.x>W+80:frame>80)) {
-          phase='infinity'; t=-Math.PI; frame=0
-        }
-      }
-
-      // ── Phase 1: ∞ 描画 ────────────────────────────────────────────────────
-      else if (phase==='infinity') {
-        redrawInfinity()
-        if (t<tMax) {
-          t+=0.050; const pt=lemni(t,cx,cy,a), col=pt.x<cx?GOLD:PURPLE
-          pts.push({...pt,color:col})
-          ctx.save(); ctx.shadowBlur=14; ctx.shadowColor=col
-          ctx.fillStyle=col; ctx.globalAlpha=0.92
-          ctx.beginPath(); ctx.arc(pt.x,pt.y,4.5,0,Math.PI*2); ctx.fill(); ctx.restore()
-          if (Math.random()<0.38) addPtc(pt.x,pt.y,col)
-        } else {
-          phase='text'; setTextVis(true); frame=0; waitFrames=0
-        }
-        updatePtc(); drawPtc()
-      }
-
-      // ── Phase 2: テキスト表示・3秒待機 ────────────────────────────────────
-      else if (phase==='text') {
-        redrawInfinity(0.82)
-        if (Math.random()<0.06) {
-          const ang=Math.random()*Math.PI*2, r=55+Math.random()*28
-          addPtc(cx+Math.cos(ang)*r, cy+Math.sin(ang)*r*0.55, Math.random()<0.5?GOLD:PURPLE)
-        }
-        updatePtc(); drawPtc()
-        waitFrames++
-        if (waitFrames>=180) { phase='door'; frame=0 }
-      }
-
-      // ── Phase 3: 両開き扉 ──────────────────────────────────────────────────
-      else if (phase==='door') {
-        // canvas と テキストを非表示（初回のみ）
-        if (!doorShownRef.current) {
-          doorShownRef.current = true
-          setShowDoors(true)
-          if (canvasRef.current) {
-            canvasRef.current.style.transition = 'opacity 0.3s ease'
-            canvasRef.current.style.opacity    = '0'
-          }
-          if (contentRef.current) {
-            contentRef.current.style.transition = 'opacity 0.3s ease'
-            contentRef.current.style.opacity    = '0'
-          }
-        }
-
-        doorProgress = Math.min(doorProgress + 0.006, 1)
-        const e = easeInOut(doorProgress)
-
-        if (leftDoorRef.current) {
-          leftDoorRef.current.style.transform = `rotateY(${e * 88}deg)`
-          leftDoorRef.current.style.filter    = `brightness(${1 - e * 0.85})`
-        }
-        if (rightDoorRef.current) {
-          rightDoorRef.current.style.transform = `rotateY(${e * -88}deg)`
-          rightDoorRef.current.style.filter    = `brightness(${1 - e * 0.85})`
-        }
-
-        // フラッシュ progress 0.7 → 1.0
-        if (doorProgress >= 0.7 && flashRef.current) {
-          flashRef.current.style.opacity = String(Math.min(1, (doorProgress - 0.7) / 0.3))
-        }
-
-        if (doorProgress >= 1 && !navigated) {
-          navigated = true
-          router.push('/process-map?step=1')
-        }
-      }
-
-      rafId = requestAnimationFrame(loop)
-    }
-
-    rafId = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(rafId)
-  }, [router])
+  const handleStart = () => {
+    setIsLeaving(true)
+    setTimeout(() => router.push('/process-map?step=1'), 900)
+  }
 
   return (
-    <div style={{
-      width:'100%', maxWidth:390, margin:'0 auto',
-      height:'100svh', background:'#080808',
-      position:'relative', overflow:'hidden',
-    }}>
-      {/* Canvas */}
-      <canvas ref={canvasRef} style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%' }} />
+    <div
+      style={{
+        width: '100%', maxWidth: 480, margin: '0 auto',
+        minHeight: '100svh', background: '#F7F3ED',
+        display: 'flex', flexDirection: 'column',
+        position: 'relative', overflow: 'hidden',
+        opacity: isLeaving ? 0 : 1,
+        transition: isLeaving ? 'opacity 0.5s ease' : 'none',
+      }}
+    >
+      <style>{`
+        @keyframes growRoot {
+          from { opacity: 0; transform: scaleY(0); }
+          to   { opacity: 1; transform: scaleY(1); }
+        }
+        @keyframes growStem {
+          from { stroke-dashoffset: 160; }
+          to   { stroke-dashoffset: 0; }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes windSway {
+          0%   { transform: rotate(0deg); }
+          25%  { transform: rotate(5deg); }
+          75%  { transform: rotate(-5deg); }
+          100% { transform: rotate(0deg); }
+        }
+        .leaf-group {
+          transform-origin: 160px 195px;
+        }
+        .leaf-group.sway {
+          animation: windSway 0.45s ease-in-out 2;
+        }
+        .fruit-group {
+          transform-origin: 160px 195px;
+        }
+        .fruit-group.sway {
+          animation: windSway 0.45s ease-in-out 0.1s 2;
+        }
+      `}</style>
 
-      {/* テキスト */}
-      <div ref={contentRef} style={{
-        position:'absolute', inset:0,
-        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-start',
-        paddingTop:'calc(26svh + 110px)',
-        zIndex:1,
-        opacity: textVis ? 1 : 0,
-        transition:'opacity 1.2s ease',
-        pointerEvents:'none',
-      }}>
-        <p style={{ fontSize:16, color:'#c0c0c0', letterSpacing:'0.1em', marginBottom:14 }}>
-          Welcome
+      {/* ── 地上・地下の背景ゾーン ── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        {/* 地上（上60%） */}
+        <div style={{ height: '60%', background: '#F0EBE0' }} />
+        {/* 地下（下40%） */}
+        <div style={{ height: '40%', background: '#E8DCC8' }} />
+        {/* 土の波線 */}
+        <svg
+          viewBox="0 0 480 28"
+          style={{ position: 'absolute', top: 'calc(60% - 14px)', left: 0, width: '100%' }}
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M0 14 Q24 4 48 14 Q72 24 96 14 Q120 4 144 14 Q168 24 192 14 Q216 4 240 14 Q264 24 288 14 Q312 4 336 14 Q360 24 384 14 Q408 4 432 14 Q456 24 480 14 L480 28 L0 28 Z"
+            fill="#C4B090" opacity="0.55"
+          />
+          <path
+            d="M0 14 Q24 4 48 14 Q72 24 96 14 Q120 4 144 14 Q168 24 192 14 Q216 4 240 14 Q264 24 288 14 Q312 4 336 14 Q360 24 384 14 Q408 4 432 14 Q456 24 480 14"
+            fill="none" stroke="#C4B090" strokeWidth="2.5"
+          />
+        </svg>
+      </div>
+
+      {/* ── 上部テキスト ── */}
+      <div
+        style={{
+          position: 'relative', zIndex: 2,
+          paddingTop: 48, textAlign: 'center', paddingBottom: 16,
+          opacity: loaded ? 1 : 0,
+          transform: loaded ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease 1.5s, transform 0.4s ease 1.5s',
+        }}
+      >
+        <p style={{ fontSize: 13, letterSpacing: 3, color: '#7A6A55', marginBottom: 10, textTransform: 'uppercase' }}>
+          WhyMe
         </p>
-        <p style={{ fontSize:26, fontWeight:600, color:'#f0f0f0', marginBottom:14, lineHeight:1.4, textAlign:'center' }}>
-          {username ? `${username}さん、ようこそ。` : 'ようこそ。'}
-        </p>
-        <p style={{ fontSize:18, fontWeight:700, color:'#f0f0f0', lineHeight:1.8, textAlign:'center' }}>
-          あなたの物語が、<br />今動き始めました。
+        <h1 style={{ fontSize: 20, fontWeight: 500, color: '#3D2E1A', marginBottom: 8, lineHeight: 1.5 }}>
+          根があるから、実がなる。
+        </h1>
+        <p style={{ fontSize: 13, color: '#8B7355' }}>
+          あなたのすべてが、ここにある。
         </p>
       </div>
 
-      {/* ── 両開き扉 ── */}
-      {showDoors && (
+      {/* ── 植物イラスト ── */}
+      <div style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', justifyContent: 'center' }}>
+
+        {/* 実タグ（地上・左） */}
         <div style={{
-          position:'absolute', inset:0, zIndex:3,
-          display:'flex', perspective:'1200px',
-          perspectiveOrigin:'50% 50%',
-          overflow:'hidden',
-          pointerEvents:'none',
+          position: 'absolute', left: '8%', top: '14%',
+          opacity: loaded ? 1 : 0,
+          transform: loaded ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease 1.2s, transform 0.4s ease 1.2s',
         }}>
-
-          {/* 左扉 */}
-          <div ref={leftDoorRef} style={{
-            width:'50%', height:'100%', flexShrink:0,
-            transformOrigin:'left center', transform:'rotateY(0deg)',
-            background:'linear-gradient(to right, #1c1628, #12101c, #0c0a14)',
-            position:'relative',
-            backfaceVisibility:'hidden',
-          }}>
-            {/* 上パネル */}
-            <div style={{
-              position:'absolute', top:'10%', left:'8%', right:'8%', height:'38%',
-              border:'0.5px solid rgba(201,168,76,0.15)', borderRadius:1,
-            }} />
-            {/* 下パネル */}
-            <div style={{
-              position:'absolute', top:'52%', left:'8%', right:'8%', height:'38%',
-              border:'0.5px solid rgba(201,168,76,0.15)', borderRadius:1,
-            }} />
-            {/* 中央モールディング */}
-            <div style={{
-              position:'absolute', top:'50%', left:'5%', right:'5%', height:1,
-              background:'rgba(201,168,76,0.10)',
-            }} />
-            {/* ノブ（右端） */}
-            <div style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)' }}>
-              <div style={{
-                width:10, height:36, borderRadius:2,
-                background:'rgba(160,120,30,0.35)',
-                border:'0.5px solid rgba(201,168,76,0.5)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-              }}>
-                <div style={{
-                  width:12, height:12, borderRadius:'50%',
-                  background:'radial-gradient(circle at 35% 35%, #f5e090, #8a5020)',
-                  boxShadow:'0 0 8px rgba(201,168,76,0.7)',
-                }} />
-              </div>
-            </div>
-          </div>
-
-
-          {/* 右扉 */}
-          <div ref={rightDoorRef} style={{
-            width:'50%', height:'100%', flexShrink:0,
-            transformOrigin:'right center', transform:'rotateY(0deg)',
-            background:'linear-gradient(to left, #1c1628, #12101c, #0c0a14)',
-            position:'relative',
-            backfaceVisibility:'hidden',
-          }}>
-            {/* 上パネル */}
-            <div style={{
-              position:'absolute', top:'10%', left:'8%', right:'8%', height:'38%',
-              border:'0.5px solid rgba(201,168,76,0.15)', borderRadius:1,
-            }} />
-            {/* 下パネル */}
-            <div style={{
-              position:'absolute', top:'52%', left:'8%', right:'8%', height:'38%',
-              border:'0.5px solid rgba(201,168,76,0.15)', borderRadius:1,
-            }} />
-            {/* 中央モールディング */}
-            <div style={{
-              position:'absolute', top:'50%', left:'5%', right:'5%', height:1,
-              background:'rgba(201,168,76,0.10)',
-            }} />
-            {/* ノブ（左端） */}
-            <div style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)' }}>
-              <div style={{
-                width:10, height:36, borderRadius:2,
-                background:'rgba(160,120,30,0.35)',
-                border:'0.5px solid rgba(201,168,76,0.5)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-              }}>
-                <div style={{
-                  width:12, height:12, borderRadius:'50%',
-                  background:'radial-gradient(circle at 35% 35%, #f5e090, #8a5020)',
-                  boxShadow:'0 0 8px rgba(201,168,76,0.7)',
-                }} />
-              </div>
-            </div>
-          </div>
-
-          {/* フラッシュオーバーレイ */}
-          <div ref={flashRef} style={{
-            position:'absolute', inset:0, zIndex:2, opacity:0,
-            background:'radial-gradient(circle at 50% 50%, white 0%, rgba(255,255,255,0.9) 40%, rgba(255,255,255,0.4) 70%, transparent 100%)',
-            pointerEvents:'none',
-          }} />
-
+          <span style={{
+            display: 'inline-block', background: '#FAC775', color: '#633806',
+            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+            whiteSpace: 'nowrap',
+          }}># 人と話すのが好き</span>
         </div>
-      )}
+
+        {/* 実タグ（地上・右） */}
+        <div style={{
+          position: 'absolute', right: '6%', top: '28%',
+          opacity: loaded ? 1 : 0,
+          transform: loaded ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease 1.3s, transform 0.4s ease 1.3s',
+        }}>
+          <span style={{
+            display: 'inline-block', background: '#FAC775', color: '#633806',
+            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+            whiteSpace: 'nowrap',
+          }}># 新しいことが好き</span>
+        </div>
+
+        {/* 根タグ（地下・左） */}
+        <div style={{
+          position: 'absolute', left: '5%', bottom: '22%',
+          opacity: loaded ? 0.75 : 0,
+          transform: loaded ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease 1.4s, transform 0.4s ease 1.4s',
+        }}>
+          <span style={{
+            display: 'inline-block', background: '#C4A882', color: '#6B4E1A',
+            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+            whiteSpace: 'nowrap',
+          }}># 認められたい</span>
+        </div>
+
+        {/* 根タグ（地下・右） */}
+        <div style={{
+          position: 'absolute', right: '4%', bottom: '10%',
+          opacity: loaded ? 0.75 : 0,
+          transform: loaded ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease 1.5s, transform 0.4s ease 1.5s',
+        }}>
+          <span style={{
+            display: 'inline-block', background: '#C4A882', color: '#6B4E1A',
+            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+            whiteSpace: 'nowrap',
+          }}># 本当は甘えたい</span>
+        </div>
+
+        {/* メイン植物 SVG */}
+        <svg
+          width="320" height="380"
+          viewBox="0 0 320 380"
+          style={{ overflow: 'visible' }}
+        >
+          {/* ── 根（地下・どっしり広がる）── */}
+          <g
+            className={`root-group${isLeaving ? ' sway' : ''}`}
+            style={{
+              transformOrigin: '160px 195px',
+              animation: loaded ? 'growRoot 0.8s ease-out forwards' : 'none',
+              opacity: loaded ? 1 : 0,
+            }}
+          >
+            {/* メイン根（太め） */}
+            <path d="M160 195 Q158 255 157 315 Q156 375 155 435"
+              fill="none" stroke="#6B4F12" strokeWidth="5" strokeLinecap="round"/>
+            {/* 左大根 */}
+            <path d="M158 235 Q125 265 95 305 Q70 340 53 380"
+              fill="none" stroke="#6B4F12" strokeWidth="4" strokeLinecap="round"/>
+            {/* 右大根 */}
+            <path d="M160 235 Q193 265 223 305 Q248 340 265 380"
+              fill="none" stroke="#6B4F12" strokeWidth="4" strokeLinecap="round"/>
+            {/* 左中根1 */}
+            <path d="M95 305 Q70 325 47 357 Q30 383 23 415"
+              fill="none" stroke="#8B6914" strokeWidth="2.5" strokeLinecap="round"/>
+            {/* 左中根2 */}
+            <path d="M95 305 Q83 340 77 370"
+              fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round"/>
+            {/* 右中根1 */}
+            <path d="M223 305 Q248 325 271 357 Q288 383 295 415"
+              fill="none" stroke="#8B6914" strokeWidth="2.5" strokeLinecap="round"/>
+            {/* 右中根2 */}
+            <path d="M223 305 Q235 340 241 370"
+              fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round"/>
+            {/* 左細根 */}
+            <path d="M53 380 Q37 395 27 417"
+              fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M47 357 Q30 367 20 385"
+              fill="none" stroke="#A0791A" strokeWidth="1.2" strokeLinecap="round"/>
+            <path d="M155 435 Q140 453 133 475"
+              fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M155 435 Q170 453 177 475"
+              fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
+            {/* 右細根 */}
+            <path d="M265 380 Q281 395 291 417"
+              fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M271 357 Q288 367 298 385"
+              fill="none" stroke="#A0791A" strokeWidth="1.2" strokeLinecap="round"/>
+          </g>
+
+          {/* ── 茎（stroke-dashoffset アニメ） ── */}
+          <line
+            x1="160" y1="195" x2="160" y2="36"
+            stroke="#4A7C59" strokeWidth="4" strokeLinecap="round"
+            strokeDasharray="160" strokeDashoffset={loaded ? 0 : 160}
+            style={{ transition: loaded ? 'stroke-dashoffset 0.6s ease-out 0.3s' : 'none' }}
+          />
+
+          {/* ── 葉 ── */}
+          <g
+            className={`leaf-group${isLeaving ? ' sway' : ''}`}
+            style={{
+              opacity: loaded ? 1 : 0,
+              transition: 'opacity 0.4s ease 0.8s',
+            }}
+          >
+            {/* 左葉 */}
+            <path d="M158 140 Q115 115 98 135 Q110 155 155 148 Z"
+              fill="#6BAF7A" />
+            {/* 右葉 */}
+            <path d="M162 100 Q205 72 224 92 Q210 112 165 108 Z"
+              fill="#6BAF7A" />
+            {/* 小さい左葉 */}
+            <path d="M159 72 Q135 58 128 72 Q138 84 160 78 Z"
+              fill="#5E9E6A" />
+          </g>
+
+          {/* ── 実（トマト風） ── */}
+          <g
+            className={`fruit-group${isLeaving ? ' sway' : ''}`}
+            style={{
+              opacity: loaded ? 1 : 0,
+              transition: 'opacity 0.4s ease 0.9s',
+            }}
+          >
+            {/* 実1（左） */}
+            <circle cx="118" cy="122" r="16" fill="#D85A30" />
+            <circle cx="118" cy="122" r="16" fill="url(#fruitGrad1)" />
+            <path d="M118 106 Q112 100 108 104" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round" />
+            {/* 実2（右） */}
+            <circle cx="196" cy="88" r="14" fill="#D85A30" />
+            <circle cx="196" cy="88" r="14" fill="url(#fruitGrad2)" />
+            <path d="M196 74 Q191 68 188 72" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round" />
+            {/* 小さい実 */}
+            <circle cx="140" cy="62" r="10" fill="#C44D28" />
+            <path d="M140 52 Q136 47 133 50" fill="none" stroke="#4A7C59" strokeWidth="1.5" strokeLinecap="round" />
+
+            <defs>
+              <radialGradient id="fruitGrad1" cx="35%" cy="35%">
+                <stop offset="0%" stopColor="#E87050" />
+                <stop offset="100%" stopColor="#B84420" />
+              </radialGradient>
+              <radialGradient id="fruitGrad2" cx="35%" cy="35%">
+                <stop offset="0%" stopColor="#E87050" />
+                <stop offset="100%" stopColor="#B84420" />
+              </radialGradient>
+            </defs>
+          </g>
+        </svg>
+      </div>
+
+      {/* ── はじめるボタン ── */}
+      <div
+        style={{
+          position: 'relative', zIndex: 2,
+          padding: '16px 24px 48px', textAlign: 'center',
+          opacity: loaded ? 1 : 0,
+          transform: loaded ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease 1.6s, transform 0.4s ease 1.6s',
+        }}
+      >
+        <button
+          onClick={handleStart}
+          style={{
+            background: '#4A7C59', color: '#ffffff',
+            border: 'none', borderRadius: 24,
+            padding: '14px 48px', fontSize: 15, fontWeight: 500,
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(74,124,89,0.35)',
+            transition: 'transform 0.1s ease, opacity 0.1s ease',
+          }}
+          onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+          onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+          onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.97)')}
+          onTouchEnd={e => (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          はじめる
+        </button>
+      </div>
+
     </div>
   )
 }

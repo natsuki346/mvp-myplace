@@ -121,7 +121,7 @@ export default function CanvasShadowTitlePage() {
             textAlign: 'center', color: 'white', marginBottom: 24,
           }}
         >
-          あなたが向き合えた<br />影のキャンバスにも名前をつけてみよう👍
+          あなたが向き合えた<br />根のキャンバスにも名前をつけてみよう👍
         </h1>
 
         <input
