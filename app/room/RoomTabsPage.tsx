@@ -1,9 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import LightRoomView from './LightRoomView'
 import ShadowRoomView from './ShadowRoomView'
 import { BottomNav } from '@/src/components/BottomNav'
+import { useTutorial } from '@/src/components/tutorial/useTutorial'
+import RoomExplainCard from '@/src/components/tutorial/RoomExplainCard'
 
 type RoomType = 'light' | 'shadow'
 
@@ -19,6 +22,19 @@ const INACTIVE_BG = '#C4B49A'
 
 export default function RoomTabsPage({ type }: { type: RoomType }) {
   const router = useRouter()
+  const { step, advanceStep } = useTutorial()
+
+  const [explain, setExplain] = useState<'mi' | 'ne' | null>(() => {
+    if (step === 'explain_mi_room') return 'mi'
+    if (step === 'explain_ne_room' && type === 'shadow') return 'ne'
+    return null
+  })
+
+  const closeExplain = () => {
+    if (explain === 'mi') advanceStep('explain_ne_room')
+    else if (explain === 'ne') advanceStep('done')
+    setExplain(null)
+  }
 
   return (
     <div
@@ -57,6 +73,8 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
       {type === 'light' ? <LightRoomView /> : <ShadowRoomView />}
 
       <BottomNav />
+
+      {explain && <RoomExplainCard type={explain} onClose={closeExplain} />}
     </div>
   )
 }

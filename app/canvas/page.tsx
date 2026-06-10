@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import GardenDisplay from '../home/garden-display'
 import { BottomNav } from '@/src/components/BottomNav'
 import { RoomInviteModal } from '@/src/components/canvas/RoomInviteModal'
+import { isRoomOnboardingDone, markRoomOnboardingDone } from '@/src/lib/onboarding'
 
 // ── 完了モーダル ───────────────────────────────────────────────────────────────
 
@@ -71,8 +72,16 @@ export default function CanvasPage() {
   const router = useRouter()
   const [modalState, setModalState] = useState<ModalState>('none')
 
+  const finishRoomOnboarding = () => {
+    markRoomOnboardingDone()
+    setModalState('complete')
+  }
+
   // モーダル表示制御
   useEffect(() => {
+    // 初期設定が完了済みなら、案内モーダルは一切表示しない
+    if (isRoomOnboardingDone()) return
+
     // URLパラメータ from= を優先チェック（Room一覧から戻ってきた場合）
     const from = new URLSearchParams(window.location.search).get('from')
     if (from === 'light-room') {
@@ -82,7 +91,7 @@ export default function CanvasPage() {
     }
     if (from === 'shadow-room') {
       // 影の部屋から → 1秒後に完了モーダル
-      const t = setTimeout(() => setModalState('complete'), 1000)
+      const t = setTimeout(() => finishRoomOnboarding(), 1000)
       return () => clearTimeout(t)
     }
 
@@ -90,7 +99,7 @@ export default function CanvasPage() {
     const showComplete = sessionStorage.getItem('show_complete_modal')
     if (showComplete) {
       sessionStorage.removeItem('show_complete_modal')
-      const t = setTimeout(() => setModalState('complete'), 0)
+      const t = setTimeout(() => finishRoomOnboarding(), 0)
       return () => clearTimeout(t)
     }
     const showShadow = sessionStorage.getItem('show_shadow_modal')
@@ -145,7 +154,7 @@ export default function CanvasPage() {
         <RoomInviteModal
           initialStep={modalState === 'invite-shadow' ? 'shadow' : 'light'}
           onDismiss={() => setModalState('none')}
-          onShadowDecline={() => setModalState('complete')}
+          onShadowDecline={finishRoomOnboarding}
         />
       )}
 

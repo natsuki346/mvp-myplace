@@ -8,7 +8,11 @@ const NAV_ITEMS = [
   { icon: '👤', label: 'プロフィール', path: '/profile' },
 ]
 
-export function BottomNav() {
+type BottomNavProps = {
+  onRoomClick?: () => void
+}
+
+export function BottomNav({ onRoomClick }: BottomNavProps = {}) {
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -27,7 +31,10 @@ export function BottomNav() {
         return (
           <button
             key={item.path}
-            onClick={() => router.push(item.path)}
+            onClick={() => {
+              if (item.path === '/room/light') onRoomClick?.()
+              router.push(item.path)
+            }}
             style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
               background: 'none', border: 'none', cursor: 'pointer',

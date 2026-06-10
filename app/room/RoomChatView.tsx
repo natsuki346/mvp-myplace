@@ -15,7 +15,7 @@ const THEME = {
     otherBg: 'rgba(0,0,0,0.06)', otherText: '#1a1a1a',
     inputBorder: 'rgba(0,0,0,0.12)', inputBg: 'rgba(0,0,0,0.03)',
     sendActive: '#1a1a1a', sendInactiveBg: 'rgba(0,0,0,0.10)', sendInactiveText: 'rgba(0,0,0,0.3)',
-    icon: '☀️', label: '実の部屋', backHref: '/room/light',
+    icon: '☀️', label: '実の部屋', backHref: '/onboarding/room-visit/light',
   },
   shadow: {
     bg: '#1a1a2e', headerBorder: 'rgba(255,255,255,0.07)', text: '#ffffff',
@@ -24,7 +24,7 @@ const THEME = {
     otherBg: 'rgba(255,255,255,0.08)', otherText: '#ffffff',
     inputBorder: 'rgba(255,255,255,0.12)', inputBg: 'rgba(255,255,255,0.06)',
     sendActive: 'rgba(167,139,250,0.85)', sendInactiveBg: 'rgba(255,255,255,0.08)', sendInactiveText: 'rgba(255,255,255,0.25)',
-    icon: '🌙', label: '根の部屋', backHref: '/room/shadow',
+    icon: '🌙', label: '根の部屋', backHref: '/onboarding/room-visit/shadow',
   },
 } as const
 

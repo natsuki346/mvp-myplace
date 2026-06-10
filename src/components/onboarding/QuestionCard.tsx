@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 type Props = {
   questionNumber:   number
@@ -139,8 +139,12 @@ export function QuestionCard({
   const [isGenerating,   setIsGenerating]   = useState(false)
   const [error,          setError]          = useState<string | null>(null)
   const [showAll,        setShowAll]        = useState(false)
+  const [suggestedTags,  setSuggestedTags]  = useState<Set<string>>(new Set())
 
-  const MAX_VISIBLE = 10
+  const suggestChainCount = useRef(0)
+
+  const MAX_VISIBLE      = 10
+  const MAX_SUGGEST_CHAIN = 3
   const isLight     = questionNumber <= 2   // Q1・Q2 = 地上、Q3・Q4 = 地下
 
   // 質問グループ別カラーテーマ
@@ -196,7 +200,35 @@ export function QuestionCard({
 
   const addTag = (tag: string) => {
     if (registeredTags.includes(tag)) return
-    setRegisteredTags(prev => [...prev, tag])
+    const updated = [...registeredTags, tag]
+    setRegisteredTags(updated)
+    fetchSuggestions(updated)
+  }
+
+  // 選択タグから連想される新しいタグをバックグラウンドで取得し、
+  // 生成されたタグリストの末尾にそっと追加する（最大3連鎖）
+  const fetchSuggestions = async (selected: string[]) => {
+    if (suggestChainCount.current >= MAX_SUGGEST_CHAIN) return
+    suggestChainCount.current += 1
+
+    try {
+      const res = await fetch('/api/suggest-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedTags: selected, type: isLight ? 'light' : 'shadow' }),
+      })
+      const data = await res.json()
+      const suggestions: string[] = Array.isArray(data.tags) ? data.tags : []
+
+      setCandidateTags(prev => {
+        const additions = suggestions.filter(t => !prev.includes(t) && !selected.includes(t))
+        if (additions.length === 0) return prev
+        setSuggestedTags(prevSet => new Set([...prevSet, ...additions]))
+        return [...prev, ...additions]
+      })
+    } catch {
+      // サジェスト失敗は握りつぶす（UIには何も表示しない）
+    }
   }
 
   const removeRegistered = (tag: string) => {
@@ -244,6 +276,54 @@ export function QuestionCard({
           )}
         </div>
 
+        {/* ── Textarea ── */}
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="ここに書いてみてください..."
+          rows={4}
+          className="w-full rounded-2xl text-sm p-4 outline-none resize-none mb-4 placeholder:text-black/25"
+          style={{
+            background: c.textareaBg,
+            border: `1px solid ${c.textareaBorder}`,
+            color: c.questionText,
+            transition: 'border-color 0.2s ease',
+          }}
+        />
+
+        {/* ── Generate button ── */}
+        <button
+          onClick={handleGenerate}
+          disabled={!text.trim() || isGenerating}
+          className="w-full py-3.5 rounded-full text-sm font-semibold mb-2.5 transition-all"
+          style={{
+            background: text.trim() && !isGenerating ? c.genActive    : c.genInactive,
+            color:      text.trim() && !isGenerating ? c.genActiveText : c.genInactiveText,
+            cursor:     text.trim() && !isGenerating ? 'pointer'      : 'default',
+          }}
+        >
+          {isGenerating ? '生成中...' : 'タグを生成する'}
+        </button>
+
+        {/* Error */}
+        {error && (
+          <p className="text-red-500 text-xs mb-2.5 text-center">{error}</p>
+        )}
+
+        {/* ── Next button ── */}
+        <button
+          onClick={handleNext}
+          disabled={registeredTags.length === 0}
+          className="w-full py-4 rounded-full text-sm font-semibold mb-6 transition-all"
+          style={{
+            background: registeredTags.length > 0 ? c.nextActive    : c.nextInactive,
+            color:      registeredTags.length > 0 ? c.nextActiveText : c.nextInactiveText,
+            cursor:     registeredTags.length > 0 ? 'pointer'       : 'default',
+          }}
+        >
+          次へ
+        </button>
+
         {/* ── Registered tags ── */}
         {registeredTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-6">
@@ -270,40 +350,6 @@ export function QuestionCard({
           </div>
         )}
 
-        {/* ── Textarea ── */}
-        <textarea
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="ここに書いてみてください..."
-          rows={4}
-          className="w-full rounded-2xl text-sm p-4 outline-none resize-none mb-4 placeholder:text-black/25"
-          style={{
-            background: c.textareaBg,
-            border: `1px solid ${c.textareaBorder}`,
-            color: c.questionText,
-            transition: 'border-color 0.2s ease',
-          }}
-        />
-
-        {/* ── Generate button ── */}
-        <button
-          onClick={handleGenerate}
-          disabled={!text.trim() || isGenerating}
-          className="w-full py-3.5 rounded-full text-sm font-semibold mb-4 transition-all"
-          style={{
-            background: text.trim() && !isGenerating ? c.genActive    : c.genInactive,
-            color:      text.trim() && !isGenerating ? c.genActiveText : c.genInactiveText,
-            cursor:     text.trim() && !isGenerating ? 'pointer'      : 'default',
-          }}
-        >
-          {isGenerating ? '生成中...' : 'タグを生成する'}
-        </button>
-
-        {/* Error */}
-        {error && (
-          <p className="text-red-500 text-xs mb-4 text-center">{error}</p>
-        )}
-
         {/* ── Candidate tags ── */}
         {candidateTags.length > 0 && (
           <div className="mb-6">
@@ -314,7 +360,7 @@ export function QuestionCard({
                 return (
                   <div
                     key={tag}
-                    className="flex items-center justify-between px-4 py-3 rounded-2xl"
+                    className={`flex items-center justify-between px-4 py-3 rounded-2xl ${suggestedTags.has(tag) ? 'animate-fadeIn' : ''}`}
                     style={{ background: added ? c.candidateRowAdded : c.candidateRowNormal }}
                   >
                     <span
@@ -343,20 +389,6 @@ export function QuestionCard({
             </div>
           </div>
         )}
-
-        {/* ── Next button ── */}
-        <button
-          onClick={handleNext}
-          disabled={registeredTags.length === 0}
-          className="w-full py-4 rounded-full text-sm font-semibold transition-all"
-          style={{
-            background: registeredTags.length > 0 ? c.nextActive    : c.nextInactive,
-            color:      registeredTags.length > 0 ? c.nextActiveText : c.nextInactiveText,
-            cursor:     registeredTags.length > 0 ? 'pointer'       : 'default',
-          }}
-        >
-          次へ
-        </button>
 
       </div>
     </div>

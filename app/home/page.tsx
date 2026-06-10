@@ -1,11 +1,19 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import GardenDisplay from './garden-display'
 import { BottomNav } from '@/src/components/BottomNav'
+import { useTutorial } from '@/src/components/tutorial/useTutorial'
+import TutorialOverlay from '@/src/components/tutorial/TutorialOverlay'
+import { isRoomOnboardingDone } from '@/src/lib/onboarding'
 
 export default function HomePage() {
   const router = useRouter()
+  const { step, advanceStep } = useTutorial()
+  // ルーム案内チュートリアルは、オンボーディングの完了モーダルが出た後に開始する
+  const [roomOnboardingDone] = useState(isRoomOnboardingDone)
+  const tutorialActive = roomOnboardingDone && step === 'point_room_nav'
 
   return (
     <div
@@ -41,7 +49,9 @@ export default function HomePage() {
         <GardenDisplay />
       </div>
 
-      <BottomNav />
+      <BottomNav onRoomClick={() => { if (tutorialActive) advanceStep('explain_mi_room') }} />
+
+      {tutorialActive && <TutorialOverlay />}
     </div>
   )
 }

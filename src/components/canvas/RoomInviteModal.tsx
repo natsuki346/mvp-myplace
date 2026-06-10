@@ -77,7 +77,7 @@ export function RoomInviteModal({
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button
-                onClick={() => go('/room/light')}
+                onClick={() => go('/onboarding/room-visit/light')}
                 style={{
                   padding: '14px', borderRadius: 30, border: 'none',
                   background: '#4A7C59', color: '#FFFFFF',
@@ -111,7 +111,7 @@ export function RoomInviteModal({
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button
-                onClick={() => go('/room/shadow')}
+                onClick={() => go('/onboarding/room-visit/shadow')}
                 style={{
                   padding: '14px', borderRadius: 30, border: 'none',
                   background: '#8B6914', color: '#FFFFFF',
