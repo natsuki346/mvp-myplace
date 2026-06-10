@@ -75,7 +75,7 @@ export default function OnboardingPage() {
         })
     }
 
-    router.push('/process-map?step=2')
+    router.push('/onboarding/steps-preview?step=2')
   }
 
   return (

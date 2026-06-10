@@ -49,13 +49,13 @@ export default function WelcomePage() {
           100% { transform: rotate(0deg); }
         }
         .leaf-group {
-          transform-origin: 160px 195px;
+          transform-origin: 160px 340px;
         }
         .leaf-group.sway {
           animation: windSway 0.45s ease-in-out 2;
         }
         .fruit-group {
-          transform-origin: 160px 195px;
+          transform-origin: 160px 340px;
         }
         .fruit-group.sway {
           animation: windSway 0.45s ease-in-out 0.1s 2;
@@ -153,7 +153,7 @@ export default function WelcomePage() {
 
         {/* 根タグ（地下・右） */}
         <div style={{
-          position: 'absolute', right: '4%', bottom: '10%',
+          position: 'absolute', right: '2%', bottom: '6%',
           opacity: loaded ? 0.75 : 0,
           transform: loaded ? 'translateY(0)' : 'translateY(8px)',
           transition: 'opacity 0.4s ease 1.5s, transform 0.4s ease 1.5s',
@@ -175,53 +175,53 @@ export default function WelcomePage() {
           <g
             className={`root-group${isLeaving ? ' sway' : ''}`}
             style={{
-              transformOrigin: '160px 195px',
+              transformOrigin: '160px 340px',
               animation: loaded ? 'growRoot 0.8s ease-out forwards' : 'none',
               opacity: loaded ? 1 : 0,
             }}
           >
             {/* メイン根（太め） */}
-            <path d="M160 195 Q158 255 157 315 Q156 375 155 435"
+            <path d="M160 340 Q158 400 157 460 Q156 520 155 580"
               fill="none" stroke="#6B4F12" strokeWidth="5" strokeLinecap="round"/>
             {/* 左大根 */}
-            <path d="M158 235 Q125 265 95 305 Q70 340 53 380"
+            <path d="M158 380 Q125 410 95 450 Q70 485 53 525"
               fill="none" stroke="#6B4F12" strokeWidth="4" strokeLinecap="round"/>
             {/* 右大根 */}
-            <path d="M160 235 Q193 265 223 305 Q248 340 265 380"
+            <path d="M160 380 Q193 410 223 450 Q248 485 265 525"
               fill="none" stroke="#6B4F12" strokeWidth="4" strokeLinecap="round"/>
             {/* 左中根1 */}
-            <path d="M95 305 Q70 325 47 357 Q30 383 23 415"
+            <path d="M95 450 Q70 470 47 502 Q30 528 23 560"
               fill="none" stroke="#8B6914" strokeWidth="2.5" strokeLinecap="round"/>
             {/* 左中根2 */}
-            <path d="M95 305 Q83 340 77 370"
+            <path d="M95 450 Q83 485 77 515"
               fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round"/>
             {/* 右中根1 */}
-            <path d="M223 305 Q248 325 271 357 Q288 383 295 415"
+            <path d="M223 450 Q248 470 271 502 Q288 528 295 560"
               fill="none" stroke="#8B6914" strokeWidth="2.5" strokeLinecap="round"/>
             {/* 右中根2 */}
-            <path d="M223 305 Q235 340 241 370"
+            <path d="M223 450 Q235 485 241 515"
               fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round"/>
             {/* 左細根 */}
-            <path d="M53 380 Q37 395 27 417"
+            <path d="M53 525 Q37 540 27 562"
               fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M47 357 Q30 367 20 385"
+            <path d="M47 502 Q30 512 20 530"
               fill="none" stroke="#A0791A" strokeWidth="1.2" strokeLinecap="round"/>
-            <path d="M155 435 Q140 453 133 475"
+            <path d="M155 580 Q140 598 133 620"
               fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M155 435 Q170 453 177 475"
+            <path d="M155 580 Q170 598 177 620"
               fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
             {/* 右細根 */}
-            <path d="M265 380 Q281 395 291 417"
+            <path d="M265 525 Q281 540 291 562"
               fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M271 357 Q288 367 298 385"
+            <path d="M271 502 Q288 512 298 530"
               fill="none" stroke="#A0791A" strokeWidth="1.2" strokeLinecap="round"/>
           </g>
 
           {/* ── 茎（stroke-dashoffset アニメ） ── */}
           <line
-            x1="160" y1="195" x2="160" y2="36"
+            x1="160" y1="340" x2="160" y2="20"
             stroke="#4A7C59" strokeWidth="4" strokeLinecap="round"
-            strokeDasharray="160" strokeDashoffset={loaded ? 0 : 160}
+            strokeDasharray="320" strokeDashoffset={loaded ? 0 : 320}
             style={{ transition: loaded ? 'stroke-dashoffset 0.6s ease-out 0.3s' : 'none' }}
           />
 
@@ -253,16 +253,16 @@ export default function WelcomePage() {
             }}
           >
             {/* 実1（左） */}
-            <circle cx="118" cy="122" r="16" fill="#D85A30" />
-            <circle cx="118" cy="122" r="16" fill="url(#fruitGrad1)" />
-            <path d="M118 106 Q112 100 108 104" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="118" cy="122" r="22" fill="#D85A30" />
+            <circle cx="118" cy="122" r="22" fill="url(#fruitGrad1)" />
+            <path d="M118 100 Q112 94 108 98" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round" />
             {/* 実2（右） */}
-            <circle cx="196" cy="88" r="14" fill="#D85A30" />
-            <circle cx="196" cy="88" r="14" fill="url(#fruitGrad2)" />
-            <path d="M196 74 Q191 68 188 72" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="196" cy="88" r="20" fill="#D85A30" />
+            <circle cx="196" cy="88" r="20" fill="url(#fruitGrad2)" />
+            <path d="M196 68 Q191 62 188 66" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round" />
             {/* 小さい実 */}
-            <circle cx="140" cy="62" r="10" fill="#C44D28" />
-            <path d="M140 52 Q136 47 133 50" fill="none" stroke="#4A7C59" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="140" cy="62" r="14" fill="#C44D28" />
+            <path d="M140 48 Q136 43 133 46" fill="none" stroke="#4A7C59" strokeWidth="1.5" strokeLinecap="round" />
 
             <defs>
               <radialGradient id="fruitGrad1" cx="35%" cy="35%">

@@ -51,11 +51,11 @@ export default function UsernamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center px-6">
+    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F5F0E8' }}>
       <div className="w-full" style={{ maxWidth: 390 }}>
 
         <div className="mb-10">
-          <h1 className="text-white text-2xl font-semibold leading-snug">
+          <h1 className="text-2xl font-semibold leading-snug" style={{ color: '#3B2F1E' }}>
             あなたの名前を<br />教えてください
           </h1>
         </div>
@@ -71,9 +71,10 @@ export default function UsernamePage() {
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
-            className="w-full bg-transparent border-b border-white/30 text-white text-lg py-3 outline-none placeholder:text-white/30 focus:border-white transition-colors"
+            className="w-full bg-transparent border-b border-[#4A7C59]/35 text-lg py-3 outline-none placeholder-[#A89880] focus:border-[#4A7C59] transition-colors"
+            style={{ color: '#3B2F1E' }}
           />
-          <p className="text-white/30 text-xs mt-2 text-right">
+          <p className="text-xs mt-2 text-right" style={{ color: '#A89880' }}>
             {username.length} / 20
           </p>
         </div>
@@ -87,8 +88,8 @@ export default function UsernamePage() {
           disabled={!isValid || loading}
           className="w-full py-4 rounded-full text-sm font-semibold transition-all"
           style={{
-            background: isValid && !loading ? 'white' : 'rgba(255,255,255,0.12)',
-            color:      isValid && !loading ? 'black' : 'rgba(255,255,255,0.3)',
+            background: isValid && !loading ? '#4A7C59' : '#C4B49A',
+            color:      isValid && !loading ? '#FFFFFF' : '#F5F0E8',
             cursor:     isValid && !loading ? 'pointer' : 'default',
           }}
         >

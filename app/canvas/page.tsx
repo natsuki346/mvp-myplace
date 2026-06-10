@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CanvasView } from '@/src/components/canvas/CanvasView'
+import { useRouter } from 'next/navigation'
+import GardenDisplay from '../home/garden-display'
+import { BottomNav } from '@/src/components/BottomNav'
 import { RoomInviteModal } from '@/src/components/canvas/RoomInviteModal'
-import { supabase } from '@/src/lib/supabase/client'
 
 // ── 完了モーダル ───────────────────────────────────────────────────────────────
 
@@ -62,66 +63,16 @@ function CompleteModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── キャンバス（オンボーディング後の農園画面） ─────────────────────────────────
 
-type ItemKind = 'tag' | 'avatar' | 'shadow-tag'
-type Item = {
-  id: string; kind: ItemKind; content: string
-  x: number; y: number; size: number; rotation: number
-  color?: string; count?: number
-}
-
-const AVATAR: Item = { id: 'avatar', kind: 'avatar', content: '', x: 50, y: 46, size: 108, rotation: 0 }
-
-function toItems(rows: { id: string; text: string; type: 'light' | 'shadow'; color: string; position_x: number; position_y: number }[]): { light: Item[]; shadow: Item[] } {
-  return {
-    light: [
-      AVATAR,
-      ...rows.filter(r => r.type === 'light').map(r => ({
-        id: r.id, kind: 'tag' as const, content: r.text,
-        x: r.position_x * 100, y: r.position_y * 100,
-        size: 14, rotation: 0, color: r.color,
-      })),
-    ],
-    shadow: [
-      { ...AVATAR, id: 'avatar-shadow' },
-      ...rows.filter(r => r.type === 'shadow').map(r => ({
-        id: r.id, kind: 'shadow-tag' as const, content: r.text,
-        x: r.position_x * 100, y: r.position_y * 100,
-        size: 14, rotation: 0, color: r.color, count: 0,
-      })),
-    ],
-  }
-}
+type ModalState = 'none' | 'invite-light' | 'invite-shadow' | 'complete'
 
 export default function CanvasPage() {
-  const [lightItems,  setLightItems]  = useState<Item[] | undefined>(undefined)
-  const [shadowItems, setShadowItems] = useState<Item[] | undefined>(undefined)
-  const [loaded,      setLoaded]      = useState(false)
-  type ModalState = 'none' | 'invite-light' | 'invite-shadow' | 'complete'
-  const [modalState, setModalState]  = useState<ModalState>('none')
-
-  useEffect(() => {
-    const userId = sessionStorage.getItem('user_id')
-    if (!userId) { setLoaded(true); return }
-    supabase
-      .from('tags')
-      .select('id, text, type, color, position_x, position_y')
-      .eq('user_id', userId)
-      .then(({ data, error }) => {
-        if (!error && data && data.length > 0) {
-          const { light, shadow } = toItems(data as Parameters<typeof toItems>[0])
-          setLightItems(light)
-          setShadowItems(shadow)
-        }
-        setLoaded(true)
-      })
-  }, [])
+  const router = useRouter()
+  const [modalState, setModalState] = useState<ModalState>('none')
 
   // モーダル表示制御
   useEffect(() => {
-    if (!loaded) return
-
     // URLパラメータ from= を優先チェック（Room一覧から戻ってきた場合）
     const from = new URLSearchParams(window.location.search).get('from')
     if (from === 'light-room') {
@@ -139,35 +90,56 @@ export default function CanvasPage() {
     const showComplete = sessionStorage.getItem('show_complete_modal')
     if (showComplete) {
       sessionStorage.removeItem('show_complete_modal')
-      setModalState('complete')
-      return
+      const t = setTimeout(() => setModalState('complete'), 0)
+      return () => clearTimeout(t)
     }
     const showShadow = sessionStorage.getItem('show_shadow_modal')
     if (showShadow) {
       sessionStorage.removeItem('show_shadow_modal')
-      setModalState('invite-shadow')
-      return
+      const t = setTimeout(() => setModalState('invite-shadow'), 0)
+      return () => clearTimeout(t)
     }
 
     // 通常フロー: 1秒後に光の部屋誘導
     const t = setTimeout(() => setModalState('invite-light'), 1000)
     return () => clearTimeout(t)
-  }, [loaded])
-
-  if (!loaded) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
-        <span className="text-white/30 text-sm">読み込み中...</span>
-      </div>
-    )
-  }
+  }, [])
 
   return (
-    <>
-      <CanvasView
-        initialLightItems={lightItems}
-        initialShadowItems={shadowItems}
-      />
+    <div
+      className="min-h-screen"
+      style={{ background: '#F5F0E8', maxWidth: 390, margin: '0 auto', position: 'relative' }}
+    >
+      {/* ────────────────── ヘッダー ────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '44px 20px 12px',
+      }}>
+        <h1 style={{ fontSize: 19, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
+          あなたの農園
+        </h1>
+        <button
+          onClick={() => router.push('/onboarding/garden-setup')}
+          aria-label="編集する"
+          style={{
+            width: 38, height: 38, borderRadius: '50%',
+            border: 'none', background: '#FFFFFF',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16, cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(139,115,85,0.18)',
+          }}
+        >
+          ✏️
+        </button>
+      </div>
+
+      {/* ────────────────── 農園表示 ────────────────── */}
+      <div style={{ paddingBottom: 84 }}>
+        <GardenDisplay />
+      </div>
+
+      <BottomNav />
+
       {/* ── 部屋誘導モーダル ── */}
       {(modalState === 'invite-light' || modalState === 'invite-shadow') && (
         <RoomInviteModal
@@ -181,6 +153,6 @@ export default function CanvasPage() {
       {modalState === 'complete' && (
         <CompleteModal onClose={() => setModalState('none')} />
       )}
-    </>
+    </div>
   )
 }

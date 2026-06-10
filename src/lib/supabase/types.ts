@@ -8,14 +8,16 @@ export type Database = {
       }
       tags: {
         Row: {
-          id:         string
-          user_id:    string
-          text:       string
-          type:       'light' | 'shadow'
-          color:      string
-          position_x: number
-          position_y: number
-          created_at: string
+          id:           string
+          user_id:      string
+          text:         string
+          type:         'light' | 'shadow'
+          color:        string
+          position_x:   number
+          position_y:   number
+          created_at:   string
+          is_active:    boolean
+          growth_point: number
         }
         Insert: {
           user_id:     string
@@ -26,9 +28,28 @@ export type Database = {
           position_y?: number
         }
         Update: {
-          color?:      string
-          position_x?: number
-          position_y?: number
+          color?:        string
+          position_x?:   number
+          position_y?:   number
+          is_active?:    boolean
+          growth_point?: number
+        }
+      }
+      messages: {
+        Row: {
+          id:         string
+          tag_id:     string
+          user_id:    string
+          content:    string
+          created_at: string
+        }
+        Insert: {
+          tag_id:  string
+          user_id: string
+          content: string
+        }
+        Update: {
+          content?: string
         }
       }
     }

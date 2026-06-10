@@ -5,23 +5,26 @@ import { useRouter } from 'next/navigation'
 
 type StepStatus = 'done' | 'current' | 'future'
 
-// 静的ラベル（ステータスは ?step クエリで動的生成）
 const STEP_LABELS = [
-  { label: 'あなたを登録する',       desc: 'ユーザーネームを決めました' },
-  { label: '自分に出会う時',         desc: '4つの問いから自分自身に出会える時' },
-  { label: '自分をデコる時',         desc: '自分という人間をデザインできる場所' },
-  { label: '共鳴の場が広がる時',     desc: '同じ境遇を持つ人と偶然すれちがう場所。名前も顔も関係ない、言葉だけで共鳴できる' },
-  { label: '本物のつながりへ',       desc: 'ありのままの真実が、新しい出会いを生む' },
+  { label: '土を耕す',       desc: 'あなたという畑を、ここに作る' },
+  { label: 'タネを理解する', desc: '4つの問いで、自分という種の性質を知る' },
+  { label: 'タネを蒔く',     desc: '自分をデザインし、世界に差し出す' },
+  { label: '農園が広がる',   desc: '同じ土で育つ人と、言葉だけで出会う' },
+  { label: '実になる',       desc: 'ありのままで収穫される、本当の自分へ' },
 ]
 
-function StepIndicator({ status }: { status: StepStatus }) {
+// ステップごとの色（土→種→新芽→葉→実）
+const STEP_COLORS = ['#8B6914', '#C4A35A', '#4A7C59', '#6B9E78', '#C0392B']
+
+function StepIndicator({ status, color }: { status: StepStatus; color: string }) {
   if (status === 'done') {
     return (
       <div style={{
         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-        background: '#1a1400', border: '1.5px solid #c9a84c',
+        background: color + '22',
+        border: `1.5px solid ${color}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, color: '#c9a84c',
+        fontSize: 14, color: color,
       }}>✓</div>
     )
   }
@@ -29,19 +32,18 @@ function StepIndicator({ status }: { status: StepStatus }) {
     return (
       <div style={{
         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-        background: '#f0f0f0',
+        background: color,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 0 0 4px rgba(240,240,240,0.10)',
+        boxShadow: `0 0 0 4px ${color}30`,
       }}>
-        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#080808' }} />
+        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffffff' }} />
       </div>
     )
   }
   return (
     <div style={{
       width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-      border: '1.5px solid #2a2a2a',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      border: `1.5px solid ${color}50`,
     }} />
   )
 }
@@ -55,7 +57,6 @@ export default function ProcessMapPage() {
     setCurrentStep([1, 2, 3].includes(s) ? s : 1)
   }, [])
 
-  // ?step=N → index(N-1) まで 'done'（✓）、index(N) が 'current'（次ここ）、以降が 'future'
   const STEPS = STEP_LABELS.map((item, i): { label: string; desc: string; status: StepStatus } => ({
     ...item,
     status: i < currentStep ? 'done' : i === currentStep ? 'current' : 'future',
@@ -64,15 +65,15 @@ export default function ProcessMapPage() {
   return (
     <div
       className="flex flex-col min-h-screen px-6 pt-14 pb-10"
-      style={{ background: '#080808', maxWidth: 390, margin: '0 auto' }}
+      style={{ background: '#F5F0E8', maxWidth: 390, margin: '0 auto' }}
     >
       {/* ヘッダー */}
       <div className="mb-10">
-        <p style={{ fontSize: 11, letterSpacing: '0.12em', color: '#404040', marginBottom: 8, textTransform: 'uppercase' }}>
-          WhyMe でできること
+        <p style={{ fontSize: 11, letterSpacing: '0.12em', color: '#8B7355', marginBottom: 8 }}>
+          あなたという畑の、物語。
         </p>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f0', lineHeight: 1.4 }}>
-          主人公になる、その前に。
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.4 }}>
+          種を蒔くところから、始めよう。
         </h1>
       </div>
 
@@ -81,17 +82,17 @@ export default function ProcessMapPage() {
         {STEPS.map((step, i) => {
           const isDone    = step.status === 'done'
           const isCurrent = step.status === 'current'
-          const isFuture  = step.status === 'future'
+          const color     = STEP_COLORS[i]
 
           return (
             <div key={i} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', paddingBottom: 28 }}>
-              {/* インジケーター + 縦線 */}
+              {/* インジケーター + 縦線（茎） */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <StepIndicator status={step.status} />
+                <StepIndicator status={step.status} color={color} />
                 {i < STEPS.length - 1 && (
                   <div style={{
                     width: 1.5, flex: 1, minHeight: 24, marginTop: 6,
-                    background: isDone ? '#c9a84c' : '#1a1a1a',
+                    background: isDone ? '#4A7C59' : 'rgba(74,124,89,0.2)',
                   }} />
                 )}
               </div>
@@ -100,18 +101,18 @@ export default function ProcessMapPage() {
               <div style={{ paddingTop: 4 }}>
                 <p style={{
                   fontSize: 15, fontWeight: isCurrent ? 700 : 500,
-                  color: isDone    ? '#606060'
-                       : isCurrent ? '#f0f0f0'
-                       : '#2a2a2a',
+                  color: isDone    ? '#8B7355'
+                       : isCurrent ? '#3B2F1E'
+                       : '#B0A080',
                   marginBottom: 3, lineHeight: 1.4,
                 }}>
                   {step.label}
                 </p>
                 <p style={{
                   fontSize: 12,
-                  color: isDone    ? '#404040'
-                       : isCurrent ? '#a0a0a0'
-                       : '#1a1a1a',
+                  color: isDone    ? '#A0876A'
+                       : isCurrent ? '#7A6040'
+                       : '#C0A880',
                   lineHeight: 1.5,
                 }}>
                   {step.desc}
@@ -120,7 +121,7 @@ export default function ProcessMapPage() {
                   <span style={{
                     display: 'inline-block', marginTop: 6,
                     fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
-                    color: '#080808', background: '#f0f0f0',
+                    color: '#ffffff', background: '#4A7C59',
                     padding: '2px 8px', borderRadius: 20,
                   }}>次ここ</span>
                 )}
@@ -140,9 +141,9 @@ export default function ProcessMapPage() {
         style={{
           width: '100%', padding: '16px',
           borderRadius: 30, border: 'none', cursor: 'pointer',
-          background: '#f0f0f0', color: '#080808',
+          background: '#4A7C59', color: '#ffffff',
           fontSize: 15, fontWeight: 700,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+          boxShadow: '0 4px 16px rgba(74,124,89,0.35)',
         }}
       >
         はじめる →
