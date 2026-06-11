@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/src/lib/supabase/client'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
+import WateringAnimation from '@/src/components/tutorial/WateringAnimation'
 import RoomChatSheet from './RoomChatSheet'
+import ThanksModal from './ThanksModal'
 
 type Tag = { id: string; text: string }
 
@@ -27,11 +30,13 @@ const SOIL_PARTICLES = [
 ]
 
 export default function ShadowRoomView() {
+  const { step, advanceStep } = useTutorialStep()
   const [tags, setTags]               = useState<Tag[]>([])
   const [loading, setLoading]         = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
   const [spacer, setSpacer]           = useState(0)
   const [openTag, setOpenTag]         = useState<Tag | null>(null)
+  const [flowPhase, setFlowPhase]     = useState<'watering' | 'thanks' | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -91,6 +96,42 @@ export default function ShadowRoomView() {
 
       {/* 土壌断面 + タネカルーセル */}
       <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, height: SECTION_HEIGHT, overflow: 'hidden' }}>
+        {/* 先頭のRoomへの誘導矢印 */}
+        {step === 'room_chat' && !openTag && (
+          <div
+            className="absolute flex flex-col items-center"
+            style={{ left: '50%', top: 4, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
+          >
+            <div className="flex flex-col items-center animate-bounce">
+              <div
+                className="rounded-xl px-3 py-2"
+                style={{
+                  background: '#fff',
+                  border: '1.5px solid #8B6914',
+                  color: '#3B2F1E',
+                  fontSize: 12,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                タップして話してみよう
+              </div>
+              <span style={{ fontSize: 0, lineHeight: 0 }}>
+                <span
+                  style={{
+                    display: 'block', width: 0, height: 0, margin: '0 auto',
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent',
+                    borderTop: '6px solid #8B6914',
+                  }}
+                />
+              </span>
+              <span style={{ fontSize: 22, color: '#8B6914', marginTop: 2, lineHeight: 1 }}>
+                ↓
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* 土壌断面SVG（背景） */}
         <svg
           viewBox={`0 0 390 ${SECTION_HEIGHT}`}
@@ -140,17 +181,17 @@ export default function ShadowRoomView() {
                   background: 'none', border: 'none', cursor: 'pointer',
                 }}
               >
-                {/* ハッシュタグラベル：土の上に浮かぶ */}
-                <span style={{
-                  position: 'absolute', top: LABEL_TOP, left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  fontSize: 11, fontWeight: 600, color: '#fff', background: '#8B6914',
-                  borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap',
-                  opacity: active ? 1 : 0.55,
-                  transition: 'opacity 0.25s ease',
-                }}>
-                  {formatHashtag(tag.text)}
-                </span>
+                {/* ハッシュタグラベル：土の上に浮かぶ（中央＝アクティブな種のみ表示） */}
+                {active && (
+                  <span style={{
+                    position: 'absolute', top: LABEL_TOP, left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    fontSize: 11, fontWeight: 600, color: '#fff', background: '#8B6914',
+                    borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap',
+                  }}>
+                    {formatHashtag(tag.text)}
+                  </span>
+                )}
 
                 {/* タネ：土の層の中 */}
                 <div style={{
@@ -172,7 +213,24 @@ export default function ShadowRoomView() {
       </div>
 
       {openTag && (
-        <RoomChatSheet type="shadow" tagId={openTag.id} tagText={openTag.text} onClose={() => setOpenTag(null)} />
+        <RoomChatSheet
+          type="shadow"
+          tagId={openTag.id}
+          tagText={openTag.text}
+          onClose={() => {
+            setOpenTag(null)
+            if (step === 'room_chat') advanceStep('watering')
+            else setFlowPhase('watering')
+          }}
+        />
+      )}
+
+      {flowPhase === 'watering' && (
+        <WateringAnimation onComplete={() => setFlowPhase('thanks')} />
+      )}
+
+      {flowPhase === 'thanks' && (
+        <ThanksModal onClose={() => setFlowPhase(null)} />
       )}
     </div>
   )

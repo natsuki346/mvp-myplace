@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import { getMatchingTags, incrementGrowthPoint, creditDailyView } from '@/src/lib/supabase/rooms'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
+import RootGrowAnimation, { ROOT_GROW_SHOWN_KEY } from '@/src/components/tutorial/RootGrowAnimation'
+import { DUMMY_MESSAGES } from './dummy-messages'
 
 type Message = { id: string; tag_id: string; user_id: string; content: string; created_at: string }
 
 const THEME = {
   light: {
-    bg: '#ffffff', headerBorder: 'rgba(0,0,0,0.08)', text: '#1a1a1a',
-    sub: 'rgba(0,0,0,0.35)', back: 'rgba(0,0,0,0.4)',
+    bg: '#ffffff', headerBg: '#ffffff', headerBorder: 'rgba(0,0,0,0.08)', text: '#1a1a1a',
+    sub: 'rgba(0,0,0,0.35)', headerSub: 'rgba(0,0,0,0.35)', back: 'rgba(0,0,0,0.4)',
     mineBg: '#1a1a1a', mineText: '#ffffff',
     otherBg: 'rgba(0,0,0,0.06)', otherText: '#1a1a1a',
     inputBorder: 'rgba(0,0,0,0.12)', inputBg: 'rgba(0,0,0,0.03)',
@@ -18,13 +21,13 @@ const THEME = {
     icon: '☀️', label: '実の部屋', backHref: '/onboarding/room-visit/light',
   },
   shadow: {
-    bg: '#1a1a2e', headerBorder: 'rgba(255,255,255,0.07)', text: '#ffffff',
-    sub: 'rgba(255,255,255,0.32)', back: 'rgba(255,255,255,0.35)',
-    mineBg: 'rgba(167,139,250,0.85)', mineText: '#ffffff',
-    otherBg: 'rgba(255,255,255,0.08)', otherText: '#ffffff',
-    inputBorder: 'rgba(255,255,255,0.12)', inputBg: 'rgba(255,255,255,0.06)',
-    sendActive: 'rgba(167,139,250,0.85)', sendInactiveBg: 'rgba(255,255,255,0.08)', sendInactiveText: 'rgba(255,255,255,0.25)',
-    icon: '🌙', label: '根の部屋', backHref: '/onboarding/room-visit/shadow',
+    bg: '#F5F0E8', headerBg: '#EFE5D2', headerBorder: 'rgba(59,47,30,0.08)', text: '#3B2F1E',
+    sub: '#8B7355', headerSub: '#8B6914', back: '#8B6914',
+    mineBg: '#8B6914', mineText: '#ffffff',
+    otherBg: '#ffffff', otherText: '#3B2F1E',
+    inputBorder: '#D4B896', inputBg: '#ffffff',
+    sendActive: '#8B6914', sendInactiveBg: 'rgba(139,105,20,0.12)', sendInactiveText: 'rgba(139,105,20,0.35)',
+    icon: '🌱', label: '根の部屋', backHref: '/onboarding/room-visit/shadow',
   },
 } as const
 
@@ -33,15 +36,23 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
   const params = useParams<{ tag: string }>()
   const tag = decodeURIComponent(params.tag ?? '')
   const theme = THEME[type]
+  const dummyMessages = DUMMY_MESSAGES[type]
+  const { step } = useTutorialStep()
 
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [ownTagId, setOwnTagId] = useState<string | null>(null)
+  const [alreadyShownRootGrow] = useState(
+    () => typeof window !== 'undefined' && sessionStorage.getItem(ROOT_GROW_SHOWN_KEY) === '1'
+  )
+  const [rootGrowDone, setRootGrowDone] = useState(false)
 
   const matchingIdsRef = useRef<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  const showRootGrow = !alreadyShownRootGrow && !rootGrowDone && type === 'shadow' && step === 'ne_room_explore'
 
   useEffect(() => {
     let cancelled = false
@@ -132,6 +143,7 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
       <div style={{
         flexShrink: 0, padding: '16px 20px',
         borderBottom: `1px solid ${theme.headerBorder}`,
+        background: theme.headerBg,
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
         <button
@@ -142,7 +154,7 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: theme.text }}>
             {tag} の部屋
           </p>
-          <p style={{ margin: 0, fontSize: 11, color: theme.sub }}>{theme.icon} {theme.label}</p>
+          <p style={{ margin: 0, fontSize: 11, color: theme.headerSub }}>{theme.icon} {theme.label}</p>
         </div>
       </div>
 
@@ -150,28 +162,47 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px' }}>
         {loading ? (
           <p className="text-sm text-center" style={{ color: theme.sub }}>読み込み中...</p>
-        ) : messages.length === 0 ? (
-          <p className="text-sm text-center" style={{ color: theme.sub }}>まだメッセージはありません</p>
-        ) : messages.map(msg => {
-          const mine = msg.user_id === userId
-          return (
-            <div
-              key={msg.id}
-              style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}
-            >
-              <div style={{
-                maxWidth: '72%',
-                padding: '10px 14px',
-                borderRadius: mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                background: mine ? theme.mineBg : theme.otherBg,
-                color: mine ? theme.mineText : theme.otherText,
-                fontSize: 14, lineHeight: 1.5,
-              }}>
-                <p style={{ margin: 0 }}>{msg.content}</p>
+        ) : (
+          <>
+            {dummyMessages.map(m => (
+              <div
+                key={m.id}
+                style={{ display: 'flex', justifyContent: m.mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}
+              >
+                <div style={{
+                  maxWidth: '72%',
+                  padding: '10px 14px',
+                  borderRadius: m.mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  background: m.mine ? theme.mineBg : theme.otherBg,
+                  color: m.mine ? theme.mineText : theme.otherText,
+                  fontSize: 14, lineHeight: 1.5,
+                }}>
+                  <p style={{ margin: 0 }}>{m.content}</p>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            ))}
+            {messages.map(msg => {
+              const mine = msg.user_id === userId
+              return (
+                <div
+                  key={msg.id}
+                  style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}
+                >
+                  <div style={{
+                    maxWidth: '72%',
+                    padding: '10px 14px',
+                    borderRadius: mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    background: mine ? theme.mineBg : theme.otherBg,
+                    color: mine ? theme.mineText : theme.otherText,
+                    fontSize: 14, lineHeight: 1.5,
+                  }}>
+                    <p style={{ margin: 0 }}>{msg.content}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -206,6 +237,9 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
         >›</button>
       </div>
 
+      {showRootGrow && (
+        <RootGrowAnimation onComplete={() => setRootGrowDone(true)} />
+      )}
     </div>
   )
 }

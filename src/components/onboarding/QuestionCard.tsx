@@ -240,6 +240,11 @@ export function QuestionCard({
     onComplete(registeredTags)
   }
 
+  const handleSkip = () => {
+    setRegisteredTags([])
+    onComplete([])
+  }
+
   const visibleTags   = showAll ? registeredTags : registeredTags.slice(0, MAX_VISIBLE)
   const overflowCount = registeredTags.length - MAX_VISIBLE
 
@@ -252,6 +257,21 @@ export function QuestionCard({
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
         {isLight ? <FruitBg /> : <RootBg />}
       </div>
+
+      {/* ── スキップ ── */}
+      <button
+        onClick={handleSkip}
+        className="absolute"
+        style={{
+          top: 8, right: 8, zIndex: 2,
+          padding: '8px 12px',
+          fontSize: 13, color: '#8B7355',
+          background: 'none', border: 'none', textDecoration: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        スキップ
+      </button>
 
       <div style={{ maxWidth: 390, width: '100%', margin: '0 auto', position: 'relative', zIndex: 1 }}>
 

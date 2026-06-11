@@ -5,8 +5,12 @@ import { useRouter } from 'next/navigation'
 import LightRoomView from './LightRoomView'
 import ShadowRoomView from './ShadowRoomView'
 import { BottomNav } from '@/src/components/BottomNav'
-import { useTutorial } from '@/src/components/tutorial/useTutorial'
-import RoomExplainCard from '@/src/components/tutorial/RoomExplainCard'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
+import RoomExplainFlow from '@/src/components/tutorial/RoomExplainFlow'
+import WateringAnimation from '@/src/components/tutorial/WateringAnimation'
+import GrowthModal from '@/src/components/tutorial/GrowthModal'
+import ThanksModal from './ThanksModal'
+import { creditAllShadowTags } from '@/src/lib/supabase/rooms'
 
 type RoomType = 'light' | 'shadow'
 
@@ -20,20 +24,32 @@ const TAB_CONFIG: Record<RoomType, { label: string; icon: string }> = {
 const ACTIVE_BG   = '#4A7C59'
 const INACTIVE_BG = '#C4B49A'
 
+type TutorialPhase = 'explain_light' | 'explain_shadow' | 'watering' | 'growth' | 'thanks' | null
+
 export default function RoomTabsPage({ type }: { type: RoomType }) {
   const router = useRouter()
-  const { step, advanceStep } = useTutorial()
+  const { step, advanceStep } = useTutorialStep()
 
-  const [explain, setExplain] = useState<'mi' | 'ne' | null>(() => {
-    if (step === 'explain_mi_room') return 'mi'
-    if (step === 'explain_ne_room' && type === 'shadow') return 'ne'
-    return null
-  })
+  const [growthShown, setGrowthShown] = useState(false)
+  const [thanksShown, setThanksShown] = useState(false)
 
-  const closeExplain = () => {
-    if (explain === 'mi') advanceStep('explain_ne_room')
-    else if (explain === 'ne') advanceStep('done')
-    setExplain(null)
+  const phase: TutorialPhase =
+    step === 'room_explain' ? 'explain_light'
+    : step === 'room_explain_shadow' ? 'explain_shadow'
+    : step === 'watering'
+      ? (thanksShown ? 'thanks' : growthShown ? 'growth' : 'watering')
+      : null
+
+  const handleTabClick = (t: RoomType) => {
+    router.replace(`/room/${t}`)
+  }
+
+  const handleGrowthStart = () => {
+    ;(async () => {
+      const userId = typeof window !== 'undefined' ? sessionStorage.getItem('user_id') : null
+      if (userId) await creditAllShadowTags(userId)
+      setThanksShown(true)
+    })()
   }
 
   return (
@@ -56,7 +72,7 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
           return (
             <button
               key={t}
-              onClick={() => router.replace(`/room/${t}`)}
+              onClick={() => handleTabClick(t)}
               className="flex-1 py-3 rounded-xl text-sm font-bold"
               style={{
                 background: active ? ACTIVE_BG : INACTIVE_BG,
@@ -72,9 +88,32 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
 
       {type === 'light' ? <LightRoomView /> : <ShadowRoomView />}
 
-      <BottomNav />
+      <BottomNav
+        onHomeClick={() => {
+          if (step === 'mi_room_explore') advanceStep('ne_room_popup')
+          else if (step === 'ne_room_explore') advanceStep('completion_modal')
+        }}
+      />
 
-      {explain && <RoomExplainCard type={explain} onClose={closeExplain} />}
+      {phase === 'explain_light' && (
+        <RoomExplainFlow page={0} onNext={() => advanceStep('room_chat_light')} />
+      )}
+
+      {phase === 'explain_shadow' && (
+        <RoomExplainFlow page={1} onNext={() => { advanceStep('room_chat'); router.replace('/room/shadow') }} />
+      )}
+
+      {phase === 'watering' && (
+        <WateringAnimation onComplete={() => setGrowthShown(true)} />
+      )}
+
+      {phase === 'growth' && (
+        <GrowthModal onStart={handleGrowthStart} />
+      )}
+
+      {phase === 'thanks' && (
+        <ThanksModal onClose={() => advanceStep('done')} />
+      )}
     </div>
   )
 }

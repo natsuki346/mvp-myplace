@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/src/lib/supabase/client'
 import { formatHashtag, MaterialIcon } from '@/app/onboarding/garden-setup/garden-visuals'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import RoomChatSheet from './RoomChatSheet'
 
 type Tag = { id: string; text: string }
@@ -12,6 +13,7 @@ const GAP = 16
 const STEP = ITEM_WIDTH + GAP
 
 export default function LightRoomView() {
+  const { step, advanceStep } = useTutorialStep()
   const [tags, setTags]               = useState<Tag[]>([])
   const [loading, setLoading]         = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -70,24 +72,62 @@ export default function LightRoomView() {
 
   return (
     <div>
-      {/* 土の境界線 */}
-      <div style={{
-        marginLeft: -24, marginRight: -24, height: 56,
-        background: 'linear-gradient(to bottom, #E8DEC8 0%, #CCBA96 100%)',
-        borderBottom: '3px solid #8B6914',
-      }} />
+      {/* 土の境界線 + 実カルーセル */}
+      <div style={{ position: 'relative' }}>
+        {/* 先頭のRoomへの誘導矢印 */}
+        {step === 'room_chat_light' && !openTag && (
+          <div
+            className="absolute flex flex-col items-center"
+            style={{ left: '50%', top: 0, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
+          >
+            <div className="flex flex-col items-center animate-bounce">
+              <div
+                className="rounded-xl px-3 py-2"
+                style={{
+                  background: '#fff',
+                  border: '1.5px solid #4A7C59',
+                  color: '#3B2F1E',
+                  fontSize: 12,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                タップして話してみよう
+              </div>
+              <span style={{ fontSize: 0, lineHeight: 0 }}>
+                <span
+                  style={{
+                    display: 'block', width: 0, height: 0, margin: '0 auto',
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent',
+                    borderTop: '6px solid #4A7C59',
+                  }}
+                />
+              </span>
+              <span style={{ fontSize: 22, color: '#4A7C59', marginTop: 2, lineHeight: 1 }}>
+                ↓
+              </span>
+            </div>
+          </div>
+        )}
 
-      {/* 実カルーセル：境界線をまたいで実が並ぶ */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex"
-        style={{
-          marginLeft: -24, marginRight: -24, marginTop: -28,
-          overflowX: 'auto', scrollSnapType: 'x mandatory',
-          gap: GAP, paddingBottom: 24,
-        }}
-      >
+        {/* 土の境界線 */}
+        <div style={{
+          marginLeft: -24, marginRight: -24, height: 56,
+          background: 'linear-gradient(to bottom, #E8DEC8 0%, #CCBA96 100%)',
+          borderBottom: '3px solid #8B6914',
+        }} />
+
+        {/* 実カルーセル：境界線をまたいで実が並ぶ */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex"
+          style={{
+            marginLeft: -24, marginRight: -24, marginTop: -28,
+            overflowX: 'auto', scrollSnapType: 'x mandatory',
+            gap: GAP, paddingBottom: 24,
+          }}
+        >
         <div style={{ flexShrink: 0, width: spacer }} />
         {tags.map((tag, i) => {
           const active = i === activeIndex
@@ -106,16 +146,19 @@ export default function LightRoomView() {
               }}
             >
               <MaterialIcon type="tomato" size={56} />
-              <span style={{
-                fontSize: 11, fontWeight: 600, color: '#fff', background: '#E86848',
-                borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap',
-              }}>
-                {formatHashtag(tag.text)}
-              </span>
+              {active && (
+                <span style={{
+                  fontSize: 11, fontWeight: 600, color: '#fff', background: '#E86848',
+                  borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap',
+                }}>
+                  {formatHashtag(tag.text)}
+                </span>
+              )}
             </button>
           )
         })}
         <div style={{ flexShrink: 0, width: spacer }} />
+        </div>
       </div>
 
       <p className="text-center text-xs" style={{ color: 'rgba(59,47,30,0.45)' }}>
@@ -123,7 +166,15 @@ export default function LightRoomView() {
       </p>
 
       {openTag && (
-        <RoomChatSheet type="light" tagId={openTag.id} tagText={openTag.text} onClose={() => setOpenTag(null)} />
+        <RoomChatSheet
+          type="light"
+          tagId={openTag.id}
+          tagText={openTag.text}
+          onClose={() => {
+            setOpenTag(null)
+            if (step === 'room_chat_light') advanceStep('room_explain_shadow')
+          }}
+        />
       )}
     </div>
   )

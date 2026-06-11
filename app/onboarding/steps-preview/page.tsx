@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 
 // ?step=N → 表示開始カード（配列インデックス）と遷移先のマッピング
 // startIndex  : スライドの表示開始位置（最初に見せるカード）
@@ -217,6 +218,7 @@ function StepMedia({ image, video, alt }: { image: string; video?: string; alt: 
 
 export default function StepsPreviewPage() {
   const router = useRouter()
+  const { step: tutorialStep, advanceStep } = useTutorialStep()
   const [queryStep,   setQueryStep]   = useState(DEFAULT_STEP)
   const [activeIndex, setActiveIndex] = useState(STEP_CONFIG[DEFAULT_STEP].startIndex)
   const [btnPressed,  setBtnPressed]  = useState(false)
@@ -250,7 +252,9 @@ export default function StepsPreviewPage() {
 
   const step        = STEPS[activeIndex]
   const initialIdx  = STEP_CONFIG[queryStep].thresholdIdx
-  const destination = STEP_CONFIG[queryStep].destination
+  const destination = (queryStep === 3 && tutorialStep === 'step_cards')
+    ? '/home'
+    : STEP_CONFIG[queryStep].destination
   const isLast      = activeIndex === STEPS.length - 1
   const isCurrent   = activeIndex === initialIdx   // 「今ここ」バッジ表示
   const showStart   = activeIndex >= initialIdx || isLast  // 「はじめる」表示
@@ -511,7 +515,10 @@ export default function StepsPreviewPage() {
         {/* はじめる ボタン（現在地 or 最後のカードで表示） */}
         {showStart ? (
           <button
-            onClick={() => router.push(destination)}
+            onClick={() => {
+              if (queryStep === 3 && tutorialStep === 'step_cards') advanceStep('mi_room_popup')
+              router.push(destination)
+            }}
             onMouseDown={() => setBtnPressed(true)}
             onMouseUp={() => setBtnPressed(false)}
             onMouseLeave={() => setBtnPressed(false)}

@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation'
 import RoomCardList from '@/app/room/RoomCardList'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 
 export default function ShadowRoomVisitPage() {
   const router = useRouter()
+  const { step, advanceStep } = useTutorialStep()
 
   return (
     <div
@@ -12,7 +14,14 @@ export default function ShadowRoomVisitPage() {
       style={{ background: '#F5F0E8', maxWidth: 390, margin: '0 auto' }}
     >
       <button
-        onClick={() => router.push('/canvas?from=shadow-room')}
+        onClick={() => {
+          if (step === 'ne_room_explore') {
+            advanceStep('completion_modal')
+            router.push('/home')
+          } else {
+            router.push('/canvas?from=shadow-room')
+          }
+        }}
         className="text-sm mb-8 flex items-center gap-1"
         style={{ color: 'rgba(59,47,30,0.45)', background: 'none', border: 'none', cursor: 'pointer' }}
       >

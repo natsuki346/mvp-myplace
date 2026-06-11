@@ -10,9 +10,10 @@ const NAV_ITEMS = [
 
 type BottomNavProps = {
   onRoomClick?: () => void
+  onHomeClick?: () => void
 }
 
-export function BottomNav({ onRoomClick }: BottomNavProps = {}) {
+export function BottomNav({ onRoomClick, onHomeClick }: BottomNavProps = {}) {
   const router   = useRouter()
   const pathname = usePathname()
 
@@ -33,6 +34,7 @@ export function BottomNav({ onRoomClick }: BottomNavProps = {}) {
             key={item.path}
             onClick={() => {
               if (item.path === '/room/light') onRoomClick?.()
+              if (item.path === '/home') onHomeClick?.()
               router.push(item.path)
             }}
             style={{

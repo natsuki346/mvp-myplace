@@ -1,19 +1,17 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import GardenDisplay from './garden-display'
 import { BottomNav } from '@/src/components/BottomNav'
-import { useTutorial } from '@/src/components/tutorial/useTutorial'
-import TutorialOverlay from '@/src/components/tutorial/TutorialOverlay'
-import { isRoomOnboardingDone } from '@/src/lib/onboarding'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
+import MiRoomPopup from '@/src/components/tutorial/MiRoomPopup'
+import NeRoomPopup from '@/src/components/tutorial/NeRoomPopup'
+import CompletionModal from '@/src/components/tutorial/CompletionModal'
+import RoomNavArrow from '@/src/components/tutorial/RoomNavArrow'
 
 export default function HomePage() {
   const router = useRouter()
-  const { step, advanceStep } = useTutorial()
-  // ルーム案内チュートリアルは、オンボーディングの完了モーダルが出た後に開始する
-  const [roomOnboardingDone] = useState(isRoomOnboardingDone)
-  const tutorialActive = roomOnboardingDone && step === 'point_room_nav'
+  const { step, advanceStep } = useTutorialStep()
 
   return (
     <div
@@ -49,9 +47,27 @@ export default function HomePage() {
         <GardenDisplay />
       </div>
 
-      <BottomNav onRoomClick={() => { if (tutorialActive) advanceStep('explain_mi_room') }} />
+      <BottomNav onRoomClick={() => { if (step === 'room_nav_arrow') advanceStep('room_explain') }} />
 
-      {tutorialActive && <TutorialOverlay />}
+      {step === 'mi_room_popup' && (
+        <MiRoomPopup
+          onVisit={() => { advanceStep('mi_room_explore'); router.push('/onboarding/room-visit/light') }}
+          onSkip={() => advanceStep('ne_room_popup')}
+        />
+      )}
+
+      {step === 'ne_room_popup' && (
+        <NeRoomPopup
+          onVisit={() => { advanceStep('ne_room_explore'); router.push('/onboarding/room-visit/shadow') }}
+          onSkip={() => advanceStep('completion_modal')}
+        />
+      )}
+
+      {step === 'completion_modal' && (
+        <CompletionModal onClose={() => advanceStep('room_nav_arrow')} />
+      )}
+
+      {step === 'room_nav_arrow' && <RoomNavArrow />}
     </div>
   )
 }

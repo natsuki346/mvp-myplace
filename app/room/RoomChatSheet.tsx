@@ -30,6 +30,7 @@ export default function RoomChatSheet({
   const [userId] = useState<string | null>(() => sessionStorage.getItem('user_id'))
   const bottomRef = useRef<HTMLDivElement>(null)
   const theme = THEME[type]
+  const dummyMessages = DUMMY_MESSAGES[type]
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 20)
@@ -126,7 +127,7 @@ export default function RoomChatSheet({
 
         {/* Messages（匿名表示：名前・アイコンなし） */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-          {DUMMY_MESSAGES.map(m => (
+          {dummyMessages.map(m => (
             <div key={m.id} style={{ display: 'flex', justifyContent: m.mine ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
               <div style={{
                 maxWidth: '72%', padding: '10px 14px',

@@ -361,7 +361,8 @@ export default function GardenSetupPage() {
   const handleComplete = () => {
     if (!allRootTagsPlaced) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ tags: plantTags, roots: rootNodes }))
-    router.push('/home')
+    localStorage.setItem('whyme_tutorial_step', 'process_mapping')
+    router.push('/process-map?step=3')
   }
 
   return (

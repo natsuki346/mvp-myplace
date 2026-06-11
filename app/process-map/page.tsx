@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 
 type StepStatus = 'done' | 'current' | 'future'
 
@@ -50,6 +51,7 @@ function StepIndicator({ status, color }: { status: StepStatus; color: string })
 
 export default function ProcessMapPage() {
   const router = useRouter()
+  const { step: tutorialStep, advanceStep } = useTutorialStep()
   const [currentStep, setCurrentStep] = useState(1)
 
   useEffect(() => {
@@ -134,6 +136,7 @@ export default function ProcessMapPage() {
       {/* CTA ボタン */}
       <button
         onClick={() => {
+          if (tutorialStep === 'process_mapping') advanceStep('step_cards')
           if (currentStep === 1) router.push('/onboarding/steps-preview?step=1')
           else if (currentStep === 2) router.push('/onboarding/steps-preview?step=2')
           else router.push('/onboarding/steps-preview?step=3')
