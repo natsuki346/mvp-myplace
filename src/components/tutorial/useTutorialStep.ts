@@ -5,18 +5,15 @@ import { useCallback, useSyncExternalStore } from 'react'
 export type TutorialStep =
   | 'process_mapping'  // ① プロセスマッピング
   | 'step_cards'       // ② STEPカード群
-  | 'mi_room_popup'    // ④ 実の部屋訪問ポップアップ
-  | 'mi_room_explore'  // ⑤ 実の部屋体験中
-  | 'ne_room_popup'    // ⑥ 根の部屋訪問ポップアップ
-  | 'ne_room_explore'  // ⑦ 根の部屋体験中
-  | 'completion_modal' // ⑧ 完了モーダル
-  | 'room_nav_arrow'   // ⑨ 矢印ガイド
-  | 'room_explain'        // ルームの仕組み説明（実の部屋）
-  | 'room_chat_light'     // チャット体験（実の部屋）
-  | 'room_explain_shadow' // ルームの仕組み説明（根の部屋）
-  | 'room_chat'           // チャット体験（根の部屋）
-  | 'watering'            // 水やり演出
-  | 'done'             // 完了
+  | 'room_nav_arrow'   // ③ ルームへの矢印ガイド
+  | 'room_intro'       // ④ ルームってなに？説明モーダル
+  | 'room_explain_mi'  // ⑤ 実の部屋の説明モーダル
+  | 'room_chat_mi'     // ⑥ 実の部屋チャット（閲覧モード）
+  | 'ne_room_popup'    // ⑦ 根の部屋ものぞきますか？ポップアップ
+  | 'room_explain_ne'  // ⑧ 根の部屋の説明モーダル
+  | 'room_chat_ne'     // ⑨ 根の部屋チャット（閲覧モード）
+  | 'watering'         // ⑩ 水やり演出
+  | 'done'             // ⑪ 完了
 
 const STORAGE_KEY = 'whyme_tutorial_step'
 

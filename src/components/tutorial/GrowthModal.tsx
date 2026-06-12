@@ -38,9 +38,9 @@ export default function GrowthModal({ onStart }: GrowthModalProps) {
           💧 growth point +1
         </span>
 
-        <h2 className="text-lg font-bold mb-2" style={{ color: '#3B2F1E' }}>芽が出はじめました</h2>
+        <h2 className="text-lg font-bold mb-2" style={{ color: '#3B2F1E' }}>向き合えてえらい！</h2>
         <p className="text-sm mb-6" style={{ color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-          {'根の部屋を訪れるたび、種に水が撒かれます。\n話さなくても、ここにいるだけで大丈夫。'}
+          {'根の部屋は、向き合うとタネに水が\n撒かれ、どんどん実に成長していきます。'}
         </p>
 
         <button

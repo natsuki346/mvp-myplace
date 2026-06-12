@@ -39,17 +39,36 @@ export type Database = {
         Row: {
           id:         string
           tag_id:     string
+          sub_tag_id: string | null
           user_id:    string
           content:    string
           created_at: string
         }
         Insert: {
-          tag_id:  string
-          user_id: string
-          content: string
+          tag_id:     string
+          sub_tag_id?: string | null
+          user_id:    string
+          content:    string
         }
         Update: {
           content?: string
+        }
+      }
+      sub_tags: {
+        Row: {
+          id:            string
+          parent_tag_id: string
+          name:          string
+          user_id:       string
+          created_at:    string
+        }
+        Insert: {
+          parent_tag_id: string
+          name:          string
+          user_id:       string
+        }
+        Update: {
+          name?: string
         }
       }
     }

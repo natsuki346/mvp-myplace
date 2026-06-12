@@ -4,9 +4,6 @@ import { useRouter } from 'next/navigation'
 import GardenDisplay from './garden-display'
 import { BottomNav } from '@/src/components/BottomNav'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
-import MiRoomPopup from '@/src/components/tutorial/MiRoomPopup'
-import NeRoomPopup from '@/src/components/tutorial/NeRoomPopup'
-import CompletionModal from '@/src/components/tutorial/CompletionModal'
 import RoomNavArrow from '@/src/components/tutorial/RoomNavArrow'
 
 export default function HomePage() {
@@ -47,25 +44,7 @@ export default function HomePage() {
         <GardenDisplay />
       </div>
 
-      <BottomNav onRoomClick={() => { if (step === 'room_nav_arrow') advanceStep('room_explain') }} />
-
-      {step === 'mi_room_popup' && (
-        <MiRoomPopup
-          onVisit={() => { advanceStep('mi_room_explore'); router.push('/onboarding/room-visit/light') }}
-          onSkip={() => advanceStep('ne_room_popup')}
-        />
-      )}
-
-      {step === 'ne_room_popup' && (
-        <NeRoomPopup
-          onVisit={() => { advanceStep('ne_room_explore'); router.push('/onboarding/room-visit/shadow') }}
-          onSkip={() => advanceStep('completion_modal')}
-        />
-      )}
-
-      {step === 'completion_modal' && (
-        <CompletionModal onClose={() => advanceStep('room_nav_arrow')} />
-      )}
+      <BottomNav onRoomClick={() => { if (step === 'room_nav_arrow') advanceStep('room_intro') }} />
 
       {step === 'room_nav_arrow' && <RoomNavArrow />}
     </div>

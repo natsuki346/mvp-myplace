@@ -52,7 +52,7 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
   const matchingIdsRef = useRef<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const showRootGrow = !alreadyShownRootGrow && !rootGrowDone && type === 'shadow' && step === 'ne_room_explore'
+  const showRootGrow = !alreadyShownRootGrow && !rootGrowDone && type === 'shadow' && step === 'room_chat_ne'
 
   useEffect(() => {
     let cancelled = false

@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react'
 
-type NeRoomPopupProps = {
+type RoomExplainMiModalProps = {
   onNext: () => void
-  onSkip: () => void
 }
 
-export default function NeRoomPopup({ onNext, onSkip }: NeRoomPopupProps) {
+export default function RoomExplainMiModal({ onNext }: RoomExplainMiModalProps) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -15,15 +14,15 @@ export default function NeRoomPopup({ onNext, onSkip }: NeRoomPopupProps) {
     return () => clearTimeout(t)
   }, [])
 
-  const close = (action: () => void) => {
+  const handleNext = () => {
     setVisible(false)
-    setTimeout(action, 250)
+    setTimeout(onNext, 250)
   }
 
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 250,
+        position: 'fixed', inset: 0, zIndex: 260,
         background: visible ? 'rgba(59,47,30,0.55)' : 'rgba(59,47,30,0)',
         transition: 'background 0.3s ease',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -43,24 +42,20 @@ export default function NeRoomPopup({ onNext, onSkip }: NeRoomPopupProps) {
           boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
         }}
       >
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 24px' }}>
-          🌱 根の部屋ものぞきますか？
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 12px' }}>
+          🍅 実の部屋
         </h2>
+        <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, margin: '0 0 24px' }}>
+          光のタグで集まる部屋。ポジティブな言葉や気づきをシェアする場所です。
+        </p>
         <button
-          onClick={() => close(onNext)}
+          onClick={handleNext}
           style={{
-            width: '100%', padding: '14px', borderRadius: 24, border: 'none',
+            width: '100%', padding: '14px', borderRadius: 30, border: 'none',
             background: '#4A7C59', color: '#FFFFFF',
             fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
-        >のぞく</button>
-        <button
-          onClick={() => close(onSkip)}
-          style={{
-            width: '100%', padding: '10px', border: 'none', background: 'none',
-            color: '#8B6914', fontSize: 13, textAlign: 'center', cursor: 'pointer',
-          }}
-        >今はいい</button>
+        >次へ</button>
       </div>
     </div>
   )

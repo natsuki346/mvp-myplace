@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/src/lib/supabase/client'
+import { incrementGrowthPoint } from '@/src/lib/supabase/rooms'
+import { recordTagEvent } from '@/src/lib/supabase/events'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import WateringAnimation from '@/src/components/tutorial/WateringAnimation'
 import RoomChatSheet from './RoomChatSheet'
+import SubTagListSheet, { type SelectedChannel } from './SubTagListSheet'
+import SeedGraphic from './SeedGraphic'
 import ThanksModal from './ThanksModal'
 
-type Tag = { id: string; text: string }
+type Tag = { id: string; text: string; growth_point: number }
 
 const ITEM_WIDTH = 160
 const GAP = 24
@@ -29,14 +33,29 @@ const SOIL_PARTICLES = [
   { cx: 360, cy: 200, r: 2 },   { cx: 95,  cy: 225, r: 2.5 },
 ]
 
-export default function ShadowRoomView() {
+async function fetchShadowTags(userId: string): Promise<Tag[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase.from('tags') as any)
+    .select('id, text, growth_point')
+    .eq('user_id', userId)
+    .eq('type', 'shadow')
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+
+  return (data as Tag[]) ?? []
+}
+
+export default function ShadowRoomView({ revealGrowth = false }: { revealGrowth?: boolean }) {
   const { step, advanceStep } = useTutorialStep()
   const [tags, setTags]               = useState<Tag[]>([])
   const [loading, setLoading]         = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
   const [spacer, setSpacer]           = useState(0)
   const [openTag, setOpenTag]         = useState<Tag | null>(null)
+  const [channel, setChannel]         = useState<SelectedChannel | null>(null)
   const [flowPhase, setFlowPhase]     = useState<'watering' | 'thanks' | null>(null)
+  const [wateringTagId, setWateringTagId] = useState<string | null>(null)
+  const [growingTagId, setGrowingTagId]   = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -46,19 +65,23 @@ export default function ShadowRoomView() {
       const userId = sessionStorage.getItem('user_id')
       if (!userId) { setLoading(false); return }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.from('tags') as any)
-        .select('id, text')
-        .eq('user_id', userId)
-        .eq('type', 'shadow')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
-
-      if (!cancelled) { setTags((data as Tag[]) ?? []); setLoading(false) }
+      const data = await fetchShadowTags(userId)
+      if (!cancelled) { setTags(data); setLoading(false) }
     })()
 
     return () => { cancelled = true }
   }, [])
+
+  // チュートリアル完了時：実際のgrowth_pointを反映するため再取得
+  useEffect(() => {
+    if (step !== 'done') return
+    const userId = sessionStorage.getItem('user_id')
+    if (!userId) return
+
+    let cancelled = false
+    fetchShadowTags(userId).then(data => { if (!cancelled) setTags(data) })
+    return () => { cancelled = true }
+  }, [step])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -80,6 +103,60 @@ export default function ShadowRoomView() {
     scrollRef.current?.scrollTo({ left: i * STEP, behavior: 'smooth' })
   }
 
+  // チュートリアル中、room_chat_neのALLを閲覧したかどうか（チャンネル一覧に戻った後の水やりトリガーに使う）
+  const viewedAllRef = useRef(false)
+  // 直前に水やりしたタネのID（水やりアニメーション完了後に成長アニメーションを再生する）
+  const lastWateredTagId = useRef<string | null>(null)
+
+  // 閲覧チャットを閉じる → チャンネル一覧（SubTagListSheet）に戻るだけ
+  const handleChatClose = () => {
+    if (step === 'room_chat_ne' && channel?.subTagId === null) {
+      viewedAllRef.current = true
+    }
+    setChannel(null)
+  }
+
+  // チャンネル一覧を閉じる（部屋から出る）→ ALL閲覧済みなら水やりアニメーション → 全画面の水やり演出へ
+  const handleSubTagListClose = () => {
+    const tag = openTag
+    const shouldWater = viewedAllRef.current
+    viewedAllRef.current = false
+    setOpenTag(null)
+    setChannel(null)
+
+    if (!shouldWater || !tag) {
+      if (step !== 'room_chat_ne') setFlowPhase('watering')
+      return
+    }
+
+    setWateringTagId(tag.id)
+    setTimeout(() => {
+      setWateringTagId(null)
+
+      const newPoint = (tag.growth_point ?? 0) + 1
+      setTags(prev => prev.map(t => (t.id === tag.id ? { ...t, growth_point: newPoint } : t)))
+      incrementGrowthPoint(tag.id)
+
+      // watering ステップでの creditAllShadowTags による二重加算を防ぐ
+      const userId = sessionStorage.getItem('user_id')
+      if (userId) recordTagEvent(tag.id, userId, 'room_entered')
+
+      lastWateredTagId.current = tag.id
+      advanceStep('watering')
+    }, 600)
+  }
+
+  // 全画面の水やりアニメーション完了（revealGrowth）→ 育った種の成長アニメーションを再生
+  useEffect(() => {
+    if (!revealGrowth || !lastWateredTagId.current) return
+    const id = lastWateredTagId.current
+    lastWateredTagId.current = null
+    setGrowingTagId(id)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setGrowingTagId(null))
+    })
+  }, [revealGrowth])
+
   if (loading) {
     return <p className="text-sm text-center mt-10" style={{ color: 'rgba(120,100,70,0.5)' }}>読み込み中...</p>
   }
@@ -89,20 +166,31 @@ export default function ShadowRoomView() {
   }
 
   return (
-    <div>
-      <p className="text-center text-xs mb-4" style={{ color: 'rgba(59,47,30,0.45)' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <p className="text-center text-xs mb-4" style={{ color: 'rgba(59,47,30,0.45)', flexShrink: 0 }}>
         スワイプして選び、タップして部屋に入る
       </p>
 
-      {/* 土壌断面 + タネカルーセル */}
-      <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, height: SECTION_HEIGHT, overflow: 'hidden' }}>
+      {/* 土壌断面 + タネカルーセル：画面下部いっぱいに広げる */}
+      <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, flex: 1, minHeight: SECTION_HEIGHT, overflow: 'hidden' }}>
         {/* 先頭のRoomへの誘導矢印 */}
-        {step === 'room_chat' && !openTag && (
+        {step === 'room_chat_ne' && !openTag && (
           <div
             className="absolute flex flex-col items-center"
-            style={{ left: '50%', top: 4, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
+            style={{ left: '50%', top: SEED_TOP + 10, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
           >
             <div className="flex flex-col items-center animate-bounce">
+              {/* 上向き三角：タネを指す */}
+              <span style={{ fontSize: 0, lineHeight: 0 }}>
+                <span
+                  style={{
+                    display: 'block', width: 0, height: 0, margin: '0 auto',
+                    borderLeft: '8px solid transparent',
+                    borderRight: '8px solid transparent',
+                    borderBottom: '8px solid #fff',
+                  }}
+                />
+              </span>
               <div
                 className="rounded-xl px-3 py-2"
                 style={{
@@ -115,41 +203,28 @@ export default function ShadowRoomView() {
               >
                 タップして話してみよう
               </div>
-              <span style={{ fontSize: 0, lineHeight: 0 }}>
-                <span
-                  style={{
-                    display: 'block', width: 0, height: 0, margin: '0 auto',
-                    borderLeft: '6px solid transparent',
-                    borderRight: '6px solid transparent',
-                    borderTop: '6px solid #8B6914',
-                  }}
-                />
-              </span>
-              <span style={{ fontSize: 22, color: '#8B6914', marginTop: 2, lineHeight: 1 }}>
-                ↓
-              </span>
             </div>
           </div>
         )}
 
-        {/* 土壌断面SVG（背景） */}
+        {/* 土壌断面SVG（背景）：地表ラインを土壌エリア最上部に固定表示 */}
         <svg
           viewBox={`0 0 390 ${SECTION_HEIGHT}`}
           preserveAspectRatio="none"
-          className="absolute inset-0"
-          style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+          className="absolute"
+          style={{ top: 0, left: 0, width: '100%', height: SECTION_HEIGHT, pointerEvents: 'none' }}
         >
           <defs>
             <linearGradient id="soil-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#C4A35A" />
-              <stop offset="100%" stopColor="#8B6914" />
+              <stop offset="0%" stopColor="#C4993A" />
+              <stop offset="100%" stopColor="#7A5010" />
             </linearGradient>
           </defs>
           {/* 地表・空気 */}
           <rect x="0" y="0" width="390" height={SECTION_HEIGHT} fill="#F5F0E8" />
-          {/* 土の層（波打った境界線） */}
+          {/* 土の層（地表は直線の境界線） */}
           <path
-            d={`M0,110 C65,85 130,135 195,108 C260,82 325,138 390,112 L390,${SECTION_HEIGHT} L0,${SECTION_HEIGHT} Z`}
+            d={`M0,110 L390,110 L390,${SECTION_HEIGHT} L0,${SECTION_HEIGHT} Z`}
             fill="url(#soil-gradient)"
           />
           {/* 土の粒子 */}
@@ -157,6 +232,9 @@ export default function ShadowRoomView() {
             <circle key={i} cx={p.cx} cy={p.cy} r={p.r} fill="#5A3A0A" opacity={0.3} />
           ))}
         </svg>
+
+        {/* 地表ラインより下、土壌エリア下端までを土色で埋める */}
+        <div style={{ position: 'absolute', top: SECTION_HEIGHT, left: 0, right: 0, bottom: 0, background: '#7A5010' }} />
 
         {/* タネカルーセル */}
         <div
@@ -193,18 +271,36 @@ export default function ShadowRoomView() {
                   </span>
                 )}
 
-                {/* タネ：土の層の中 */}
+                {/* タネ：成長段階に応じたSVG */}
                 <div style={{
                   position: 'absolute', top: SEED_TOP, left: '50%',
-                  width: 64, height: 64, borderRadius: '50%',
-                  background: 'radial-gradient(circle at 35% 30%, #A9875F, #6B4E1A)',
-                  boxShadow: '0 2px 6px rgba(60,40,10,0.4)',
                   transform: active
                     ? 'translate(-50%, -50%) scale(1.45)'
                     : 'translate(-50%, -50%) scale(0.85)',
                   opacity: active ? 1 : 0.55,
                   transition: 'transform 0.25s ease, opacity 0.25s ease',
-                }} />
+                }}>
+                  <SeedGraphic growthPoint={(step === 'done' || revealGrowth) ? tag.growth_point : 0} animate={growingTagId === tag.id} />
+                </div>
+
+                {/* 水やりアニメーション：水滴が落ちてくる */}
+                {wateringTagId === tag.id && (
+                  <div style={{ position: 'absolute', top: SEED_TOP - 70, left: '50%', pointerEvents: 'none' }}>
+                    {[0, 1, 2, 3, 4, 5].map(d => (
+                      <span
+                        key={d}
+                        className="animate-waterDrop"
+                        style={{
+                          position: 'absolute', left: (d - 2.5) * 9, top: 0,
+                          width: 7, height: 10,
+                          borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
+                          background: '#378ADD',
+                          animationDelay: `${d * 60}ms`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
               </button>
             )
           })}
@@ -213,15 +309,22 @@ export default function ShadowRoomView() {
       </div>
 
       {openTag && (
+        <SubTagListSheet
+          type="shadow"
+          tag={openTag}
+          onClose={handleSubTagListClose}
+          onSelect={setChannel}
+        />
+      )}
+
+      {openTag && channel && (
         <RoomChatSheet
           type="shadow"
           tagId={openTag.id}
           tagText={openTag.text}
-          onClose={() => {
-            setOpenTag(null)
-            if (step === 'room_chat') advanceStep('watering')
-            else setFlowPhase('watering')
-          }}
+          subTagId={channel.subTagId}
+          subTagName={channel.name}
+          onClose={handleChatClose}
         />
       )}
 

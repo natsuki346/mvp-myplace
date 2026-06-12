@@ -516,7 +516,7 @@ export default function StepsPreviewPage() {
         {showStart ? (
           <button
             onClick={() => {
-              if (queryStep === 3 && tutorialStep === 'step_cards') advanceStep('mi_room_popup')
+              if (queryStep === 3 && tutorialStep === 'step_cards') advanceStep('room_nav_arrow')
               router.push(destination)
             }}
             onMouseDown={() => setBtnPressed(true)}

@@ -290,9 +290,13 @@ export function QuestionCard({
             ))}
           </div>
           {questionSubText && (
-            <p className="text-xs mt-2 leading-relaxed" style={{ color: c.subText }}>
-              {questionSubText}
-            </p>
+            <div className="mt-2">
+              {questionSubText.split('\n').map((line, i) => (
+                <p key={i} className="text-xs leading-relaxed" style={{ color: c.subText }}>
+                  {line}
+                </p>
+              ))}
+            </div>
           )}
         </div>
 

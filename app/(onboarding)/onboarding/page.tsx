@@ -12,8 +12,16 @@ type QuestionType = 'light' | 'shadow'
 const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
   { text: '自分の好きなところ、思う存分出してみよう',                                         type: 'light'  },
   { text: '自分がテンション上がる瞬間って、どんな時？',                                        type: 'light'  },
-  { text: '自分ではわかってるけど\nあまり人に言わないこと、何かある？',                         type: 'shadow' },
-  { text: 'なんとなくずっと感じてるけど\n誰にも言ったことないこと、思うがままに出してみない？',  type: 'shadow' },
+  {
+    text: '自分ではわかってるけど\nあまり人に言わないこと、何かある？',
+    subText: '例）恋愛・家族・お金・将来・仕事・\n人間関係・コンプレックス・趣味・価値観・夢など',
+    type: 'shadow',
+  },
+  {
+    text: 'なんとなくずっと感じてるけど、\n誰にも言ったことないこと——\n思うがままに出してみない？',
+    subText: '例）自信のなさ・承認欲求・孤独感・\n劣等感・本音・恐れ・怒り・嫉妬・プライドなど',
+    type: 'shadow',
+  },
 ]
 
 // タグの初期配置座標（fraction 0–1）
