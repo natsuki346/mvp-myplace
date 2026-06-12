@@ -286,11 +286,16 @@ export default function ShadowRoomView() {
 
       {/* 土壌断面 + タネカルーセル：画面下部いっぱいに広げる */}
       <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, flex: 1, minHeight: SECTION_HEIGHT, overflow: 'hidden', zIndex: tutorialGrowth ? 201 : undefined }}>
+        {/* チュートリアル：案内中の暗転オーバーレイ */}
+        {step === 'room_chat_ne' && !openTag && (
+          <div className="fixed inset-0" style={{ zIndex: 40, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+        )}
+
         {/* 先頭のRoomへの誘導矢印 */}
         {step === 'room_chat_ne' && !openTag && (
           <div
             className="absolute flex flex-col items-center"
-            style={{ left: '50%', top: SEED_TOP + 10, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
+            style={{ left: '50%', top: SEED_TOP + 34, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
           >
             <div className="flex flex-col items-center animate-bounce">
               {/* 上向き三角：タネを指す */}
@@ -370,6 +375,7 @@ export default function ShadowRoomView() {
                   scrollSnapAlign: 'center', flexShrink: 0,
                   position: 'relative', width: ITEM_WIDTH, height: '100%',
                   background: 'none', border: 'none', cursor: 'pointer',
+                  zIndex: (active && step === 'room_chat_ne' && !openTag) ? 50 : undefined,
                 }}
               >
                 {/* ハッシュタグラベル：土の上に浮かぶ（中央＝アクティブな種のみ表示） */}

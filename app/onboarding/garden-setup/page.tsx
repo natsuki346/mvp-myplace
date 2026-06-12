@@ -110,6 +110,9 @@ export default function GardenSetupPage() {
 
   const [step, setStep] = useState<1 | 2>(1)
 
+  // チュートリアル：デコレーション画面に入る直前の案内ポップアップ
+  const [showIntroPopup, setShowIntroPopup] = useState(true)
+
   // localStorage から読み込んだ配置データは SSR 時と内容が異なるため、
   // マウント完了後にのみそれらに依存する描画を行う
   const mounted = useMounted()
@@ -500,8 +503,8 @@ export default function GardenSetupPage() {
         padding: '12px 16px',
       }}>
         {step === 1 ? (
-          <p style={{ fontSize: 12, color: '#A08050', margin: 0, textAlign: 'center', width: '100%' }}>
-            木についたタグをタップして、飾る植物を選びましょう
+          <p style={{ fontSize: 16, fontWeight: 600, color: '#3B2F1E', margin: 0, textAlign: 'center', width: '100%', padding: '0 20px' }}>
+            木についたタグをタップして、<br />飾る植物を選びましょう
           </p>
         ) : selectedRootId ? (
           <input
@@ -517,8 +520,8 @@ export default function GardenSetupPage() {
             }}
           />
         ) : (
-          <p style={{ fontSize: 12, color: '#A08050', margin: 0, textAlign: 'center', width: '100%' }}>
-            根のタグをタップして、感情や悩みの言葉を追加できます
+          <p style={{ fontSize: 16, fontWeight: 600, color: '#3B2F1E', margin: 0, textAlign: 'center', width: '100%', padding: '0 20px' }}>
+            根のタグをタップして<br />感情や悩みの言葉を追加できます
           </p>
         )}
       </div>
@@ -527,7 +530,7 @@ export default function GardenSetupPage() {
       <div style={{ flexShrink: 0, padding: '16px 20px 44px' }}>
         {step === 1 ? (
           <button onClick={handleNextStep} style={btnStyle(true, '#4A7C59')}>
-            根っこを埋めに行く →
+            根も見てみる →
           </button>
         ) : (
           <button onClick={handleComplete} disabled={!allRootTagsPlaced} style={btnStyle(allRootTagsPlaced, '#8B6914')}>
@@ -583,6 +586,41 @@ export default function GardenSetupPage() {
                 )
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────────── チュートリアル：デコレーション案内ポップアップ ────────────────── */}
+      {showIntroPopup && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 300,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 24px',
+          }}
+        >
+          <div style={{
+            width: '100%', maxWidth: 340, background: '#FFFFFF', borderRadius: 20,
+            padding: 32, textAlign: 'center',
+          }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
+              MyTreeを飾ろう！🌳
+            </h2>
+            <p style={{ fontSize: 13, color: '#8B6914', margin: '8px 0 0' }}>
+              タグを動かしたり色を変えられるよ
+            </p>
+            <button
+              onClick={() => setShowIntroPopup(false)}
+              style={{
+                width: '100%', padding: '14px', marginTop: 24,
+                borderRadius: 24, border: 'none',
+                background: '#4A7C59', color: '#FFFFFF',
+                fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              編集する
+            </button>
           </div>
         </div>
       )}

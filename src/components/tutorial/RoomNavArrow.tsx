@@ -15,13 +15,14 @@ export default function RoomNavArrow() {
             width: 84, height: 56,
             border: '2.5px solid #E53935',
             background: 'rgba(229,57,53,0.08)',
+            zIndex: 50,
           }}
         />
 
         {/* 吹き出し + 矢印 */}
         <div
           className="absolute flex flex-col items-center"
-          style={{ left: '50%', bottom: 76, transform: 'translateX(-50%)' }}
+          style={{ left: '50%', bottom: 76, transform: 'translateX(-50%)', zIndex: 50 }}
         >
           <div className="flex flex-col items-center animate-bounce">
             <div

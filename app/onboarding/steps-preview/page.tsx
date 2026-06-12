@@ -1,567 +1,84 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 
-// ?step=N → 表示開始カード（配列インデックス）と遷移先のマッピング
-// startIndex  : スライドの表示開始位置（最初に見せるカード）
-// thresholdIdx: 「はじめる」表示 & 「次ここ」バッジの閾値インデックス
-const STEP_CONFIG: Record<number, { startIndex: number; thresholdIdx: number; destination: string }> = {
-  1: { startIndex: 1, thresholdIdx: 3, destination: '/onboarding' },            // 自分に出会う時 → 実 → 根 → /onboarding
-  2: { startIndex: 4, thresholdIdx: 4, destination: '/onboarding/garden-setup' }, // 「タネを蒔く時」→ 農園デコレーション
-  3: { startIndex: 5, thresholdIdx: 5, destination: '/canvas' },                  // 「共鳴の場が広がる時」→ /canvas
+// ?step=N → 遷移先のマッピング
+const STEP_DESTINATIONS: Record<number, string> = {
+  1: '/onboarding',
+  2: '/onboarding/garden-setup',
+  3: '/canvas',
 }
 
-// ── ステップデータ ─────────────────────────────────────────────────────────────
-
-type StepStatus = 'done' | 'current' | 'future'
-type SlideKind = 'jitsu' | 'ne'
-
-const STEPS: { step: number; title: string; desc: string; image: string; video?: string; status: StepStatus; kind?: SlideKind }[] = [
-  {
-    step: 1, title: '土を耕す',
-    desc: '土を耕し、あなただけの場所を作った。\nここからタネを蒔く旅が始まる。\n何も育っていなくていい。\n耕された土があれば、それで十分。',
-    image: '/images/steps/preview.webp', status: 'done',
-  },
-  {
-    step: 2, title: 'タネを理解する時',
-    desc: '4つの問いに答えていくと、\nあなたの中に眠るタネが言葉になる。\n地上に咲く実と、深く張る根。\nどちらもあなた自身のタネ。',
-    image: '/images/steps/preview.webp', status: 'done',
-  },
-  {
-    step: 2, title: '実（み）とは？',
-    desc: '', image: '', status: 'done', kind: 'jitsu',
-  },
-  {
-    step: 2, title: '根（ね）とは？',
-    desc: '', image: '', status: 'done', kind: 'ne',
-  },
-  {
-    step: 3, title: 'タネを蒔く時',
-    desc: '集まった言葉をキャンバスに並べていく。\n色を変えたり、動かしたり。\nあなただけのタネが土に落ちて、\n個性という名の畑ができていく。',
-    image: '/images/steps/preview.webp', video: '/images/steps/step3.mp4', status: 'done',
-  },
-  {
-    step: 4, title: '農園が広がる時',
-    desc: 'あなたの畑が、出会いの場になる。\n同じタネを持つ人が、どこかに必ずいる。\n名前も顔も関係ない。\nタネが同じなら、自然とつながれる。',
-    image: '/images/steps/preview.webp', video: '/images/steps/step4.mp4', status: 'current',
-  },
-  {
-    step: 5, title: '本物のつながりへ',
-    desc: '育てたものが、やがて実になる。\n飾らなくていい、合わせなくていい。\nありのままのあなたで収穫した出会いが、\n本物のつながりになっていく。',
-    image: '/images/steps/preview.webp', status: 'future',
-  },
-]
-
-const DEFAULT_STEP = 3  // デフォルトは step=3（Step 4 を表示）
-
-// ── ステップアイコン（SVG） ────────────────────────────────────────────────────
-
-function StepIcon({ stepNum, color, size = 40 }: { stepNum: number; color: string; size?: number }) {
-  const s = { stroke: color, fill: 'none', strokeWidth: 1.5, strokeLinecap: 'round' as const }
-  // Step 1: 土を耕す — シャベル
-  if (stepNum === 1) return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <line x1="20" y1="6" x2="20" y2="22" {...s} />
-      <path d="M15 9 Q20 6 25 9" {...s} />
-      <path d="M16 22 Q16 30 20 30 Q24 30 24 22 Z" {...s} />
-      <path d="M8 35 Q14 31 20 34 Q26 31 32 35" stroke={color} strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.55" />
-    </svg>
-  )
-  // Step 2: タネを理解する — 種の断面
-  if (stepNum === 2) return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <ellipse cx="20" cy="25" rx="9" ry="12" {...s} />
-      <path d="M20 25 L20 15" {...s} />
-      <path d="M20 19 Q15 15 13 17" {...s} />
-      <path d="M20 19 Q25 15 27 17" {...s} />
-    </svg>
-  )
-  // Step 3: タネを蒔く — 種を落とす
-  if (stepNum === 3) return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <ellipse cx="20" cy="11" rx="5" ry="7" {...s} />
-      <path d="M20 18 L20 27" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeDasharray="2.5 2" />
-      <path d="M8 33 Q14 29 20 32 Q26 29 32 33" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none" />
-      <circle cx="12" cy="31" r="2" fill={color} opacity="0.45" />
-      <circle cx="28" cy="31" r="2" fill={color} opacity="0.45" />
-    </svg>
-  )
-  // Step 4: 農園が広がる — 3本の苗
-  if (stepNum === 4) return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <line x1="11" y1="33" x2="11" y2="23" {...s} />
-      <path d="M11 27 Q7 23 9 21" {...s} />
-      <path d="M11 27 Q15 23 13 21" {...s} />
-      <line x1="20" y1="33" x2="20" y2="15" {...s} />
-      <path d="M20 21 Q15 17 17 14" {...s} />
-      <path d="M20 21 Q25 17 23 14" {...s} />
-      <line x1="29" y1="33" x2="29" y2="23" {...s} />
-      <path d="M29 27 Q25 23 27 21" {...s} />
-      <path d="M29 27 Q33 23 31 21" {...s} />
-      <path d="M6 35 Q13 31 20 34 Q27 31 34 35" stroke={color} strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.55" />
-    </svg>
-  )
-  // Step 5: 本物のつながりへ — 完熟の実
-  if (stepNum === 5) return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <line x1="20" y1="11" x2="20" y2="7" {...s} />
-      <path d="M20 11 Q15 7 13 9" {...s} />
-      <path d="M20 11 Q25 7 27 9" {...s} />
-      <circle cx="20" cy="25" r="13" {...s} />
-      <circle cx="14" cy="19" r="3" fill={color} opacity="0.18" />
-    </svg>
-  )
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <ellipse cx="20" cy="25" rx="9" ry="12" stroke={color} fill="none" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-// ── ステップ別カラーテーマ ─────────────────────────────────────────────────────
-
-type StepTheme = {
-  bg: string; cardBg: string; cardBorder: string
-  badgeBg: string; badgeColor: string; badgeBorder: string
-  nextHereBg: string; nextHereColor: string
-  titleColor: string; descColor: string
-  icon: string; iconColor: string
-  glowColor: string
-}
-
-const STEP_THEMES: Record<number, StepTheme> = {
-  // 土を耕す — 土・琥珀
-  1: { bg:'#F5EFE0', cardBg:'#FDFAF0', cardBorder:'#C4A870',
-       badgeBg:'#EDE0BC', badgeColor:'#7A5C18', badgeBorder:'#C4A870',
-       nextHereBg:'#DDD0A0', nextHereColor:'#5A3C08',
-       titleColor:'#3A2408', descColor:'#7A5830',
-       icon:'', iconColor:'#8B6914', glowColor:'rgba(196,168,112,0.28)' },
-  // タネを理解する — 土・種色
-  2: { bg:'#F5EFE0', cardBg:'#FDFAF0', cardBorder:'#C4A870',
-       badgeBg:'#EDE0BC', badgeColor:'#7A5C18', badgeBorder:'#C4A870',
-       nextHereBg:'#DDD0A0', nextHereColor:'#5A3C08',
-       titleColor:'#3A2408', descColor:'#7A5830',
-       icon:'', iconColor:'#8B6914', glowColor:'rgba(196,168,112,0.28)' },
-  // タネを蒔く — 新芽・萌黄
-  3: { bg:'#EEF5EC', cardBg:'#F4FBF2', cardBorder:'#7AB888',
-       badgeBg:'#D4ECD4', badgeColor:'#2A6040', badgeBorder:'#7AB888',
-       nextHereBg:'#B8DCC0', nextHereColor:'#184830',
-       titleColor:'#183828', descColor:'#4A7060',
-       icon:'', iconColor:'#4A7C59', glowColor:'rgba(106,184,120,0.22)' },
-  // 農園が広がる — 深緑・葉
-  4: { bg:'#E8F2E4', cardBg:'#F0FAE8', cardBorder:'#5A9870',
-       badgeBg:'#C4E4C4', badgeColor:'#1C5430', badgeBorder:'#5A9870',
-       nextHereBg:'#A8D8B0', nextHereColor:'#0A2C18',
-       titleColor:'#182C20', descColor:'#3A6848',
-       icon:'', iconColor:'#3D6B4A', glowColor:'rgba(90,152,112,0.24)' },
-  // 本物のつながりへ — 収穫・実
-  5: { bg:'#F8EDE6', cardBg:'#FDF5EE', cardBorder:'#D07850',
-       badgeBg:'#F0D0B8', badgeColor:'#A03820', badgeBorder:'#D07850',
-       nextHereBg:'#E8B090', nextHereColor:'#601808',
-       titleColor:'#3A1408', descColor:'#7A3A20',
-       icon:'', iconColor:'#C0392B', glowColor:'rgba(200,80,60,0.16)' },
-}
-
-// ── メディアコンポーネント（mp4・gif → 自動再生、png → 静止画、なし → プレースホルダー）─
-
-const MEDIA_STYLE = { width: '100%', height: '100%', objectFit: 'contain' as const, display: 'block' }
-
-function Placeholder() {
-  return (
-    <div style={{
-      width: '100%', height: '100%', borderRadius: 12,
-      background: 'rgba(255,255,255,0.06)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <span style={{ fontSize: 32, opacity: 0.3 }}>🖼️</span>
-    </div>
-  )
-}
-
-function StepMedia({ image, video, alt }: { image: string; video?: string; alt: string }) {
-  const [videoError, setVideoError] = useState(false)
-  const [imageError, setImageError] = useState(false)
-
-  if (imageError) return <Placeholder />
-
-  // gif は <img> で自動アニメーション
-  const isGif = video?.toLowerCase().endsWith('.gif')
-
-  if (video && !videoError) {
-    if (isGif) {
-      return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={video} alt={alt} onError={() => setVideoError(true)} style={MEDIA_STYLE} />
-      )
-    }
-    // mp4 は <video> で自動再生
-    return (
-      <video
-        src={video}
-        autoPlay muted loop playsInline
-        onError={() => setVideoError(true)}
-        style={MEDIA_STYLE}
-      />
-    )
-  }
-
-  // fallback: png 静止画
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={image} alt={alt} onError={() => setImageError(true)} style={MEDIA_STYLE} />
-  )
-}
-
-// ── メインページ ───────────────────────────────────────────────────────────────
+const DEFAULT_STEP = 3
 
 export default function StepsPreviewPage() {
   const router = useRouter()
   const { step: tutorialStep, advanceStep } = useTutorialStep()
-  const [queryStep,   setQueryStep]   = useState(DEFAULT_STEP)
-  const [activeIndex, setActiveIndex] = useState(STEP_CONFIG[DEFAULT_STEP].startIndex)
-  const [btnPressed,  setBtnPressed]  = useState(false)
-  const [pressedDot,  setPressedDot]  = useState<number | null>(null)
-  const pointerStartX = useRef<number | null>(null)
+  const [queryStep, setQueryStep] = useState(DEFAULT_STEP)
+  const [skipPopup, setSkipPopup] = useState(false)
 
   useEffect(() => {
     const s = parseInt(new URLSearchParams(window.location.search).get('step') ?? String(DEFAULT_STEP), 10)
-    const valid = [1, 2, 3].includes(s) ? s : DEFAULT_STEP
-    setQueryStep(valid)
-    setActiveIndex(STEP_CONFIG[valid].startIndex)
+    const resolved = [1, 2, 3].includes(s) ? s : DEFAULT_STEP
+    setQueryStep(resolved)
+    if (resolved === 2) {
+      // step=2（→ガーデン設定画面）は、その先に表示される案内ポップアップと
+      // 内容が重複するため、ポップアップを出さずそのまま遷移する
+      setSkipPopup(true)
+      router.push(STEP_DESTINATIONS[2])
+    } else if (resolved === 3 && tutorialStep === 'step_cards') {
+      // step=3（→ホーム画面）も、その先の「同じタネを持つ人がいる場所へ」ポップアップと
+      // 内容が重複するため、ポップアップを出さずそのまま遷移する
+      setSkipPopup(true)
+      advanceStep('room_nav_arrow')
+      router.push('/home')
+    }
   }, [])
 
-  const goTo = (index: number) => {
-    if (index < 0 || index >= STEPS.length) return
-    setActiveIndex(index)
-  }
-
-  // スワイプ検知
-  const onPointerDown = (e: React.PointerEvent) => {
-    pointerStartX.current = e.clientX
-  }
-  const onPointerUp = (e: React.PointerEvent) => {
-    if (pointerStartX.current === null) return
-    const diff = pointerStartX.current - e.clientX
-    if (Math.abs(diff) > 40) {
-      diff > 0 ? goTo(activeIndex + 1) : goTo(activeIndex - 1)
-    }
-    pointerStartX.current = null
-  }
-
-  const step        = STEPS[activeIndex]
-  const initialIdx  = STEP_CONFIG[queryStep].thresholdIdx
   const destination = (queryStep === 3 && tutorialStep === 'step_cards')
     ? '/home'
-    : STEP_CONFIG[queryStep].destination
-  const isLast      = activeIndex === STEPS.length - 1
-  const isCurrent   = activeIndex === initialIdx   // 「今ここ」バッジ表示
-  const showStart   = activeIndex >= initialIdx || isLast  // 「はじめる」表示
-  const theme = STEP_THEMES[step.step] ?? STEP_THEMES[2]
+    : STEP_DESTINATIONS[queryStep]
+
+  const handleStart = () => {
+    if (queryStep === 3 && tutorialStep === 'step_cards') advanceStep('room_nav_arrow')
+    router.push(destination)
+  }
+
+  if (skipPopup) {
+    return <div style={{ height: '100svh', maxWidth: 390, margin: '0 auto', background: '#F5F0E8' }} />
+  }
 
   return (
     <div
       style={{
-        display: 'flex', flexDirection: 'column', height: '100svh',
-        maxWidth: 390, margin: '0 auto',
-        background: (step.kind === 'jitsu' || step.kind === 'ne') ? '#F5F0E8' : theme.bg, overflow: 'hidden',
-        transition: 'background 0.4s ease',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100svh', maxWidth: 390, margin: '0 auto',
+        background: '#F5F0E8', padding: '0 24px',
       }}
     >
-      <style>{`
-        @keyframes cardEnter {
-          from { opacity: 0; transform: translateX(10px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
-
-      {/* ── カードエリア（スワイプ可） ── */}
-      <div
-        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-                 padding: step.kind === 'jitsu' || step.kind === 'ne' ? 0 : '12px 16px 0',
-                 touchAction: 'pan-y', justifyContent: 'center' }}
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-      >
-        {(step.kind === 'jitsu' || step.kind === 'ne') ? (
-
-          /* ══════════════════════════════════════════════════════════════
-             ウェルカム画面と同じ植物背景（実 or 根）
-          ══════════════════════════════════════════════════════════════ */
-          <div key={activeIndex} style={{
-            flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden',
-            background: '#F7F3ED', animation: 'cardEnter 0.2s ease',
-          }}>
-
-            {/* ── 地上・地下の背景ゾーン（ウェルカム画面と同一）── */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-              <div style={{ height: '60%', background: '#F0EBE0' }} />
-              <div style={{ height: '40%', background: '#E8DCC8' }} />
-              {/* 土の波線 */}
-              <svg viewBox="0 0 480 28" preserveAspectRatio="none"
-                style={{ position: 'absolute', top: 'calc(60% - 14px)', left: 0, width: '100%' }}>
-                <path d="M0 14 Q24 4 48 14 Q72 24 96 14 Q120 4 144 14 Q168 24 192 14 Q216 4 240 14 Q264 24 288 14 Q312 4 336 14 Q360 24 384 14 Q408 4 432 14 Q456 24 480 14 L480 28 L0 28 Z"
-                  fill="#C4B090" opacity="0.55"/>
-                <path d="M0 14 Q24 4 48 14 Q72 24 96 14 Q120 4 144 14 Q168 24 192 14 Q216 4 240 14 Q264 24 288 14 Q312 4 336 14 Q360 24 384 14 Q408 4 432 14 Q456 24 480 14"
-                  fill="none" stroke="#C4B090" strokeWidth="2.5"/>
-              </svg>
-            </div>
-
-            {/* ── 植物イラスト（ウェルカム画面と同一・静止版）── */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-              <svg width="320" height="380" viewBox="0 0 320 380" style={{ overflow: 'visible', marginTop: '-20px' }}>
-                {/* 根（どっしり広がる）*/}
-                <g>
-                  <path d="M160 340 Q158 400 157 460 Q156 520 155 580"
-                    fill="none" stroke="#6B4F12" strokeWidth="5" strokeLinecap="round"/>
-                  <path d="M158 380 Q125 410 95 450 Q70 485 53 525"
-                    fill="none" stroke="#6B4F12" strokeWidth="4" strokeLinecap="round"/>
-                  <path d="M160 380 Q193 410 223 450 Q248 485 265 525"
-                    fill="none" stroke="#6B4F12" strokeWidth="4" strokeLinecap="round"/>
-                  <path d="M95 450 Q70 470 47 502 Q30 528 23 560"
-                    fill="none" stroke="#8B6914" strokeWidth="2.5" strokeLinecap="round"/>
-                  <path d="M95 450 Q83 485 77 515"
-                    fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M223 450 Q248 470 271 502 Q288 528 295 560"
-                    fill="none" stroke="#8B6914" strokeWidth="2.5" strokeLinecap="round"/>
-                  <path d="M223 450 Q235 485 241 515"
-                    fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M53 525 Q37 540 27 562"
-                    fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M47 502 Q30 512 20 530"
-                    fill="none" stroke="#A0791A" strokeWidth="1.2" strokeLinecap="round"/>
-                  <path d="M155 580 Q140 598 133 620"
-                    fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M155 580 Q170 598 177 620"
-                    fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M265 525 Q281 540 291 562"
-                    fill="none" stroke="#A0791A" strokeWidth="1.5" strokeLinecap="round"/>
-                  <path d="M271 502 Q288 512 298 530"
-                    fill="none" stroke="#A0791A" strokeWidth="1.2" strokeLinecap="round"/>
-                </g>
-                {/* 茎 */}
-                <line x1="160" y1="340" x2="160" y2="20" stroke="#4A7C59" strokeWidth="4" strokeLinecap="round"/>
-                {/* 葉 */}
-                <g>
-                  <path d="M158 140 Q115 115 98 135 Q110 155 155 148 Z" fill="#6BAF7A"/>
-                  <path d="M162 100 Q205 72 224 92 Q210 112 165 108 Z" fill="#6BAF7A"/>
-                  <path d="M159 72 Q135 58 128 72 Q138 84 160 78 Z" fill="#5E9E6A"/>
-                </g>
-                {/* 実 */}
-                <g>
-                  <circle cx="118" cy="122" r="16" fill="#D85A30"/>
-                  <path d="M118 106 Q112 100 108 104" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round"/>
-                  <circle cx="196" cy="88" r="14" fill="#D85A30"/>
-                  <path d="M196 74 Q191 68 188 72" fill="none" stroke="#4A7C59" strokeWidth="2" strokeLinecap="round"/>
-                  <circle cx="140" cy="62" r="10" fill="#C44D28"/>
-                  <path d="M140 52 Q136 47 133 50" fill="none" stroke="#4A7C59" strokeWidth="1.5" strokeLinecap="round"/>
-                </g>
-              </svg>
-            </div>
-
-            {/* ── 説明カード ── */}
-            <div style={{
-              position: 'absolute', zIndex: 2,
-              // 実スライド：地下エリア（土の下）に配置
-              // 根スライド：地上エリア（土の上）に配置
-              ...(step.kind === 'jitsu'
-                ? { bottom: 20, left: '50%', transform: 'translateX(-50%)' }
-                : { top: 80, left: '50%', transform: 'translateX(-50%)' }
-              ),
-              width: 300,
-              background: 'rgba(255,250,240,0.92)',
-              border: '1px solid rgba(180,150,100,0.2)',
-              borderRadius: 16, padding: '20px 22px',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-            }}>
-              {/* バッジ行 */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-                  color: '#4A7C59', background: '#D8EED8',
-                  padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(74,124,89,0.25)',
-                }}>STEP {step.step}</span>
-                {isCurrent && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                    color: '#3B6D11', background: '#e0ede0',
-                    padding: '2px 8px', borderRadius: 20,
-                  }}>次ここ</span>
-                )}
-              </div>
-
-              {step.kind === 'jitsu' ? (
-                <>
-                  <p style={{ color: '#BA7517', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textAlign: 'center', margin: '0 0 8px' }}>実（み）</p>
-                  <p style={{ color: '#5a4a30', fontSize: 12, lineHeight: 1.9, textAlign: 'center', margin: '0 0 10px', whiteSpace: 'pre-line' }}>
-                    {'あなたが自然と外に出している言葉。\n好きなこと、大切にしていること。\n地上に咲いた、あなたの自分。'}
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    {['# 人と話すのが好き', '# 丁寧に生きたい'].map(t => (
-                      <span key={t} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 12, background: 'rgba(186,117,23,0.1)', color: '#854F0B' }}>{t}</span>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p style={{ color: '#8B6914', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textAlign: 'center', margin: '0 0 8px' }}>根（ね）</p>
-                  <p style={{ color: '#5a4530', fontSize: 12, lineHeight: 1.9, textAlign: 'center', margin: '0 0 10px', whiteSpace: 'pre-line' }}>
-                    {'あなたが心の中にしまっている言葉。\nなかなか言えなかった本音、\n気づいていなかった自分。\n根の言葉は、\n同じものを持つ人にしか届かない。'}
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', opacity: 0.85 }}>
-                    {['# 認められたい', '# 本当は甘えたい'].map(t => (
-                      <span key={t} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 12, background: 'rgba(139,105,20,0.1)', color: '#633806' }}>{t}</span>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-          </div>
-
-        ) : (
-
-          /* ── 通常テーマカード ── */
-          <div key={activeIndex} style={{
-            position: 'relative',
-            borderRadius: 16, padding: '36px 28px',
-            background: theme.cardBg,
-            border: `1px solid ${theme.cardBorder}`,
-            overflow: 'hidden',
-            transition: 'background 0.4s ease, border-color 0.4s ease',
-            animation: 'cardEnter 0.2s ease',
-          }}>
-            {/* グロー装飾（右上） */}
-            <div style={{
-              position: 'absolute', top: 0, right: 0, width: '60%', height: '50%',
-              background: `radial-gradient(circle at 90% 0%, ${theme.glowColor} 0%, transparent 70%)`,
-              pointerEvents: 'none',
-            }} />
-
-            {/* バッジ行 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20, position: 'relative' }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-                color: theme.badgeColor, background: theme.badgeBg,
-                padding: '3px 10px', borderRadius: 20, border: `1px solid ${theme.badgeBorder}`,
-              }}>STEP {step.step}</span>
-              {isCurrent && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                  color: theme.nextHereColor, background: theme.nextHereBg,
-                  padding: '2px 8px', borderRadius: 20,
-                }}>次ここ</span>
-              )}
-            </div>
-
-            {/* アイコン */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, position: 'relative' }}>
-              <StepIcon stepNum={step.step} color={theme.iconColor || theme.badgeColor} />
-            </div>
-
-            {/* タイトル */}
-            <h2 style={{
-              fontSize: 22, fontWeight: 500, lineHeight: 1.35, color: theme.titleColor,
-              marginBottom: 16, position: 'relative', textAlign: 'center', transition: 'color 0.3s ease',
-            }}>
-              {step.title}
-            </h2>
-
-            {/* 説明文 */}
-            <p style={{
-              fontSize: 13, lineHeight: 1.8, color: theme.descColor,
-              whiteSpace: 'pre-line', position: 'relative', textAlign: 'center', transition: 'color 0.3s ease',
-            }}>
-              {step.desc}
-            </p>
-          </div>
-
-        )}
-      </div>
-
-      {/* ── 下部：ドット + ボタン ── */}
-      <div style={{ flexShrink: 0, padding: '16px 20px 36px' }}>
-
-        {/* ドットインジケーター */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-          {STEPS.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                goTo(i)
-                setPressedDot(i)
-                setTimeout(() => setPressedDot(null), 150)
-              }}
-              style={{
-                width:  i === activeIndex ? 20 : 6,
-                height: 6,
-                borderRadius: 3,
-                border: 'none', cursor: 'pointer', padding: 0,
-                background: i === activeIndex
-                  ? '#4A7C59'
-                  : i === initialIdx
-                    ? 'rgba(74,124,89,0.5)'
-                    : 'rgba(74,124,89,0.22)',
-                transform: pressedDot === i ? 'scale(1.3)' : 'scale(1)',
-                transition: 'width 0.2s ease, background 0.2s ease, transform 0.15s ease',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* はじめる ボタン（現在地 or 最後のカードで表示） */}
-        {showStart ? (
-          <button
-            onClick={() => {
-              if (queryStep === 3 && tutorialStep === 'step_cards') advanceStep('room_nav_arrow')
-              router.push(destination)
-            }}
-            onMouseDown={() => setBtnPressed(true)}
-            onMouseUp={() => setBtnPressed(false)}
-            onMouseLeave={() => setBtnPressed(false)}
-            onTouchStart={() => setBtnPressed(true)}
-            onTouchEnd={() => setBtnPressed(false)}
-            style={{
-              width: '100%', padding: '16px', borderRadius: 30, border: 'none',
-              background: '#4A7C59',
-              color: '#ffffff',
-              fontSize: 15, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(74,124,89,0.35)',
-              transform: btnPressed ? 'scale(0.96)' : 'scale(1)',
-              opacity:   btnPressed ? 0.8 : 1,
-              transition: 'transform 0.1s ease, opacity 0.1s ease',
-            }}
-          >
-            はじめる →
-          </button>
-        ) : (
-          <button
-            onClick={() => goTo(activeIndex + 1)}
-            onMouseDown={() => setBtnPressed(true)}
-            onMouseUp={() => setBtnPressed(false)}
-            onMouseLeave={() => setBtnPressed(false)}
-            onTouchStart={() => setBtnPressed(true)}
-            onTouchEnd={() => setBtnPressed(false)}
-            style={{
-              width: '100%', padding: '16px', borderRadius: 30, border: 'none',
-              background: step.kind === 'jitsu'
-                ? '#4A7C59'
-                : 'rgba(74,124,89,0.12)',
-              color: step.kind === 'jitsu'
-                ? '#ffffff'
-                : '#2A5038',
-              fontSize: 15, fontWeight: 600, cursor: 'pointer',
-              transform: btnPressed ? 'scale(0.96)' : 'scale(1)',
-              opacity:   btnPressed ? 0.8 : 1,
-              transition: 'transform 0.1s ease, opacity 0.1s ease',
-            }}
-          >
-            {STEPS[activeIndex + 1]?.kind === 'jitsu' ? '実と根を知る →' : '次へ →'}
-          </button>
-        )}
+      <div style={{
+        width: '100%', background: '#FFFFFF', borderRadius: 20,
+        padding: 32, textAlign: 'center',
+      }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
+          まず4つの質問に答えてみよう🌱
+        </h2>
+        <p style={{ fontSize: 13, color: '#8B6914', margin: '8px 0 0' }}>
+          あなたの実と根のタネが生まれます
+        </p>
+        <button
+          onClick={handleStart}
+          style={{
+            width: '100%', padding: '14px', marginTop: 24,
+            borderRadius: 24, border: 'none',
+            background: '#4A7C59', color: '#FFFFFF',
+            fontSize: 15, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          はじめる
+        </button>
       </div>
     </div>
   )

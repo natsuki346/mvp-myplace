@@ -85,11 +85,16 @@ export default function LightRoomView() {
 
       {/* 土の境界線 + 実カルーセル：画面下部いっぱいに広げる */}
       <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, flex: 1, minHeight: GROUND_MIN_HEIGHT, overflow: 'hidden' }}>
+        {/* チュートリアル：案内中の暗転オーバーレイ */}
+        {step === 'room_chat_mi' && !openTag && (
+          <div className="fixed inset-0" style={{ zIndex: 40, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+        )}
+
         {/* 先頭のRoomへの誘導矢印 */}
         {step === 'room_chat_mi' && !openTag && (
           <div
             className="absolute flex flex-col items-center"
-            style={{ left: '50%', top: 110, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
+            style={{ left: '50%', top: 134, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
           >
             <div className="flex flex-col items-center animate-bounce">
               {/* 上向き三角：トマトを指す */}
@@ -151,6 +156,7 @@ export default function LightRoomView() {
                 scrollSnapAlign: 'center', flexShrink: 0,
                 position: 'relative', width: ITEM_WIDTH, height: '100%',
                 background: 'none', border: 'none', cursor: 'pointer',
+                zIndex: (active && step === 'room_chat_mi' && !openTag) ? 50 : undefined,
               }}
             >
               <div style={{

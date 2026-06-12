@@ -94,10 +94,10 @@ export default function SubTagListSheet({
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <div style={{ position: 'relative', display: 'inline-block', minWidth: 120 }}>
+          <div style={{ position: 'relative', display: 'inline-block', minWidth: 120, zIndex: showBackBubble ? 50 : undefined }}>
             <button
               onClick={close}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#3B2F1E', padding: 0 }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#3B2F1E', padding: 0, position: 'relative', zIndex: showBackBubble ? 50 : undefined }}
             >← 戻る</button>
 
             {/* チュートリアル：戻るボタンの真下中央に吹き出し（次のステップへ誘導） */}
@@ -148,13 +148,14 @@ export default function SubTagListSheet({
         {/* List */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {/* ALL */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', zIndex: showAllArrow ? 50 : undefined }}>
             <button
               onClick={() => handleSelect({ subTagId: null, name: tag.text })}
               style={{
                 display: 'flex', alignItems: 'center', width: '100%', height: 56, padding: '0 20px',
                 background: '#D4EED8', border: 'none', borderBottom: '1px solid rgba(0,0,0,0.06)',
                 cursor: 'pointer', textAlign: 'left',
+                position: 'relative', zIndex: showAllArrow ? 50 : undefined,
               }}
             >
               <span style={{ fontSize: 14, fontWeight: 600, color: '#4A7C59' }}>💬 ALL</span>
@@ -164,7 +165,7 @@ export default function SubTagListSheet({
             {showAllArrow && (
               <div
                 className="absolute flex items-center gap-2 animate-bounce"
-                style={{ top: 0, bottom: 0, right: 16, zIndex: 5, pointerEvents: 'none' }}
+                style={{ top: 0, bottom: 0, right: 16, zIndex: 50, pointerEvents: 'none' }}
               >
                 <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
                   <path
