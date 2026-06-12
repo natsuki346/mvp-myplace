@@ -22,6 +22,7 @@ export default function RoomChatSheet({
   subTagId = null,
   subTagName = null,
   onClose,
+  onMessageSent,
 }: {
   type:       RoomType
   tagId:      string
@@ -29,6 +30,7 @@ export default function RoomChatSheet({
   subTagId?:  string | null
   subTagName?: string | null
   onClose:    () => void
+  onMessageSent?: () => void
 }) {
   const [visible, setVisible]   = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -94,6 +96,7 @@ export default function RoomChatSheet({
     if (!error && data) {
       const row = data as Message
       setMessages(prev => [...prev, row])
+      onMessageSent?.()
     }
   }
 

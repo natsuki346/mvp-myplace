@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import LightRoomView from './LightRoomView'
 import ShadowRoomView from './ShadowRoomView'
@@ -10,10 +9,8 @@ import RoomIntroModal from '@/src/components/tutorial/RoomIntroModal'
 import RoomExplainMiModal from '@/src/components/tutorial/RoomExplainMiModal'
 import RoomExplainNeModal from '@/src/components/tutorial/RoomExplainNeModal'
 import NeRoomPopup from '@/src/components/tutorial/NeRoomPopup'
-import WateringAnimation from '@/src/components/tutorial/WateringAnimation'
 import GrowthModal from '@/src/components/tutorial/GrowthModal'
-import ThanksModal from './ThanksModal'
-import { creditAllShadowTags } from '@/src/lib/supabase/rooms'
+import ThankYouModal from '@/src/components/tutorial/ThankYouModal'
 
 type RoomType = 'light' | 'shadow'
 
@@ -33,10 +30,6 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
   const router = useRouter()
   const { step, advanceStep } = useTutorialStep()
 
-  const [growthShown, setGrowthShown]           = useState(false)
-  const [growthModalShown, setGrowthModalShown] = useState(false)
-  const [thanksShown, setThanksShown]           = useState(false)
-
   const phase: TutorialPhase =
     step === 'room_intro' ? 'room_intro'
     : step === 'room_explain_mi' ? 'room_explain_mi'
@@ -46,20 +39,6 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
 
   const handleTabClick = (t: RoomType) => {
     router.replace(`/room/${t}`)
-  }
-
-  // 水やりアニメーション完了：先に種の成長を見せてから、少し遅れてポップアップを出す
-  const handleWateringComplete = () => {
-    setGrowthShown(true)
-    setTimeout(() => setGrowthModalShown(true), 600)
-  }
-
-  const handleGrowthStart = () => {
-    ;(async () => {
-      const userId = typeof window !== 'undefined' ? sessionStorage.getItem('user_id') : null
-      if (userId) await creditAllShadowTags(userId)
-      setThanksShown(true)
-    })()
   }
 
   return (
@@ -99,7 +78,7 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
         })}
       </div>
 
-      {type === 'light' ? <LightRoomView /> : <ShadowRoomView revealGrowth={growthShown} />}
+      {type === 'light' ? <LightRoomView /> : <ShadowRoomView />}
 
       <BottomNav />
 
@@ -122,18 +101,14 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
         <RoomExplainNeModal onNext={() => { advanceStep('room_chat_ne'); router.replace('/room/shadow') }} />
       )}
 
-      {/* 水やりアニメーション：完了したら種の成長をすぐ見せる（このオーバーレイを消す） */}
-      {step === 'watering' && !growthShown && (
-        <WateringAnimation onComplete={handleWateringComplete} />
+      {/* 「向き合えてえらい！」モーダル */}
+      {step === 'growth_modal' && (
+        <GrowthModal onStart={() => advanceStep('thankyou_modal')} />
       )}
 
-      {/* growthModalShownになるまでの一瞬、育ったタネが見える */}
-      {step === 'watering' && growthModalShown && !thanksShown && (
-        <GrowthModal onStart={handleGrowthStart} />
-      )}
-
-      {step === 'watering' && thanksShown && (
-        <ThanksModal onClose={() => advanceStep('done')} />
+      {/* 「協力ありがとう」モーダル */}
+      {step === 'thankyou_modal' && (
+        <ThankYouModal onClose={() => { advanceStep('done'); router.push('/home') }} />
       )}
     </div>
   )

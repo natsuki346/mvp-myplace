@@ -13,7 +13,9 @@ export type TutorialStep =
   | 'room_explain_ne'  // ⑧ 根の部屋の説明モーダル
   | 'room_chat_ne'     // ⑨ 根の部屋チャット（閲覧モード）
   | 'watering'         // ⑩ 水やり演出
-  | 'done'             // ⑪ 完了
+  | 'growth_modal'     // ⑪ 「向き合えてえらい！」モーダル
+  | 'thankyou_modal'   // ⑫ 「協力ありがとう」モーダル
+  | 'done'             // ⑬ 完了
 
 const STORAGE_KEY = 'whyme_tutorial_step'
 

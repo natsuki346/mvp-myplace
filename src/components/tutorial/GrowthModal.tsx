@@ -8,11 +8,11 @@ export default function GrowthModal({ onStart }: GrowthModalProps) {
   return (
     <div
       className="fixed inset-0 flex items-center justify-center px-6"
-      style={{ zIndex: 290, background: 'rgba(59,47,30,0.55)' }}
+      style={{ zIndex: 290, background: 'rgba(0,0,0,0.45)' }}
     >
       <div
         className="animate-popIn w-full rounded-3xl px-6 py-8 text-center"
-        style={{ maxWidth: 320, background: '#F5F0E8' }}
+        style={{ maxWidth: 320, background: '#FFFFFF' }}
       >
         <div style={{ position: 'relative', height: 120, marginBottom: 16 }}>
           <svg width="160" height="120" viewBox="0 0 160 140" style={{ display: 'block', margin: '0 auto' }}>
@@ -33,22 +33,32 @@ export default function GrowthModal({ onStart }: GrowthModalProps) {
 
         <span
           className="inline-block rounded-full px-3 py-1 text-xs font-bold mb-3"
-          style={{ background: '#EAF3DE', color: '#3B6D11' }}
+          style={{ background: '#EAF3DE', color: '#4A7C59' }}
         >
-          💧 growth point +1
+          💧 growth point +2
         </span>
 
-        <h2 className="text-lg font-bold mb-2" style={{ color: '#3B2F1E' }}>向き合えてえらい！</h2>
-        <p className="text-sm mb-6" style={{ color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-          {'根の部屋は、向き合うとタネに水が\n撒かれ、どんどん実に成長していきます。'}
+        <h2 className="mb-2" style={{ color: '#3B2F1E', fontSize: 20, fontWeight: 600 }}>向き合えてえらい！</h2>
+        <p className="text-sm mb-0" style={{ color: 'rgba(59,47,30,0.7)', lineHeight: 1.7 }}>
+          根の部屋は、<br />
+          向き合うたびに水が撒かれ、<br />
+          今は根でも徐々に実に育ちます。
         </p>
+
+        {/* ポイント構成の説明 */}
+        <div style={{ background: '#F5F0E8', borderRadius: 12, padding: 12, marginTop: 12, marginBottom: 24, textAlign: 'left' }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>🚪 ルームを開く　　+1pt</p>
+          <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>💬 チャットを開く　+2pt</p>
+          <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>✉️ メッセージを送る +3pt</p>
+          <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>※訪問ごとにカウント・その中での最深行動のみ</p>
+        </div>
 
         <button
           onClick={onStart}
           className="w-full py-3 rounded-full text-sm font-bold"
           style={{ background: '#8B6914', color: '#FFFFFF', border: 'none', cursor: 'pointer' }}
         >
-          はじめる ✓
+          理解した
         </button>
       </div>
     </div>

@@ -26,8 +26,12 @@ export default function SubTagListSheet({
   const [subTags, setSubTags] = useState<SubTag[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [chatVisited, setChatVisited] = useState(false)
   const { step } = useTutorialStep()
-  const showAllArrow = step === 'room_chat_mi' || step === 'room_chat_ne'
+  // 実の部屋（room_chat_mi）は「戻って次に進もう」が出たら「まずここをのぞいてみよう」を消す
+  const showAllArrow = (step === 'room_chat_mi' && !chatVisited) || step === 'room_chat_ne'
+  // 実の部屋（room_chat_mi）はチャットを一度のぞくまで「戻って次に進もう」を出さない
+  const showBackBubble = step === 'watering' || (step === 'room_chat_mi' && chatVisited)
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 20)
@@ -53,7 +57,12 @@ export default function SubTagListSheet({
   const handleCreated = (subTag: SubTag) => {
     setSubTags(prev => [...prev, subTag])
     setShowCreate(false)
-    onSelect({ subTagId: subTag.id, name: subTag.name })
+    handleSelect({ subTagId: subTag.id, name: subTag.name })
+  }
+
+  const handleSelect = (channel: SelectedChannel) => {
+    setChatVisited(true)
+    onSelect(channel)
   }
 
   return (
@@ -85,10 +94,54 @@ export default function SubTagListSheet({
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <button
-            onClick={close}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#3B2F1E', padding: 0 }}
-          >← 戻る</button>
+          <div style={{ position: 'relative', display: 'inline-block', minWidth: 120 }}>
+            <button
+              onClick={close}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#3B2F1E', padding: 0 }}
+            >← 戻る</button>
+
+            {/* チュートリアル：戻るボタンの真下中央に吹き出し（次のステップへ誘導） */}
+            {showBackBubble && (
+              <div
+                style={{
+                  position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                  marginTop: 8, whiteSpace: 'nowrap', zIndex: 50, pointerEvents: 'none',
+                }}
+              >
+                <div style={{ position: 'relative' }}>
+                  {/* 上向き三角（赤枠） */}
+                  <div style={{
+                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                    width: 0, height: 0,
+                    borderLeft: '7px solid transparent',
+                    borderRight: '7px solid transparent',
+                    borderBottom: '7px solid #DC2626',
+                  }} />
+                  {/* 三角の白い内側 */}
+                  <div style={{
+                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                    width: 0, height: 0,
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent',
+                    borderBottom: '6px solid white',
+                    marginBottom: -1,
+                  }} />
+                  {/* 吹き出し本体 */}
+                  <div style={{
+                    background: 'white',
+                    border: '1.5px solid #DC2626',
+                    borderRadius: 12,
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    color: '#DC2626',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {step === 'watering' ? '戻って水を撒こう' : '戻って次に進もう'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#3B2F1E' }}>{formatHashtag(tag.text)}</p>
         </div>
 
@@ -97,7 +150,7 @@ export default function SubTagListSheet({
           {/* ALL */}
           <div style={{ position: 'relative' }}>
             <button
-              onClick={() => onSelect({ subTagId: null, name: tag.text })}
+              onClick={() => handleSelect({ subTagId: null, name: tag.text })}
               style={{
                 display: 'flex', alignItems: 'center', width: '100%', height: 56, padding: '0 20px',
                 background: '#D4EED8', border: 'none', borderBottom: '1px solid rgba(0,0,0,0.06)',
@@ -145,7 +198,7 @@ export default function SubTagListSheet({
             subTags.map(st => (
               <button
                 key={st.id}
-                onClick={() => onSelect({ subTagId: st.id, name: st.name })}
+                onClick={() => handleSelect({ subTagId: st.id, name: st.name })}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6, width: '100%', height: 56, padding: '0 20px',
                   background: '#FFFFFF', border: 'none', borderBottom: '1px solid rgba(0,0,0,0.06)',

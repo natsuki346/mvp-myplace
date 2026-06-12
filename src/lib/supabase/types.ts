@@ -18,6 +18,8 @@ export type Database = {
           created_at:   string
           is_active:    boolean
           growth_point: number
+          seed_weight:  'light' | 'heavy'
+          stage:        number
         }
         Insert: {
           user_id:     string
@@ -26,6 +28,7 @@ export type Database = {
           color?:      string
           position_x?: number
           position_y?: number
+          seed_weight?: 'light' | 'heavy'
         }
         Update: {
           color?:        string
@@ -33,6 +36,8 @@ export type Database = {
           position_y?:   number
           is_active?:    boolean
           growth_point?: number
+          seed_weight?:  'light' | 'heavy'
+          stage?:        number
         }
       }
       messages: {

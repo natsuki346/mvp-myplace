@@ -62,18 +62,3 @@ export async function creditDailyView(tagId: string, userId: string): Promise<vo
   await incrementGrowthPoint(tagId)
   await recordTagEvent(tagId, userId, 'room_entered')
 }
-
-/**
- * 「水やり」演出用：ユーザーの根タグ全てに growth_point を加算する（1日1回まで）。
- */
-export async function creditAllShadowTags(userId: string): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase.from('tags') as any)
-    .select('id')
-    .eq('user_id', userId)
-    .eq('type', 'shadow')
-    .eq('is_active', true)
-
-  if (error || !data) return
-  await Promise.all((data as { id: string }[]).map(t => creditDailyView(t.id, userId)))
-}

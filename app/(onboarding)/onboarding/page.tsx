@@ -10,16 +10,24 @@ type QuestionType = 'light' | 'shadow'
 
 // Q1・Q2 → 光タグ / Q3・Q4 → 影タグ
 const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
-  { text: '自分の好きなところ、思う存分出してみよう',                                         type: 'light'  },
-  { text: '自分がテンション上がる瞬間って、どんな時？',                                        type: 'light'  },
+  {
+    text: '自分の好きなところ、思う存分出してみよう',
+    subText: '例）優しい・明るい・行動力がある・好奇心旺盛・粘り強い・人の気持ちがわかる・細かいことに気づくなど',
+    type: 'light',
+  },
+  {
+    text: '自分がテンション上がる瞬間って、\nどんな時？',
+    subText: '例）好きな音楽を聴いてる時・友達と話してる時\n新しいことを始める時・自然の中にいる時\n誰かに感謝された時・好きなものに没頭してる時など',
+    type: 'light',
+  },
   {
     text: '自分ではわかってるけど\nあまり人に言わないこと、何かある？',
-    subText: '例）恋愛・家族・お金・将来・仕事・\n人間関係・コンプレックス・趣味・価値観・夢など',
+    subText: '例）恋愛のこと・家族のこと・お金のこと・将来のこと・仕事のこと・人間関係のことなど',
     type: 'shadow',
   },
   {
-    text: 'なんとなくずっと感じてるけど、\n誰にも言ったことないこと——\n思うがままに出してみない？',
-    subText: '例）自信のなさ・承認欲求・孤独感・\n劣等感・本音・恐れ・怒り・嫉妬・プライドなど',
+    text: 'よく一人で悩んじゃうけど、\n誰にも吐き出してないもの——\n思うがままに出してみない？',
+    subText: '例）実は恋人が欲しい・実は孤独を感じてる\n実は誰かに認められたい・実は怖いことがあるなど',
     type: 'shadow',
   },
 ]
@@ -53,7 +61,13 @@ export default function OnboardingPage() {
 
     // ── Q4 完了：全タグを DB に保存してキャンバス編集へ ──────────────────────
     const lightTags  = updated.filter(q => q.type === 'light' ).flatMap(q => q.tags)
-    const shadowTags = updated.filter(q => q.type === 'shadow').flatMap(q => q.tags)
+
+    // Q3（軽い種）・Q4（重い種）の順で並ぶ前提で seed_weight を割り当てる
+    const shadowGroups = updated.filter(q => q.type === 'shadow').map(q => q.tags)
+    const shadowTags = shadowGroups.flat()
+    const shadowSeedWeights = shadowGroups.flatMap((tags, qi) =>
+      tags.map(() => (qi === 0 ? 'light' as const : 'heavy' as const))
+    )
 
     // sessionStorage に保存（canvas-light / canvas-shadow ページが参照）
     sessionStorage.setItem('onboarding_tags', JSON.stringify({ lightTags, shadowTags }))
@@ -73,14 +87,37 @@ export default function OnboardingPage() {
           color:      'hsl(270,60%,70%)',
           position_x: SPREAD[i % SPREAD.length].x,
           position_y: SPREAD[i % SPREAD.length].y,
+          seed_weight: shadowSeedWeights[i],
         })),
       ]
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(supabase.from('tags').insert(allTags as any).select('id') as any)
-        .then((result: { data: { id: string }[] | null; error: { message: string } | null }) => {
-          if (result.error) { console.error('tags save failed:', result.error.message); return }
-          result.data?.forEach(row => recordTagEvent(row.id, userId, 'registered'))
-        })
+      const insertTags = (rows: unknown[]) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from('tags').insert(rows as any).select('id') as any) as Promise<{
+          data: { id: string }[] | null
+          error: { message: string } | null
+        }>
+
+      insertTags(allTags).then(result => {
+        if (result.error) {
+          // seed_weight/stage が未マイグレーション環境では、それらを除いて再試行する
+          if (result.error.message.includes('seed_weight') || result.error.message.includes('stage')) {
+            const fallbackTags = allTags.map(tag => {
+              const copy: Record<string, unknown> = { ...tag }
+              delete copy.seed_weight
+              delete copy.stage
+              return copy
+            })
+            insertTags(fallbackTags).then(retry => {
+              if (retry.error) { console.error('tags save failed:', retry.error.message); return }
+              retry.data?.forEach(row => recordTagEvent(row.id, userId, 'registered'))
+            })
+            return
+          }
+          console.error('tags save failed:', result.error.message)
+          return
+        }
+        result.data?.forEach(row => recordTagEvent(row.id, userId, 'registered'))
+      })
     }
 
     router.push('/onboarding/steps-preview?step=2')

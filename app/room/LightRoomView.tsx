@@ -111,6 +111,7 @@ export default function LightRoomView() {
                   color: '#3B2F1E',
                   fontSize: 12,
                   whiteSpace: 'nowrap',
+                  marginTop: 28,
                 }}
               >
                 タップして話してみよう
