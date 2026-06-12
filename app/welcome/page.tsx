@@ -95,8 +95,8 @@ export default function WelcomePage() {
           transition: 'opacity 0.4s ease 1.5s, transform 0.4s ease 1.5s',
         }}
       >
-        <p style={{ fontSize: 13, letterSpacing: 3, color: '#7A6A55', marginBottom: 10, textTransform: 'uppercase' }}>
-          WhyMe
+        <p style={{ fontSize: 32, letterSpacing: 1, color: '#7A6A55', marginBottom: 10, fontFamily: "'Dancing Script', cursive" }}>
+          SeedMe
         </p>
         <h1 style={{ fontSize: 20, fontWeight: 500, color: '#3D2E1A', marginBottom: 8, lineHeight: 1.5 }}>
           根があるから、実がなる。

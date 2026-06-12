@@ -50,7 +50,7 @@ export default function GrowthModal({ onStart }: GrowthModalProps) {
           <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>🚪 ルームを開く　　+1pt</p>
           <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>💬 チャットを開く　+2pt</p>
           <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>✉️ メッセージを送る +3pt</p>
-          <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>※訪問ごとにカウント・その中での最深行動のみ</p>
+          <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E', lineHeight: 2 }}>※訪問ごとにカウント</p>
         </div>
 
         <button
@@ -58,7 +58,7 @@ export default function GrowthModal({ onStart }: GrowthModalProps) {
           className="w-full py-3 rounded-full text-sm font-bold"
           style={{ background: '#8B6914', color: '#FFFFFF', border: 'none', cursor: 'pointer' }}
         >
-          理解した
+          理解した ✅
         </button>
       </div>
     </div>

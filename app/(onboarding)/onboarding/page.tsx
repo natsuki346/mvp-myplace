@@ -12,7 +12,7 @@ type QuestionType = 'light' | 'shadow'
 const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
   {
     text: '自分の好きなところ、思う存分出してみよう',
-    subText: '例）優しい・明るい・行動力がある・好奇心旺盛・粘り強い・人の気持ちがわかる・細かいことに気づくなど',
+    subText: '例）優しい・明るい・粘り強い・人の気持ちがわかる\n細かいことに気づけるなど',
     type: 'light',
   },
   {

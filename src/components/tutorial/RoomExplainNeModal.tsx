@@ -36,8 +36,8 @@ export default function RoomExplainNeModal({ onNext }: RoomExplainNeModalProps) 
           transition: 'opacity 0.3s ease, transform 0.3s ease',
           background: '#F5F0E8',
           borderRadius: 24,
-          padding: '36px 24px',
-          width: '100%', maxWidth: 320,
+          padding: '44px 32px',
+          width: '100%', maxWidth: 340,
           textAlign: 'center',
           boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
         }}
@@ -46,7 +46,10 @@ export default function RoomExplainNeModal({ onNext }: RoomExplainNeModalProps) 
           🌱 根の部屋
         </h2>
         <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, margin: '0 0 24px' }}>
-          影のタグで集まる部屋。まだ言葉にならない気持ちや、根っこにある想いを分かち合う場所です。
+          自分がなかなか出せない心の声で語る部屋。<br />
+          まだ言葉にならない気持ちや、<br />
+          根っこにある想いを<br />
+          仲間と分かち合う場所です。
         </p>
         <button
           onClick={handleNext}

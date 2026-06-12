@@ -36,8 +36,9 @@ export default function RoomIntroModal({ onNext }: RoomIntroModalProps) {
           transition: 'opacity 0.3s ease, transform 0.3s ease',
           background: '#F5F0E8',
           borderRadius: 24,
-          padding: '36px 24px',
-          width: '100%', maxWidth: 320,
+          padding: '32px 24px',
+          width: '100%', maxWidth: 320, maxHeight: '80vh',
+          overflowY: 'auto',
           textAlign: 'center',
           boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
         }}
@@ -45,9 +46,15 @@ export default function RoomIntroModal({ onNext }: RoomIntroModalProps) {
         <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 12px' }}>
           🏠 ルームってなに？
         </h2>
-        <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, margin: '0 0 24px' }}>
-          同じタグを持つ人たちが集まる場所です。実の部屋では光の言葉を、根の部屋では根っこの言葉を交わします。
-        </p>
+        <div style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, textAlign: 'center', margin: '0 0 24px' }}>
+          <p style={{ margin: 0 }}>同じタグを持つ人たちが集まり、<br />チャットで会話ができます。</p>
+
+          <p style={{ margin: '12px 0 0', fontWeight: 600 }}>🍅 実の部屋</p>
+          <p style={{ margin: 0 }}>自分の好きなことや<br />同じ共通点を持つ人たちが集まる場所。</p>
+
+          <p style={{ margin: '12px 0 0', fontWeight: 600 }}>🌱 根の部屋</p>
+          <p style={{ margin: 0 }}>なかなか打ち明けられなかった言葉や<br />同じ境遇を持つ人が集まり、<br />言葉を交わすことができます。</p>
+        </div>
         <button
           onClick={handleNext}
           style={{
