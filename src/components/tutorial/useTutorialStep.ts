@@ -9,6 +9,7 @@ export type TutorialStep =
   | 'room_intro'       // ④ ルームってなに？説明モーダル
   | 'room_explain_mi'  // ⑤ 実の部屋の説明モーダル
   | 'room_chat_mi'     // ⑥ 実の部屋チャット（閲覧モード）
+  | 'room_grow_animation' // ⑥.5 成長アニメーション3（芽→つぼみ）
   | 'ne_room_popup'    // ⑦ 根の部屋ものぞきますか？ポップアップ
   | 'room_explain_ne'  // ⑧ 根の部屋の説明モーダル
   | 'room_chat_ne'     // ⑨ 根の部屋チャット（閲覧モード）

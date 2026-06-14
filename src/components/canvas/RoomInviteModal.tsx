@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type Step = 'light' | 'shadow'
 
@@ -65,7 +66,9 @@ export function RoomInviteModal({
         {/* ── 光ステップ ── */}
         {isLight && (
           <>
-            <p style={{ fontSize: 32, margin: '0 0 12px' }}>🍅</p>
+            <div style={{ margin: '0 0 12px', display: 'flex', justifyContent: 'center' }}>
+              <DaisyIcon size={32} stage={4} />
+            </div>
             <p style={{
               color: '#3B2F1E', fontSize: 16, fontWeight: 600,
               lineHeight: 1.65, margin: '0 0 28px',

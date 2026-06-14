@@ -7,7 +7,7 @@ import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 // ?step=N → 遷移先のマッピング
 const STEP_DESTINATIONS: Record<number, string> = {
   1: '/onboarding',
-  2: '/onboarding/garden-setup',
+  2: '/home',
   3: '/canvas',
 }
 
@@ -24,7 +24,7 @@ export default function StepsPreviewPage() {
     const resolved = [1, 2, 3].includes(s) ? s : DEFAULT_STEP
     setQueryStep(resolved)
     if (resolved === 2) {
-      // step=2（→ガーデン設定画面）は、その先に表示される案内ポップアップと
+      // step=2（→ホーム画面）は、その先に表示される案内ポップアップと
       // 内容が重複するため、ポップアップを出さずそのまま遷移する
       setSkipPopup(true)
       router.push(STEP_DESTINATIONS[2])

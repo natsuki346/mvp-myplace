@@ -40,7 +40,7 @@ export default function RootGrowAnimation({ onComplete }: RootGrowAnimationProps
   return (
     <div
       className="fixed inset-0 flex flex-col items-center justify-center px-6"
-      style={{ zIndex: 280, background: 'rgba(59,47,30,0.6)' }}
+      style={{ zIndex: 280, maxWidth: 390, margin: '0 auto', background: 'rgba(59,47,30,0.6)' }}
     >
       <svg width="240" height="320" viewBox="0 0 160 240" style={{ display: 'block' }}>
         {/* 土の表面層 */}

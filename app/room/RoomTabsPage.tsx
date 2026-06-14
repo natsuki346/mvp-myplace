@@ -11,6 +11,9 @@ import RoomExplainNeModal from '@/src/components/tutorial/RoomExplainNeModal'
 import NeRoomPopup from '@/src/components/tutorial/NeRoomPopup'
 import GrowthModal from '@/src/components/tutorial/GrowthModal'
 import ThankYouModal from '@/src/components/tutorial/ThankYouModal'
+import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
+import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
+import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type RoomType = 'light' | 'shadow'
 
@@ -22,13 +25,14 @@ const TAB_CONFIG: Record<RoomType, { label: string; icon: string }> = {
 }
 
 const ACTIVE_BG   = '#4A7C59'
-const INACTIVE_BG = '#C4B49A'
+const INACTIVE_BG = '#D4B896'
 
 type TutorialPhase = 'room_intro' | 'room_explain_mi' | 'ne_room_popup' | 'room_explain_ne' | null
 
 export default function RoomTabsPage({ type }: { type: RoomType }) {
   const router = useRouter()
   const { step, advanceStep } = useTutorialStep()
+  const { setGrowthStage } = useGrowthStage()
 
   const phase: TutorialPhase =
     step === 'room_intro' ? 'room_intro'
@@ -50,7 +54,9 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
       }}
     >
       <div className="flex items-center gap-2 mb-2" style={{ flexShrink: 0 }}>
-        <span style={{ fontSize: 22 }}>{TAB_CONFIG[type].icon}</span>
+        {type === 'light'
+          ? <DaisyIcon size={22} stage={4} active />
+          : <span style={{ fontSize: 22 }}>{TAB_CONFIG[type].icon}</span>}
         <h1 className="text-xl font-bold" style={{ color: '#3B2F1E' }}>農園が広がる時</h1>
       </div>
       <p className="text-sm mb-6" style={{ color: 'rgba(59,47,30,0.55)', flexShrink: 0 }}>
@@ -70,9 +76,13 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
                 background: active ? ACTIVE_BG : INACTIVE_BG,
                 color: '#FFFFFF',
                 border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
-              {TAB_CONFIG[t].icon} {TAB_CONFIG[t].label}
+              {t === 'light'
+                ? <DaisyIcon size={18} stage={4} active={active} />
+                : <span>{TAB_CONFIG[t].icon}</span>}
+              {TAB_CONFIG[t].label}
             </button>
           )
         })}
@@ -88,6 +98,17 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
 
       {phase === 'room_explain_mi' && (
         <RoomExplainMiModal onNext={() => { advanceStep('room_chat_mi'); router.replace('/room/light') }} />
+      )}
+
+      {/* 成長アニメーション3：芽 → つぼみ */}
+      {step === 'room_grow_animation' && (
+        <GrowthTransitionOverlay
+          stage="budding"
+          quote={{ text: '喜びは分かち合うことで倍になり\n悲しみは分かち合うことで半分になる。', author: 'ゲーテ' }}
+          message={{ title: 'あなたは一人じゃない。', subtitle: 'あなたの言葉が、人を繋ぐ。\nあなたの言葉は、誰かを救う', subtitleSize: 19 }}
+          buttonText="次へ"
+          onNext={() => { setGrowthStage('budding'); advanceStep('ne_room_popup') }}
+        />
       )}
 
       {phase === 'ne_room_popup' && (

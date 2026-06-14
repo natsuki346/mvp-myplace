@@ -1,11 +1,16 @@
 'use client'
 
 type SeedGraphicProps = {
-  // 成長ステージ（0〜6、6=収穫）
+  // 成長ステージ（0〜6）：根の深さ・本数に反映
   stage: number
   // true の間は未成長状態（dashoffset=1）で描画し、false に戻ると0.5sかけて描画される
   animate: boolean
 }
+
+const ROOT_COLOR = '#8B6F4E'
+
+// 主根の長さ（ステージ0〜6）
+const MAIN_ROOT_LENGTH = [0, 12, 20, 28, 36, 36, 36]
 
 export default function SeedGraphic({ stage, animate }: SeedGraphicProps) {
   const drawn = !animate
@@ -18,69 +23,42 @@ export default function SeedGraphic({ stage, animate }: SeedGraphicProps) {
     opacity: drawn ? 1 : 0,
     transition: 'opacity 0.5s ease',
   }
+  const mainLen = MAIN_ROOT_LENGTH[Math.min(Math.max(stage, 0), 6)]
 
   return (
-    <svg width="60" height="120" viewBox="-15 -70 75 175" style={{ overflow: 'visible', display: 'block' }}>
-      {/* 追加の葉（ステージ5） */}
-      {stage >= 5 && (
-        <g style={fadeStyle}>
-          <ellipse cx="14" cy="-40" rx="10" ry="5.5" fill="#5A9468" transform="rotate(-30 14 -40)" />
-          <ellipse cx="36" cy="-40" rx="10" ry="5.5" fill="#5A9468" transform="rotate(30 36 -40)" />
-        </g>
-      )}
-
-      {/* 葉（ステージ4） */}
-      {stage >= 4 && (
-        <g style={fadeStyle}>
-          <ellipse cx="12" cy="-26" rx="11" ry="6" fill="#4A7C59" transform="rotate(-35 12 -26)" />
-          <ellipse cx="38" cy="-26" rx="11" ry="6" fill="#4A7C59" transform="rotate(35 38 -26)" />
-        </g>
-      )}
-
-      {/* 茎（ステージ3以上） */}
-      {stage >= 3 && (
-        <line x1="25" y1="0" x2="25" y2="-44" stroke="#4A7C59" strokeWidth="3" strokeLinecap="round" pathLength={1} style={dashStyle} />
-      )}
-
-      {/* タネ本体 */}
-      <ellipse cx="25" cy="10" rx="14" ry="19" fill="#6B3A0F" transform="rotate(-15 25 10)" />
-      <ellipse cx="19" cy="2" rx="4" ry="3" fill="#9C6A2E" opacity="0.6" />
+    <svg width="60" height="100" viewBox="-30 -50 60 100" style={{ overflow: 'visible', display: 'block' }}>
+      {/* タネ本体：土に埋まっても分かるよう、土より濃い色＋輪郭で表現 */}
+      <ellipse cx="0" cy="0" rx="18" ry="14" fill="#A47148" stroke="#6B4226" strokeWidth="1.5" />
+      <ellipse cx="-4" cy="-3" rx="8" ry="6" fill="#F5E1B8" />
 
       {/* 主根（ステージ1以上） */}
       {stage >= 1 && (
-        <line x1="25" y1="28" x2="25" y2="55" stroke="#7A4515" strokeWidth="2.5" strokeLinecap="round" pathLength={1} style={dashStyle} />
+        <line x1="0" y1="13" x2="0" y2={13 + mainLen} stroke={ROOT_COLOR} strokeWidth="2.5" strokeLinecap="round" pathLength={1} style={dashStyle} />
       )}
 
-      {/* 枝根（ステージ2以上） */}
+      {/* 枝根：1段目（ステージ2以上） */}
       {stage >= 2 && (
         <>
-          <path d="M25 40 Q12 50 8 65" stroke="#8B5020" strokeWidth="2" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
-          <path d="M25 40 Q38 50 42 65" stroke="#8B5020" strokeWidth="2" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
+          <path d="M0 18 Q-10 24 -14 34" stroke={ROOT_COLOR} strokeWidth="2" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
+          <path d="M0 18 Q10 24 14 34" stroke={ROOT_COLOR} strokeWidth="2" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
         </>
       )}
 
-      {/* 根の広がり（ステージ3以上） */}
-      {stage >= 3 && (
-        <>
-          <path d="M25 45 Q3 62 -2 82" stroke="#8B5020" strokeWidth="1.5" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
-          <path d="M25 45 Q47 62 52 82" stroke="#8B5020" strokeWidth="1.5" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
-        </>
-      )}
-
-      {/* 深く広がる根（ステージ4以上） */}
+      {/* 枝根：2段目（ステージ4以上） */}
       {stage >= 4 && (
         <>
-          <path d="M25 55 Q-2 78 -8 102" stroke="#8B5020" strokeWidth="1.5" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
-          <path d="M25 55 Q52 78 58 102" stroke="#8B5020" strokeWidth="1.5" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
+          <path d="M0 26 Q-16 34 -22 46" stroke={ROOT_COLOR} strokeWidth="1.5" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
+          <path d="M0 26 Q16 34 22 46" stroke={ROOT_COLOR} strokeWidth="1.5" fill="none" strokeLinecap="round" pathLength={1} style={dashStyle} />
         </>
       )}
 
-      {/* 収穫（ステージ6）：実を一番手前・大きめに描く */}
+      {/* 細い根毛（ステージ6） */}
       {stage >= 6 && (
         <g style={fadeStyle}>
-          <circle cx="25" cy="-46" r="13" fill="#E0533D" />
-          <circle cx="20" cy="-50" r="4" fill="#fff" opacity="0.35" />
-          <path d="M25 -58 Q19 -63 25 -66 Q31 -63 25 -58 Z" fill="#4A7C59" />
+          <line x1="-2" y1="20" x2="-7" y2="22" stroke={ROOT_COLOR} strokeWidth="1" strokeLinecap="round" />
+          <line x1="2" y1="20" x2="7" y2="22" stroke={ROOT_COLOR} strokeWidth="1" strokeLinecap="round" />
+          <line x1="-3" y1="32" x2="-9" y2="35" stroke={ROOT_COLOR} strokeWidth="1" strokeLinecap="round" />
+          <line x1="3" y1="32" x2="9" y2="35" stroke={ROOT_COLOR} strokeWidth="1" strokeLinecap="round" />
         </g>
       )}
     </svg>

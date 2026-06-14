@@ -26,20 +26,15 @@ const ITEM_WIDTH = 160
 const GAP = 24
 const STEP = ITEM_WIDTH + GAP
 
-const SECTION_HEIGHT = 240
-const SEED_TOP  = 176 // 土の層の中（境界線より下）
-const LABEL_TOP = 42  // 地表・空気の中（境界線より上）
+// 地面ライン・土壌エリア：LightRoomViewと完全に統一
+const TOTAL_HEIGHT  = 420
+const GROUND_LINE_Y = 300 // 地面ライン（画面の約71%）
+const GRASS_HEIGHT  = 8
+const SOIL_HEIGHT   = 5
 
-// 土壌の粒子（装飾）：固定位置・サイズ
-const SOIL_PARTICLES = [
-  { cx: 24,  cy: 150, r: 2.5 }, { cx: 70,  cy: 200, r: 2 },
-  { cx: 118, cy: 165, r: 3 },   { cx: 160, cy: 215, r: 2 },
-  { cx: 205, cy: 155, r: 2.5 }, { cx: 248, cy: 205, r: 3 },
-  { cx: 290, cy: 168, r: 2 },   { cx: 332, cy: 220, r: 2.5 },
-  { cx: 370, cy: 158, r: 2 },   { cx: 45,  cy: 230, r: 2 },
-  { cx: 145, cy: 145, r: 2 },   { cx: 270, cy: 145, r: 2.5 },
-  { cx: 360, cy: 200, r: 2 },   { cx: 95,  cy: 225, r: 2.5 },
-]
+const SOIL_TOP  = GROUND_LINE_Y + GRASS_HEIGHT + SOIL_HEIGHT
+const SEED_TOP  = SOIL_TOP + 25    // タネ：土の中に埋まった位置に中心が乗る
+const LABEL_TOP = GROUND_LINE_Y - 80 // 地表・空気の中（境界線より上）
 
 async function fetchShadowTags(userId: string): Promise<Tag[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -285,74 +280,72 @@ export default function ShadowRoomView() {
       )}
 
       {/* 土壌断面 + タネカルーセル：画面下部いっぱいに広げる */}
-      <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, flex: 1, minHeight: SECTION_HEIGHT, overflow: 'hidden', zIndex: tutorialGrowth ? 201 : undefined }}>
-        {/* チュートリアル：案内中の暗転オーバーレイ */}
-        {step === 'room_chat_ne' && !openTag && (
-          <div className="fixed inset-0" style={{ zIndex: 40, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
-        )}
-
-        {/* 先頭のRoomへの誘導矢印 */}
+      <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, flex: 1, minHeight: TOTAL_HEIGHT, overflow: 'hidden', display: 'flex', flexDirection: 'column', zIndex: tutorialGrowth ? 201 : undefined }}>
+        {/* チュートリアル：先頭タネだけ穴を開けて明るく見せる暗転オーバーレイ */}
         {step === 'room_chat_ne' && !openTag && (
           <div
-            className="absolute flex flex-col items-center"
-            style={{ left: '50%', top: SEED_TOP + 34, transform: 'translateX(-50%)', zIndex: 160, pointerEvents: 'none' }}
+            className="absolute inset-0"
+            style={{
+              zIndex: 40, pointerEvents: 'none',
+              background: `radial-gradient(circle at 50% ${LABEL_TOP + 70}px, transparent 95px, rgba(0,0,0,0.45) 145px)`,
+            }}
+          />
+        )}
+
+        {/* 先頭のRoomへの誘導吹き出し：タネの真上に表示 */}
+        {step === 'room_chat_ne' && !openTag && (
+          <div
+            className="absolute"
+            style={{ left: '50%', top: LABEL_TOP - 58, transform: 'translateX(-50%)', zIndex: 50, pointerEvents: 'none' }}
           >
-            <div className="flex flex-col items-center animate-bounce">
-              {/* 上向き三角：タネを指す */}
-              <span style={{ fontSize: 0, lineHeight: 0 }}>
-                <span
-                  style={{
-                    display: 'block', width: 0, height: 0, margin: '0 auto',
-                    borderLeft: '8px solid transparent',
-                    borderRight: '8px solid transparent',
-                    borderBottom: '8px solid #fff',
-                  }}
-                />
-              </span>
-              <div
-                className="rounded-xl px-3 py-2"
-                style={{
-                  background: '#fff',
-                  border: '1.5px solid #8B6914',
-                  color: '#3B2F1E',
-                  fontSize: 12,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                タップして話してみよう
-              </div>
+            <div
+              className="rounded-xl px-3 py-2 animate-bounce"
+              style={{
+                position: 'relative',
+                background: '#fff',
+                border: '1.5px solid #8B6914',
+                color: '#3B2F1E',
+                fontSize: 12,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              タップして話してみよう
+              {/* 吹き出しの三角：タネを指す */}
+              <div style={{
+                position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
+                width: 0, height: 0,
+                borderLeft: '8px solid transparent',
+                borderRight: '8px solid transparent',
+                borderTop: '8px solid #fff',
+              }} />
             </div>
           </div>
         )}
 
-        {/* 土壌断面SVG（背景）：地表ラインを土壌エリア最上部に固定表示 */}
-        <svg
-          viewBox={`0 0 390 ${SECTION_HEIGHT}`}
-          preserveAspectRatio="none"
-          className="absolute"
-          style={{ top: 0, left: 0, width: '100%', height: SECTION_HEIGHT, pointerEvents: 'none' }}
-        >
-          <defs>
-            <linearGradient id="soil-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#C4993A" />
-              <stop offset="100%" stopColor="#7A5010" />
-            </linearGradient>
-          </defs>
-          {/* 地表・空気 */}
-          <rect x="0" y="0" width="390" height={SECTION_HEIGHT} fill="#F5F0E8" />
-          {/* 土の層（地表は直線の境界線） */}
-          <path
-            d={`M0,110 L390,110 L390,${SECTION_HEIGHT} L0,${SECTION_HEIGHT} Z`}
-            fill="url(#soil-gradient)"
-          />
-          {/* 土の粒子 */}
-          {SOIL_PARTICLES.map((p, i) => (
-            <circle key={i} cx={p.cx} cy={p.cy} r={p.r} fill="#5A3A0A" opacity={0.3} />
-          ))}
-        </svg>
+        {/* 地面ライン・土壌エリア（背景）：LightRoomViewと完全に統一 */}
+        <div style={{ flexShrink: 0, overflow: 'hidden' }}>
+          <svg
+            viewBox={`0 0 390 ${TOTAL_HEIGHT}`}
+            preserveAspectRatio="none"
+            style={{ display: 'block', width: '100%', height: TOTAL_HEIGHT, pointerEvents: 'none' }}
+          >
+            {/* 地上エリア */}
+            <rect x={0} y={0} width={390} height={GROUND_LINE_Y} fill="#F5F0E8" />
+            {/* 草ライン */}
+            <rect x={0} y={GROUND_LINE_Y} width={390} height={GRASS_HEIGHT} fill="#4A7C59" />
+            {/* 土ライン */}
+            <rect x={0} y={GROUND_LINE_Y + GRASS_HEIGHT} width={390} height={SOIL_HEIGHT} fill="#8B6914" />
+            {/* 地下エリア */}
+            <rect
+              x={0} y={GROUND_LINE_Y + GRASS_HEIGHT + SOIL_HEIGHT}
+              width={390} height={TOTAL_HEIGHT - (GROUND_LINE_Y + GRASS_HEIGHT + SOIL_HEIGHT)}
+              fill="#C9A96E"
+            />
+          </svg>
+        </div>
 
-        {/* 地表ラインより下、土壌エリア下端までを土色で埋める */}
-        <div style={{ position: 'absolute', top: SECTION_HEIGHT, left: 0, right: 0, bottom: 0, background: '#7A5010' }} />
+        {/* 地下エリアの続き：残りの高さを土色で埋める */}
+        <div style={{ flex: 1, background: '#C9A96E' }} />
 
         {/* タネカルーセル */}
         <div
@@ -383,7 +376,7 @@ export default function ShadowRoomView() {
                   <span style={{
                     position: 'absolute', top: LABEL_TOP, left: '50%',
                     transform: 'translate(-50%, -50%)',
-                    fontSize: 11, fontWeight: 600, color: '#fff', background: '#8B6914',
+                    fontSize: 11, fontWeight: 600, color: '#8B6914', background: '#F5D78E',
                     borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap',
                   }}>
                     {formatHashtag(tag.text)}

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { QuestionCard } from '@/src/components/onboarding/QuestionCard'
 import { supabase } from '@/src/lib/supabase/client'
 import { recordTagEvent } from '@/src/lib/supabase/events'
+import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
+import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 
 type QuestionType = 'light' | 'shadow'
 
@@ -32,16 +34,11 @@ const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
   },
 ]
 
-// タグの初期配置座標（fraction 0–1）
-const SPREAD = [
-  { x: 0.14, y: 0.14 }, { x: 0.55, y: 0.11 }, { x: 0.22, y: 0.34 },
-  { x: 0.64, y: 0.32 }, { x: 0.10, y: 0.54 }, { x: 0.50, y: 0.56 },
-  { x: 0.20, y: 0.74 }, { x: 0.66, y: 0.70 }, { x: 0.38, y: 0.84 },
-]
-
 export default function OnboardingPage() {
   const router = useRouter()
   const [currentIndex,  setCurrentIndex]  = useState(0)
+  const [showGrowthOverlay, setShowGrowthOverlay] = useState(false)
+  const { setGrowthStage } = useGrowthStage()
 
   // オンボーディング開始時にチュートリアル表示フラグをリセット（毎回表示）
   useEffect(() => {
@@ -76,17 +73,13 @@ export default function OnboardingPage() {
     const userId = sessionStorage.getItem('user_id')
     if (userId) {
       const allTags = [
-        ...lightTags.map((text, i) => ({
-          user_id:    userId, text, type: 'light' as const,
-          color:      'hsl(270,60%,45%)',
-          position_x: SPREAD[i % SPREAD.length].x,
-          position_y: SPREAD[i % SPREAD.length].y,
+        ...lightTags.map((text) => ({
+          user_id: userId, text, type: 'light' as const,
+          color:   '#F5D78E',
         })),
         ...shadowTags.map((text, i) => ({
-          user_id:    userId, text, type: 'shadow' as const,
-          color:      'hsl(270,60%,70%)',
-          position_x: SPREAD[i % SPREAD.length].x,
-          position_y: SPREAD[i % SPREAD.length].y,
+          user_id: userId, text, type: 'shadow' as const,
+          color:   '#D4B896',
           seed_weight: shadowSeedWeights[i],
         })),
       ]
@@ -120,7 +113,22 @@ export default function OnboardingPage() {
       })
     }
 
-    router.push('/onboarding/steps-preview?step=2')
+    // 農園トップへ戻った際にルーム誘導チュートリアルが始まるようにステップを進める
+    localStorage.setItem('whyme_tutorial_step', 'room_nav_arrow')
+
+    setGrowthStage('sprout')
+    setShowGrowthOverlay(true)
+  }
+
+  if (showGrowthOverlay) {
+    return (
+      <GrowthTransitionOverlay
+        stage="sprout"
+        quote={{ text: '自分を知ることが、すべての知恵の始まりだ。', author: 'アリストテレス' }}
+        message={{ title: '自分を言葉にする。', subtitle: 'それだけで大成功だよ' }}
+        onNext={() => router.push('/process-map?step=2')}
+      />
+    )
   }
 
   return (

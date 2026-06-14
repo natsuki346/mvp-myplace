@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type RoomExplainMiModalProps = {
   onNext: () => void
@@ -42,8 +43,8 @@ export default function RoomExplainMiModal({ onNext }: RoomExplainMiModalProps) 
           boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
         }}
       >
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 12px' }}>
-          🍅 実の部屋
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <DaisyIcon size={20} stage={4} active /> 実の部屋
         </h2>
         <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, margin: '0 0 24px' }}>
           同じ好きやお気に入りのタグで集まる部屋。<br />

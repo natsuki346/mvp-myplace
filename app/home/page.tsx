@@ -1,15 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import GardenDisplay from './garden-display'
 import { BottomNav } from '@/src/components/BottomNav'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import RoomNavArrow from '@/src/components/tutorial/RoomNavArrow'
+import GrowthTree from '@/src/components/tree/GrowthTree'
+import { useGrowthStage, GROWTH_STAGE_LABELS } from '@/src/components/tree/useGrowthStage'
 
 export default function HomePage() {
-  const router = useRouter()
   const { step, advanceStep } = useTutorialStep()
+  const { stage } = useGrowthStage()
 
   // チュートリアル：ルーム誘導の矢印案内の前に表示する案内ポップアップ
   const [roomGuideDismissed, setRoomGuideDismissed] = useState(false)
@@ -27,19 +28,12 @@ export default function HomePage() {
         <h1 style={{ fontSize: 19, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
           あなたの農園
         </h1>
-        <button
-          onClick={() => router.push('/onboarding/garden-setup')}
-          aria-label="編集する"
-          style={{
-            width: 38, height: 38, borderRadius: '50%',
-            border: 'none', background: '#FFFFFF',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(139,115,85,0.18)',
-          }}
-        >
-          ✏️
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <GrowthTree stage={stage} size={28} />
+          <span style={{ fontSize: 11, color: '#8B6914', fontWeight: 600 }}>
+            {GROWTH_STAGE_LABELS[stage]}
+          </span>
+        </div>
       </div>
 
       {/* ────────────────── 農園表示 ────────────────── */}

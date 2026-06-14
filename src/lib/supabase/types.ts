@@ -13,8 +13,8 @@ export type Database = {
           text:         string
           type:         'light' | 'shadow'
           color:        string
-          position_x:   number
-          position_y:   number
+          position_x:   number | null
+          position_y:   number | null
           created_at:   string
           is_active:    boolean
           growth_point: number
@@ -26,14 +26,14 @@ export type Database = {
           text:        string
           type:        'light' | 'shadow'
           color?:      string
-          position_x?: number
-          position_y?: number
+          position_x?: number | null
+          position_y?: number | null
           seed_weight?: 'light' | 'heavy'
         }
         Update: {
           color?:        string
-          position_x?:   number
-          position_y?:   number
+          position_x?:   number | null
+          position_y?:   number | null
           is_active?:    boolean
           growth_point?: number
           seed_weight?:  'light' | 'heavy'

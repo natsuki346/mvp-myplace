@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import { getMatchingTags } from '@/src/lib/supabase/rooms'
+import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type OwnTag = { id: string; text: string; type: 'light' | 'shadow' }
 
@@ -18,6 +19,11 @@ type RoomCard = {
 const TYPE_STYLE: Record<'light' | 'shadow', { bg: string; accent: string; icon: string }> = {
   light:  { bg: '#F5D78E', accent: '#8B6914', icon: '🌿' },
   shadow: { bg: '#D4B896', accent: '#7A5C3E', icon: '🌱' },
+}
+
+function RoomTypeIcon({ type }: { type: 'light' | 'shadow' }) {
+  if (type === 'light') return <DaisyIcon size={16} stage={4} active />
+  return <span>{TYPE_STYLE[type].icon}</span>
 }
 
 export default function RoomCardList({ type }: { type: 'light' | 'shadow' }) {
@@ -117,8 +123,8 @@ export default function RoomCardList({ type }: { type: 'light' | 'shadow' }) {
           style={{ background: style.bg, border: 'none' }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-base font-semibold" style={{ color: style.accent }}>
-              {style.icon} {card.text}
+            <span className="text-base font-semibold flex items-center gap-1.5" style={{ color: style.accent }}>
+              <RoomTypeIcon type={card.type} /> {card.text}
             </span>
             <span style={{ color: style.accent, opacity: 0.4, fontSize: 18 }}>›</span>
           </div>

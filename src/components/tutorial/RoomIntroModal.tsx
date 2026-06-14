@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type RoomIntroModalProps = {
   onNext: () => void
@@ -49,7 +50,9 @@ export default function RoomIntroModal({ onNext }: RoomIntroModalProps) {
         <div style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, textAlign: 'center', margin: '0 0 24px' }}>
           <p style={{ margin: 0 }}>同じタグを持つ人たちが集まり、<br />チャットで会話ができます。</p>
 
-          <p style={{ margin: '12px 0 0', fontWeight: 600 }}>🍅 実の部屋</p>
+          <p style={{ margin: '12px 0 0', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <DaisyIcon size={18} stage={4} active /> 実の部屋
+          </p>
           <p style={{ margin: 0 }}>自分の好きなことや<br />同じ共通点を持つ人たちが集まる場所。</p>
 
           <p style={{ margin: '12px 0 0', fontWeight: 600 }}>🌱 根の部屋</p>

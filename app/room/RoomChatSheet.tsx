@@ -6,6 +6,7 @@ import { getMatchingTags, incrementGrowthPoint } from '@/src/lib/supabase/rooms'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { DUMMY_MESSAGES, DUMMY_MESSAGES_VIEWONLY } from './dummy-messages'
+import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type Message = { id: string; user_id: string; content: string }
 type RoomType = 'light' | 'shadow'
@@ -162,7 +163,7 @@ export default function RoomChatSheet({
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <span style={{ fontSize: 18 }}>{theme.icon}</span>
+                {type === 'light' ? <DaisyIcon size={18} stage={4} /> : <span style={{ fontSize: 18 }}>{theme.icon}</span>}
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#3B2F1E' }}>
                   {subTagId ? `#${subTagName}` : tagText}
                 </p>

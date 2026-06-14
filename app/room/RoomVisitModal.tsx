@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { TreeSVG, RootsSVG, useMounted, loadGardenData } from '@/app/onboarding/garden-setup/garden-visuals'
+import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type RoomType = 'light' | 'shadow'
 
@@ -85,7 +86,9 @@ export function RoomVisitModal({
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.78)' }} />
 
         <div style={{ position: 'relative' }}>
-          <p style={{ fontSize: 32, margin: '0 0 12px' }}>{copy.icon}</p>
+          <div style={{ margin: '0 0 12px', display: 'flex', justifyContent: 'center' }}>
+            {type === 'light' ? <DaisyIcon size={32} stage={4} /> : <span style={{ fontSize: 32 }}>{copy.icon}</span>}
+          </div>
           <p style={{ color: '#3B2F1E', fontSize: 16, fontWeight: 700, lineHeight: 1.6, margin: '0 0 6px' }}>
             {copy.title}
           </p>
