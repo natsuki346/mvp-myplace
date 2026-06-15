@@ -35,10 +35,10 @@ export function RoomCompleteModal({ onReturn }: { onReturn: () => void }) {
       >
         <p style={{ fontSize: 32, margin: '0 0 12px' }}>🌿</p>
         <p style={{ color: '#3B2F1E', fontSize: 16, fontWeight: 700, lineHeight: 1.6, margin: '0 0 6px' }}>
-          今日の農園めぐりが終わりました
+          今日のガーデンめぐりが終わりました
         </p>
         <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.55)', margin: '0 0 24px', lineHeight: 1.6 }}>
-          あなたの農園に戻りましょう
+          あなたのガーデンに戻りましょう
         </p>
         <button
           onClick={onReturn}
@@ -47,7 +47,7 @@ export function RoomCompleteModal({ onReturn }: { onReturn: () => void }) {
             background: '#4A7C59', color: '#FFFFFF',
             fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
-        >農園に帰る</button>
+        >ガーデンに帰る</button>
       </div>
     </div>
   )

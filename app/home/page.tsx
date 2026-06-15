@@ -17,16 +17,18 @@ export default function HomePage() {
 
   return (
     <div
-      className="min-h-screen"
-      style={{ background: '#F5F0E8', maxWidth: 390, margin: '0 auto', position: 'relative' }}
+      style={{
+        background: '#F5F0E8', maxWidth: 390, margin: '0 auto', position: 'relative',
+        height: '100svh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}
     >
       {/* ────────────────── ヘッダー ────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '44px 20px 12px',
+        padding: '44px 20px 12px', flexShrink: 0,
       }}>
         <h1 style={{ fontSize: 19, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
-          あなたの農園
+          あなたのガーデン
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <GrowthTree stage={stage} size={28} />
@@ -37,8 +39,8 @@ export default function HomePage() {
       </div>
 
       {/* ────────────────── 農園表示 ────────────────── */}
-      {/* paddingBottom: ボトムナビの高さ(80px) + 余裕分(40px) */}
-      <div style={{ paddingBottom: 120 }}>
+      {/* flex:1でボトムナビの直前まで広げる（デコレーション編集時と同じ大きさ） */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingBottom: 80 }}>
         <GardenDisplay />
       </div>
 

@@ -2,9 +2,26 @@ export type Database = {
   public: {
     Tables: {
       users: {
-        Row:    { id: string; username: string; created_at: string }
-        Insert: { username: string }
-        Update: { username?: string }
+        Row:    { id: string; username: string; avatar_url: string | null; created_at: string }
+        Insert: { username: string; avatar_url?: string | null }
+        Update: { username?: string; avatar_url?: string | null }
+      }
+      connections: {
+        Row: {
+          id:           string
+          requester_id: string
+          receiver_id:  string
+          status:       'pending' | 'accepted'
+          created_at:   string
+        }
+        Insert: {
+          requester_id: string
+          receiver_id:  string
+          status?:      'pending' | 'accepted'
+        }
+        Update: {
+          status?: 'pending' | 'accepted'
+        }
       }
       tags: {
         Row: {

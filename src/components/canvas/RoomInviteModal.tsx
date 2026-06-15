@@ -73,7 +73,7 @@ export function RoomInviteModal({
               color: '#3B2F1E', fontSize: 16, fontWeight: 600,
               lineHeight: 1.65, margin: '0 0 28px',
             }}>
-              実の部屋を訪れてみますか？
+              Daisyを訪れてみますか？
             </p>
             <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.55)', margin: '0 0 20px', lineHeight: 1.6 }}>
               あなたと同じアイデンティティを持つ人と<br />話せます！
@@ -107,7 +107,7 @@ export function RoomInviteModal({
               color: '#3B2F1E', fontSize: 16, fontWeight: 600,
               lineHeight: 1.65, margin: '0 0 28px',
             }}>
-              根の部屋も覗いてみますか？
+              Seedも覗いてみますか？
             </p>
             <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.55)', margin: '0 0 20px', lineHeight: 1.6 }}>
               同じ境遇を持つ人と打ち明けられます！

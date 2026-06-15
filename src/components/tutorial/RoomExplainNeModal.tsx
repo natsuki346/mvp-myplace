@@ -43,7 +43,7 @@ export default function RoomExplainNeModal({ onNext }: RoomExplainNeModalProps) 
         }}
       >
         <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 12px' }}>
-          🌱 根の部屋
+          🌱 Seed
         </h2>
         <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, margin: '0 0 24px' }}>
           自分がなかなか出せない心の声で語る部屋。<br />

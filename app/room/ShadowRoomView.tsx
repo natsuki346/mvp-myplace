@@ -167,7 +167,7 @@ export default function ShadowRoomView() {
   // チュートリアル：水やり〜成長〜ポイント〜プロセスバーの一連の演出
   const runTutorialGrowthSequence = (tag: Tag) => {
     const userId = sessionStorage.getItem('user_id')
-    if (!userId) { advanceStep('growth_modal'); return }
+    if (!userId) { advanceStep('growth_result'); return }
 
     const thresholds = (tag.seed_weight ?? 'light') === 'heavy' ? HEAVY_THRESHOLDS : LIGHT_THRESHOLDS
 
@@ -214,7 +214,7 @@ export default function ShadowRoomView() {
       // ⑤ 次へ展開（プロセスバーアニメーション完了後）
       setTimeout(() => {
         setTutorialGrowth(null)
-        advanceStep('growth_modal')
+        advanceStep('growth_result')
       }, 2400)
     })
   }
@@ -393,7 +393,7 @@ export default function ShadowRoomView() {
                   transition: 'transform 0.25s ease, opacity 0.25s ease',
                 }}>
                   <SeedGraphic
-                    stage={(step === 'done' || step === 'growth_modal' || step === 'thankyou_modal' || revealStage) ? getStage(tag.growth_point, tag.seed_weight ?? 'light') : 0}
+                    stage={(step === 'done' || step === 'growth_result' || step === 'growth_explain' || step === 'growth_modal' || step === 'thankyou_modal' || revealStage) ? getStage(tag.growth_point, tag.seed_weight ?? 'light') : 0}
                     animate={growingTagId === tag.id}
                   />
                 </div>

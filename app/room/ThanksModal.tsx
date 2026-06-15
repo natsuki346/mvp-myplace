@@ -49,7 +49,7 @@ export default function ThanksModal({ onClose }: ThanksModalProps) {
         <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.55)', margin: '0 0 24px', lineHeight: 1.65 }}>
           根に水が撒かれました。
           <br />
-          また根の部屋に来てくださいね。
+          またSeedに来てくださいね。
         </p>
         <button
           onClick={close}

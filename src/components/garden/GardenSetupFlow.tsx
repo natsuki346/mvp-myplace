@@ -7,7 +7,7 @@ import { supabase } from '@/src/lib/supabase/client'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import DaisyTopView from '@/src/components/garden/DaisyTopView'
 import SeedTopView from '@/src/components/garden/SeedTopView'
-import { SHADOW_FIELD_BG, DAISY_SIZE, SEED_SIZE } from '@/src/components/garden/gardenColors'
+import { GRASS_FIELD_BG, SHADOW_FIELD_BG, DAISY_SIZE, SEED_SIZE } from '@/src/components/garden/gardenColors'
 import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 
@@ -15,9 +15,6 @@ type Tag = { id: string; text: string }
 type TagPosition = { id: string; text: string; cx: number; cy: number }
 
 const DRAG_THRESHOLD = 6
-
-// 実の畑（Step1）専用：芝生っぽい黄緑の背景
-const GRASS_FIELD_BG = 'radial-gradient(ellipse at 50% 35%, #DCEDC1 0%, #AED581 65%, #9CCC65 100%)'
 
 function initPositions(tags: Tag[]): TagPosition[] {
   return tags.map((tag, index) => ({
@@ -231,7 +228,7 @@ export default function GardenSetupFlow({ lightTags, shadowTags, onComplete }: G
             cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1,
           }}
         >
-          {isStep1 ? 'この配置でOK →' : '農園を確定する'}
+          {isStep1 ? 'この配置でOK →' : 'ガーデンを確定する'}
         </button>
       </div>
     </div>

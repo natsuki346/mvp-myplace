@@ -9,13 +9,13 @@ type RoomType = 'light' | 'shadow'
 const COPY: Record<RoomType, { icon: string; title: string; sub: string; visitBg: string }> = {
   light: {
     icon: '🍅',
-    title: '実の部屋を訪れてみますか？',
+    title: 'Daisyを訪れてみますか？',
     sub: '同じ実を持つ人たちの声が聞こえます',
     visitBg: '#4A7C59',
   },
   shadow: {
     icon: '🌱',
-    title: '根の部屋を訪れてみますか？',
+    title: 'Seedを訪れてみますか？',
     sub: '同じ根を持つ人だけが集まる、静かな場所です',
     visitBg: '#8B6914',
   },

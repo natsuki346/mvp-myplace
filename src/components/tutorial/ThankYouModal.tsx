@@ -26,7 +26,7 @@ export default function ThankYouModal({ onClose }: ThankYouModalProps) {
           className="w-full py-3 text-sm font-bold"
           style={{ background: '#4A7C59', color: '#FFFFFF', border: 'none', borderRadius: 24, cursor: 'pointer' }}
         >
-          農園へ戻る
+          ガーデンへ戻る
         </button>
       </div>
     </div>

@@ -21,7 +21,7 @@ export default function ShadowRoomVisitPage() {
 
       <div className="flex items-center gap-2 mb-2">
         <span style={{ fontSize: 22 }}>🌱</span>
-        <h1 className="text-xl font-bold" style={{ color: '#3B2F1E' }}>根の部屋</h1>
+        <h1 className="text-xl font-bold" style={{ color: '#3B2F1E' }}>Seed</h1>
       </div>
       <p className="text-sm mb-8" style={{ color: 'rgba(59,47,30,0.55)' }}>
         タグを選んで入室してください

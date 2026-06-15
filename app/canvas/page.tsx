@@ -123,7 +123,7 @@ export default function CanvasPage() {
         padding: '44px 20px 12px',
       }}>
         <h1 style={{ fontSize: 19, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
-          あなたの農園
+          あなたのガーデン
         </h1>
       </div>
 

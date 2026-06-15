@@ -44,7 +44,7 @@ export default function GrowthModal({ onStart }: GrowthModalProps) {
       <div className="gm-copy" style={{ position: 'absolute', top: 200, left: 0, right: 0, textAlign: 'center', padding: '0 32px' }}>
         <p style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
           {'花は咲き、種は育つ。\nありのままの自分でいい。\n'}
-          <span style={{ color: '#E0708A' }}>SeedMeは己を愛でる場所です。</span>
+          <span style={{ color: '#E0708A' }}>DaiMeは己を愛でる場所です。</span>
         </p>
       </div>
 

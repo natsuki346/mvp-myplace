@@ -1,6 +1,7 @@
 // 農園画面（実の部屋・根の部屋）共通の背景・サイズ定数
 
-export const LIGHT_FIELD_BG = 'radial-gradient(ellipse at center, #EAE6DC 0%, transparent 65%), #F5F0E8'
+// 実の畑（地上）：芝生っぽい黄緑の背景
+export const GRASS_FIELD_BG = 'radial-gradient(ellipse at 50% 35%, #DCEDC1 0%, #AED581 65%, #9CCC65 100%)'
 
 export const SHADOW_FIELD_BG = `
   radial-gradient(ellipse at 30% 40%, #D4A85A 0%, transparent 40%),
@@ -11,5 +12,3 @@ export const SHADOW_FIELD_BG = `
 
 export const DAISY_SIZE = 62
 export const SEED_SIZE  = 70
-export const FIELD_HEIGHT = 500
-export const SCROLL_MAX_HEIGHT = 460

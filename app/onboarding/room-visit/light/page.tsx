@@ -22,7 +22,7 @@ export default function LightRoomVisitPage() {
 
       <div className="flex items-center gap-2 mb-2">
         <DaisyIcon size={22} stage={4} active />
-        <h1 className="text-xl font-bold" style={{ color: '#3B2F1E' }}>実の部屋</h1>
+        <h1 className="text-xl font-bold" style={{ color: '#3B2F1E' }}>Daisy</h1>
       </div>
       <p className="text-sm mb-8" style={{ color: 'rgba(59,47,30,0.55)' }}>
         タグを選んで入室してください

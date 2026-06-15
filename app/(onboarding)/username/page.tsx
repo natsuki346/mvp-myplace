@@ -51,8 +51,8 @@ export default function UsernamePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F5F0E8' }}>
-      <div className="w-full" style={{ maxWidth: 390 }}>
+    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F5F0E8', maxWidth: 390, margin: '0 auto' }}>
+      <div className="w-full">
 
         <div className="mb-10">
           <h1 className="text-2xl font-semibold leading-snug" style={{ color: '#3B2F1E' }}>

@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { icon: '🌳', label: '農園',         path: '/home' },
+  { icon: '🌿', label: 'ガーデン',     path: '/home' },
   { icon: '🏠', label: 'ルーム',       path: '/room/light' },
   { icon: '👤', label: 'プロフィール', path: '/profile' },
 ]

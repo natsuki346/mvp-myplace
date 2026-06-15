@@ -100,14 +100,28 @@ export default function WelcomePage() {
           transition: 'opacity 0.4s ease 1.5s, transform 0.4s ease 1.5s',
         }}
       >
-        <p style={{ fontSize: 32, letterSpacing: 1, color: '#7A6A55', marginBottom: 10, fontFamily: "'Dancing Script', cursive" }}>
-          SeedMe
+        <p style={{ fontSize: 32, letterSpacing: 1, color: '#7A6A55', margin: 0, fontFamily: "'Dancing Script', cursive" }}>
+          DaiMe
         </p>
-        <h1 style={{ fontSize: 20, fontWeight: 500, color: '#3D2E1A', marginBottom: 8, lineHeight: 1.5 }}>
-          根があるから、実がなる。
-        </h1>
-        <p style={{ fontSize: 13, color: '#8B7355' }}>
-          あなたのすべてが、ここにある。
+        <p style={{ fontSize: 13, color: '#8B6914', textAlign: 'center', margin: '4px 0 0' }}>
+          ありのままの自分
+        </p>
+        <p style={{ fontSize: 11, color: '#A09070', textAlign: 'center', margin: 0 }}>
+          — 黄色いデイジーの花言葉
+        </p>
+      </div>
+
+      {/* ── キャッチコピー ── */}
+      <div
+        style={{
+          position: 'relative', zIndex: 2, textAlign: 'center',
+          opacity: loaded ? 1 : 0,
+          transform: loaded ? 'translateY(0)' : 'translateY(8px)',
+          transition: 'opacity 0.4s ease 1.6s, transform 0.4s ease 1.6s',
+        }}
+      >
+        <p style={{ fontSize: 16, color: '#3B2F1E', textAlign: 'center', margin: 0 }}>
+          ありのままで、人生を愛でる場所。
         </p>
       </div>
 

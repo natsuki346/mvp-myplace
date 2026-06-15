@@ -44,7 +44,7 @@ export default function NeRoomPopup({ onNext, onSkip }: NeRoomPopupProps) {
         }}
       >
         <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 24px' }}>
-          🌱 根の部屋ものぞきますか？
+          🌱 Seedものぞきますか？
         </h2>
         <button
           onClick={() => close(onNext)}

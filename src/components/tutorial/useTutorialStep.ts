@@ -14,6 +14,8 @@ export type TutorialStep =
   | 'room_explain_ne'  // ⑧ 根の部屋の説明モーダル
   | 'room_chat_ne'     // ⑨ 根の部屋チャット（閲覧モード）
   | 'watering'         // ⑩ 水やり演出
+  | 'growth_result'    // ⑩.5 「成長した！向き合えた！」モーダル
+  | 'growth_explain'   // ⑩.7 成長の仕組み説明（ヘルプ画面）
   | 'growth_modal'     // ⑪ 「向き合えてえらい！」モーダル
   | 'thankyou_modal'   // ⑫ 「協力ありがとう」モーダル
   | 'done'             // ⑬ 完了

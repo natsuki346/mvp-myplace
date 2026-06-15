@@ -28,8 +28,8 @@ type StepStatus = 'done' | 'current' | 'future'
 const STEP_LABELS = [
   { label: '土を耕す',       desc: 'あなたという畑を、ここに作る',         note: '自分と向き合う準備をする' },
   { label: 'タネを理解する', desc: '4つの問いで、自分という種の性質を知る', note: '4つの問いで自分という種の性質を知る' },
-  { label: 'タネを蒔く',     desc: '自分をデザインし、世界に差し出す',       note: '自分の言葉が農園に根付いていく' },
-  { label: '農園が広がる',   desc: '同じ土で育つ人と、言葉だけで出会う',     note: '同じ種を持つ人と出会い、向き合い続ける' },
+  { label: 'タネを蒔く',     desc: '自分をデザインし、世界に差し出す',       note: '自分の言葉がガーデンに根付いていく' },
+  { label: 'ガーデンが広がる', desc: '同じ土で育つ人と、言葉だけで出会う',     note: '同じ種を持つ人と出会い、向き合い続ける' },
   { label: '実になる',       desc: 'ありのままで収穫される、本当の自分へ',   note: 'ありのままの自分を好きになる' },
 ]
 
@@ -228,8 +228,8 @@ export default function ProcessMapPage() {
             width: '100%', background: '#FFFFFF', borderRadius: 20,
             padding: 32, textAlign: 'center',
           }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
-              あなたが追加したものを広げてみよう🌻
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+              {'あなたが追加したものを\n広げよう🌻'}
             </h2>
             <p style={{ fontSize: 13, color: '#8B6914', margin: '8px 0 0' }}>
               実と根のタネを、自分の畑に配置していくよ
