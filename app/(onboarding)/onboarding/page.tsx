@@ -7,7 +7,6 @@ import { supabase } from '@/src/lib/supabase/client'
 import { recordTagEvent } from '@/src/lib/supabase/events'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 import TagConfirmScreen from '@/src/components/onboarding/TagConfirmScreen'
-import WhyModal from '@/src/components/onboarding/WhyModal'
 
 type QuestionType = 'light' | 'shadow'
 
@@ -37,8 +36,7 @@ const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [showModal,       setShowModal]       = useState(true)
-  const [currentIndex,    setCurrentIndex]    = useState(0)
+  const [currentIndex,  setCurrentIndex]  = useState(0)
   const [showGrowthOverlay, setShowGrowthOverlay] = useState(false)
   const { setGrowthStage } = useGrowthStage()
 
@@ -129,17 +127,14 @@ export default function OnboardingPage() {
   }
 
   return (
-    <>
-      <QuestionCard
-        key={currentIndex}
-        questionNumber={currentIndex + 1}
-        totalQuestions={QUESTIONS.length}
-        questionText={QUESTIONS[currentIndex].text}
-        questionSubText={QUESTIONS[currentIndex].subText}
-        addButtonText={currentIndex === 2 ? '+ これも自分' : currentIndex === 3 ? '+ 本当の自分' : undefined}
-        onComplete={handleComplete}
-      />
-      {showModal && <WhyModal onStart={() => setShowModal(false)} />}
-    </>
+    <QuestionCard
+      key={currentIndex}
+      questionNumber={currentIndex + 1}
+      totalQuestions={QUESTIONS.length}
+      questionText={QUESTIONS[currentIndex].text}
+      questionSubText={QUESTIONS[currentIndex].subText}
+      addButtonText={currentIndex === 2 ? '+ これも自分' : currentIndex === 3 ? '+ 本当の自分' : undefined}
+      onComplete={handleComplete}
+    />
   )
 }

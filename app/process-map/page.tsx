@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import { supabase } from '@/src/lib/supabase/client'
 import GardenSetupFlow from '@/src/components/garden/GardenSetupFlow'
+import WhyModal from '@/src/components/onboarding/WhyModal'
 
 type SetupTag = { id: string; text: string }
 
@@ -72,6 +73,7 @@ export default function ProcessMapPage() {
   const router = useRouter()
   const { step: tutorialStep, advanceStep } = useTutorialStep()
   const [currentStep, setCurrentStep] = useState(1)
+  const [showWhyModal,    setShowWhyModal]    = useState(false)
   const [showGardenIntro, setShowGardenIntro] = useState(false)
   const [showGardenSetup, setShowGardenSetup] = useState(false)
   const [setupLoading, setSetupLoading] = useState(false)
@@ -197,7 +199,7 @@ export default function ProcessMapPage() {
       <button
         onClick={() => {
           if (tutorialStep === 'process_mapping') advanceStep('step_cards')
-          if (currentStep === 1) router.push('/onboarding/steps-preview?step=1')
+          if (currentStep === 1) setShowWhyModal(true)
           else if (currentStep === 2) setShowGardenIntro(true)
           else {
             advanceStep('room_nav_arrow')
@@ -214,6 +216,14 @@ export default function ProcessMapPage() {
       >
         はじめる →
       </button>
+
+      {/* WhyModal：プロセスマップ step=1 → Q1〜Q4 前に表示 */}
+      {showWhyModal && (
+        <WhyModal onStart={() => {
+          setShowWhyModal(false)
+          router.push('/onboarding/steps-preview?step=1')
+        }} />
+      )}
 
       {/* 農園案内ポップアップ */}
       {showGardenIntro && (
