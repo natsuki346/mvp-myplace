@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 
 type Props = {
   lightTags: string[]
@@ -10,6 +11,7 @@ type Props = {
 
 export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
   const router = useRouter()
+  const { advanceStep } = useTutorialStep()
   const total = lightTags.length + shadowTags.length
   const [visibleCount, setVisibleCount] = useState(0)
 
@@ -84,7 +86,7 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
       </div>
 
       <button
-        onClick={() => router.push('/room')}
+        onClick={() => { advanceStep('room_intro'); router.push('/room') }}
         style={{
           width: '100%', padding: '14px',
           borderRadius: 24, border: 'none',
