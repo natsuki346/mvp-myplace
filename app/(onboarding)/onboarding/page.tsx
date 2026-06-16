@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { QuestionCard } from '@/src/components/onboarding/QuestionCard'
 import { supabase } from '@/src/lib/supabase/client'
 import { recordTagEvent } from '@/src/lib/supabase/events'
-import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
+import TagConfirmScreen from '@/src/components/onboarding/TagConfirmScreen'
 
 type QuestionType = 'light' | 'shadow'
 
@@ -121,14 +121,9 @@ export default function OnboardingPage() {
   }
 
   if (showGrowthOverlay) {
-    return (
-      <GrowthTransitionOverlay
-        stage="sprout"
-        quote={{ text: '自分を知ることが、すべての知恵の始まりだ。', author: 'アリストテレス' }}
-        message={{ title: '自分を言葉にする。', subtitle: 'それだけで大成功だよ' }}
-        onNext={() => router.push('/process-map?step=2')}
-      />
-    )
+    const lightTags  = collectedTags.filter(q => q.type === 'light' ).flatMap(q => q.tags)
+    const shadowTags = collectedTags.filter(q => q.type === 'shadow').flatMap(q => q.tags)
+    return <TagConfirmScreen lightTags={lightTags} shadowTags={shadowTags} />
   }
 
   return (
