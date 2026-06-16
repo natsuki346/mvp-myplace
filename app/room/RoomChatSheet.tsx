@@ -50,8 +50,8 @@ export default function RoomChatSheet({
 
     let cancelled = false
     ;(async () => {
-      const matches = await getMatchingTags(tagText, type)
-      if (!cancelled) setMatchTagIds(matches.map(m => m.id))
+      const ids = await getMatchingTags(tagText, type)
+      if (!cancelled) setMatchTagIds(ids)
     })()
 
     return () => { cancelled = true }

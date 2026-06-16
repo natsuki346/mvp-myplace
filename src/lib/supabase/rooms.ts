@@ -1,23 +1,21 @@
 import { supabase } from './client'
 import { recordTagEvent } from './events'
 
-export type RoomTagRef = { id: string; user_id: string }
-
 /**
- * 同じ text + type を持つ、全ユーザー横断のタグ（is_active のみ）を取得する。
+ * 同じ text + type を持つ、全ユーザー横断のタグ ID 一覧を返す。
  * 「同じタグを持つ人数」や、共有ルームのメッセージ取得範囲（tag_id 群）に使う。
+ * # 有無の揺れを吸収: "存在する" と "#存在する" を同一ルームとして扱う。
  */
-export async function getMatchingTags(text: string, type: 'light' | 'shadow'): Promise<RoomTagRef[]> {
-  // # 有無の揺れを吸収: "存在する" と "#存在する" を同一ルームとして扱う
+export async function getMatchingTags(text: string, type: 'light' | 'shadow'): Promise<string[]> {
   const stripped = text.replace(/^#+/, '')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('tags') as any)
-    .select('id, user_id')
+    .select('id')
     .in('text', [stripped, `#${stripped}`])
     .eq('type', type)
     .eq('is_active', true)
   if (error || !data) return []
-  return data as RoomTagRef[]
+  return (data as { id: string }[]).map(r => r.id)
 }
 
 /** タグの growth_point を +1 */

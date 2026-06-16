@@ -52,8 +52,7 @@ export default function SubTagListSheet({
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const matches = await getMatchingTags(tag.text, type)
-      const ids = matches.map(m => m.id)
+      const ids = await getMatchingTags(tag.text, type)
       const data = await getSubTags(ids.length > 0 ? ids : [tag.id])
       if (!cancelled) {
         setMatchTagIds(ids.length > 0 ? ids : [tag.id])

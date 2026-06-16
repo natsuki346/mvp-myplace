@@ -58,7 +58,7 @@ export default function RoomCardList({ type }: { type: 'light' | 'shadow' }) {
         tags.map(t => getMatchingTags(t.text, t.type))
       )
 
-      const allTagIds = Array.from(new Set(matches.flat().map(m => m.id)))
+      const allTagIds = Array.from(new Set(matches.flat()))
 
       let latestByTagId = new Map<string, { content: string; created_at: string }>()
       if (allTagIds.length > 0) {
@@ -75,7 +75,7 @@ export default function RoomCardList({ type }: { type: 'light' | 'shadow' }) {
       }
 
       const result: RoomCard[] = tags.map((t, i) => {
-        const matchIds = matches[i].map(m => m.id)
+        const matchIds = matches[i]
         let preview: string | null = null
         let latestAt = ''
         for (const id of matchIds) {

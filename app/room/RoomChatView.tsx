@@ -55,9 +55,8 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
       if (ownId) creditDailyView(ownId, uid)
 
       // 同じタグを持つ全ユーザーのタグ範囲を取得
-      const matches = await getMatchingTags(tag, type)
+      const ids = await getMatchingTags(tag, type)
       if (cancelled) return
-      const ids = matches.map(m => m.id)
       setMatchTagIds(ids)
       setReady(true)  // matchTagIdsが0件でもreadyにする（空部屋として表示）
     })()
