@@ -121,7 +121,7 @@ export default function GardenSetupFlow({ lightTags, shadowTags, onComplete }: G
 
   const handleGrowthAnimationNext = () => {
     if (onComplete) onComplete()
-    else router.push('/process-map?step=3')
+    else router.push('/home')
   }
 
   const itemSize = isStep1 ? Math.round(DAISY_SIZE * 0.7) : SEED_SIZE

@@ -57,12 +57,12 @@ export default function CanvasShadowTitlePage() {
         })
     }
 
-    router.push('/process-map?step=3')
+    router.push('/home')
   }
 
   const handleSkip = () => {
     sessionStorage.setItem('shadow_title', '')
-    router.push('/process-map?step=3')
+    router.push('/home')
   }
 
   return (

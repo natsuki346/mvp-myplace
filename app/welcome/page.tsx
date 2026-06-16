@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import WhyModal from '@/src/components/onboarding/WhyModal'
 
 // 花びらの配置角度（外側13枚・内側13枚は半分オフセット、約27.7°間隔）
 const PETAL_COUNT = 13
@@ -21,20 +22,25 @@ const SEED_DOTS = [
 
 export default function WelcomePage() {
   const router    = useRouter()
-  const [loaded,    setLoaded]    = useState(false)
-  const [isLeaving, setIsLeaving] = useState(false)
+  const [loaded,      setLoaded]      = useState(false)
+  const [isLeaving,   setIsLeaving]   = useState(false)
+  const [showWhyModal, setShowWhyModal] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 60)
     return () => clearTimeout(t)
   }, [])
 
-  const handleStart = () => {
+  const handleStart = () => setShowWhyModal(true)
+
+  const handleWhyStart = () => {
+    setShowWhyModal(false)
     setIsLeaving(true)
-    setTimeout(() => router.push('/process-map?step=1'), 900)
+    setTimeout(() => router.push('/onboarding'), 900)
   }
 
   return (
+    <>
     <div
       style={{
         width: '100%', maxWidth: 390, margin: '0 auto',
@@ -320,5 +326,7 @@ export default function WelcomePage() {
       </div>
 
     </div>
+    {showWhyModal && <WhyModal onStart={handleWhyStart} />}
+    </>
   )
 }

@@ -3,9 +3,7 @@
 import { useCallback, useSyncExternalStore } from 'react'
 
 export type TutorialStep =
-  | 'process_mapping'  // ① プロセスマッピング
-  | 'step_cards'       // ② STEPカード群
-  | 'room_nav_arrow'   // ③ ルームへの矢印ガイド
+  | 'room_nav_arrow'   // ① ルームへの矢印ガイド
   | 'room_intro'       // ④ ルームってなに？説明モーダル
   | 'room_explain_mi'  // ⑤ 実の部屋の説明モーダル
   | 'room_chat_mi'     // ⑥ 実の部屋チャット（閲覧モード）
@@ -33,8 +31,12 @@ function subscribe(callback: () => void) {
   }
 }
 
+const OBSOLETE_STEPS = new Set(['process_mapping', 'step_cards'])
+
 function getSnapshot(): TutorialStep {
-  return (window.localStorage.getItem(STORAGE_KEY) as TutorialStep | null) ?? 'done'
+  const stored = window.localStorage.getItem(STORAGE_KEY)
+  if (!stored || OBSOLETE_STEPS.has(stored)) return 'room_nav_arrow'
+  return stored as TutorialStep
 }
 
 function getServerSnapshot(): TutorialStep | null {
