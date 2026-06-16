@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import type { DummyMessage } from '@/app/room/dummy-messages'
+import { DEFAULT_MESSAGES } from '@/src/lib/defaultMessages'
 
 // ============================================================
 // 型定義
@@ -33,6 +34,7 @@ export type RoomChatProps = {
   channelKey: string
   ownTagId?: string | null
   readOnly?: boolean
+  tagType?: 'light' | 'shadow'
   onMessageSent?: () => void
   onProfileClick?: (targetUserId: string) => void
   overlay?: React.ReactNode
@@ -66,6 +68,7 @@ export default function RoomChat({
   channelKey,
   ownTagId = null,
   readOnly = false,
+  tagType,
   onMessageSent,
   onProfileClick,
   overlay,
@@ -342,9 +345,14 @@ export default function RoomChat({
   // ============================================================
   // レンダリング
   // ============================================================
-  const introIds = new Set(introMessages.map(m => m.id))
+  // DB が 0 件かつメインチャンネル（subTagId なし）の場合、type 別デフォルトをフォールバック表示
+  const fallbackMessages = messages.length === 0 && !subTagId && tagType
+    ? DEFAULT_MESSAGES[tagType]
+    : []
+  const effectiveIntro = [...introMessages, ...fallbackMessages]
+  const introIds = new Set(effectiveIntro.map(m => m.id))
   const allMessages: ChatMessage[] = [
-    ...(introMessages as unknown as ChatMessage[]),
+    ...(effectiveIntro as unknown as ChatMessage[]),
     ...messages,
   ]
 

@@ -91,6 +91,7 @@ export default function RoomChatSheet({
       >
         <RoomChat
           onProfileClick={handleProfileClick}
+          tagType={type}
           header={
             viewOnly
               ? {

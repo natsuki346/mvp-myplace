@@ -80,6 +80,7 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
           introMessages={DUMMY_MESSAGES_COMMON}
           matchTagIds={matchTagIds}
           ownTagId={ownTagId}
+          tagType={type}
           channelKey={`${type}-${tag}`}
           onMessageSent={() => { if (ownTagId) incrementGrowthPoint(ownTagId) }}
           overlay={showRootGrow && <RootGrowAnimation onComplete={() => setRootGrowDone(true)} />}
