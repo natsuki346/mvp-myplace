@@ -15,6 +15,23 @@ type Message = {
   sender?: ChatUser | null
 }
 
+const formatDateLabel = (iso: string): string => {
+  const d = new Date(iso)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  if (d.toDateString() === today.toDateString()) return '今日'
+  if (d.toDateString() === yesterday.toDateString()) return '昨日'
+  return `${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+const shouldShowDateDivider = (messages: Message[], index: number): boolean => {
+  if (index === 0) return true
+  const prev = new Date(messages[index - 1].created_at).toDateString()
+  const curr = new Date(messages[index].created_at).toDateString()
+  return prev !== curr
+}
+
 export default function FriendChatPage() {
   const router = useRouter()
   const params = useParams<{ friendId: string }>()
@@ -135,39 +152,49 @@ export default function FriendChatPage() {
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-        {messages.map(msg => {
+        {messages.map((msg, index) => {
           const mine = msg.sender_id === myUserId
           return (
-            <div
-              key={msg.id}
-              style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8, marginBottom: 12 }}
-            >
-              {!mine && (
-                <UserAvatar
-                  username={msg.sender?.username}
-                  avatarUrl={msg.sender?.avatar_url}
-                  size={32}
-                  onClick={() => router.push(`/profile/${msg.sender_id}`)}
-                />
+            <div key={msg.id}>
+              {shouldShowDateDivider(messages, index) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0 8px' }}>
+                  <div style={{ flex: 1, height: .5, background: 'rgba(139,105,20,0.2)' }} />
+                  <span style={{ fontSize: 11, color: 'rgba(139,105,20,0.55)', whiteSpace: 'nowrap' }}>
+                    {formatDateLabel(msg.created_at)}
+                  </span>
+                  <div style={{ flex: 1, height: .5, background: 'rgba(139,105,20,0.2)' }} />
+                </div>
               )}
-              <div style={{
-                maxWidth: '72%', padding: '10px 14px',
-                borderRadius: mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                background: mine ? '#4A7C59' : '#F5F0E8',
-                color: mine ? '#F5F0E8' : '#3B2F1E',
-                border: mine ? 'none' : '1px solid #D4B896',
-                fontSize: 14, lineHeight: 1.5,
-              }}>
-                <p style={{ margin: 0 }}>{msg.content}</p>
+              <div
+                style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8, marginBottom: 12 }}
+              >
+                {!mine && (
+                  <UserAvatar
+                    username={msg.sender?.username}
+                    avatarUrl={msg.sender?.avatar_url}
+                    size={32}
+                    onClick={() => router.push(`/profile/${msg.sender_id}`)}
+                  />
+                )}
+                <div style={{
+                  maxWidth: '72%', padding: '10px 14px',
+                  borderRadius: mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  background: mine ? '#4A7C59' : '#F5F0E8',
+                  color: mine ? '#F5F0E8' : '#3B2F1E',
+                  border: mine ? 'none' : '1px solid #D4B896',
+                  fontSize: 14, lineHeight: 1.5,
+                }}>
+                  <p style={{ margin: 0 }}>{msg.content}</p>
+                </div>
+                {mine && (
+                  <UserAvatar
+                    username={msg.sender?.username}
+                    avatarUrl={msg.sender?.avatar_url}
+                    size={32}
+                    onClick={() => router.push(`/profile/${msg.sender_id}`)}
+                  />
+                )}
               </div>
-              {mine && (
-                <UserAvatar
-                  username={msg.sender?.username}
-                  avatarUrl={msg.sender?.avatar_url}
-                  size={32}
-                  onClick={() => router.push(`/profile/${msg.sender_id}`)}
-                />
-              )}
             </div>
           )
         })}

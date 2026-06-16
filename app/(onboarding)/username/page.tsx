@@ -96,6 +96,7 @@ export default function UsernamePage() {
           {loading ? '登録中...' : '次へ'}
         </button>
 
+
       </div>
     </div>
   )

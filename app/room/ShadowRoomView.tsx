@@ -77,6 +77,24 @@ export default function ShadowRoomView() {
   const [tutorialGrowth, setTutorialGrowth] = useState<TutorialGrowth | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // プロフィール閲覧から戻ってきた場合にチャットを復元する
+  useEffect(() => {
+    const stored = sessionStorage.getItem('daime_chat_return')
+    if (!stored) return
+    try {
+      const state = JSON.parse(stored) as {
+        type: string; tagId: string; tagText: string
+        subTagId: string | null; subTagName: string | null
+      }
+      if (state.type !== 'shadow') return
+      sessionStorage.removeItem('daime_chat_return')
+      setOpenTag({ id: state.tagId, text: state.tagText, growth_point: 0, stage: 0, seed_weight: 'light' })
+      setChannel({ subTagId: state.subTagId, name: state.subTagName ?? state.tagText })
+    } catch {
+      sessionStorage.removeItem('daime_chat_return')
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
 

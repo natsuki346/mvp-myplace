@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/src/lib/supabase/client'
 import { getMatchingTags } from '@/src/lib/supabase/rooms'
 import { getSubTags, type SubTag } from '@/src/lib/supabase/subtags'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
@@ -8,6 +10,12 @@ import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import CreateChannelModal from './CreateChannelModal'
 
 type RoomType = 'light' | 'shadow'
+
+type RoomMember = {
+  id: string
+  username: string
+  avatar_url: string | null
+}
 
 export type SelectedChannel = { subTagId: string | null; name: string }
 
@@ -22,15 +30,18 @@ export default function SubTagListSheet({
   onClose: () => void
   onSelect: (channel: SelectedChannel) => void
 }) {
+  const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [subTags, setSubTags] = useState<SubTag[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [chatVisited, setChatVisited] = useState(false)
+  const [matchTagIds, setMatchTagIds] = useState<string[]>([])
+  const [showMembers, setShowMembers] = useState(false)
+  const [members, setMembers] = useState<RoomMember[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
   const { step } = useTutorialStep()
-  // 実の部屋（room_chat_mi）は「戻って次に進もう」が出たら「まずここをのぞいてみよう」を消す
   const showAllArrow = (step === 'room_chat_mi' && !chatVisited) || step === 'room_chat_ne'
-  // 実の部屋（room_chat_mi）はチャットを一度のぞくまで「戻って次に進もう」を出さない
   const showBackBubble = step === 'watering' || (step === 'room_chat_mi' && chatVisited)
 
   useEffect(() => {
@@ -44,10 +55,36 @@ export default function SubTagListSheet({
       const matches = await getMatchingTags(tag.text, type)
       const ids = matches.map(m => m.id)
       const data = await getSubTags(ids.length > 0 ? ids : [tag.id])
-      if (!cancelled) { setSubTags(data); setLoading(false) }
+      if (!cancelled) {
+        setMatchTagIds(ids.length > 0 ? ids : [tag.id])
+        setSubTags(data)
+        setLoading(false)
+      }
     })()
     return () => { cancelled = true }
   }, [tag.id, tag.text, type])
+
+  useEffect(() => {
+    if (!showMembers || matchTagIds.length === 0) return
+    setMembersLoading(true)
+    ;(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from('messages') as any)
+        .select('user_id, users ( id, username, avatar_url )')
+        .in('tag_id', matchTagIds)
+        .is('sub_tag_id', null)
+        .order('created_at', { ascending: false })
+      if (!data) { setMembersLoading(false); return }
+      const seen = new Map<string, RoomMember>()
+      for (const row of data as { user_id: string; users: RoomMember }[]) {
+        if (row.users && !seen.has(row.user_id)) {
+          seen.set(row.user_id, row.users)
+        }
+      }
+      setMembers(Array.from(seen.values()))
+      setMembersLoading(false)
+    })()
+  }, [showMembers, matchTagIds])
 
   const close = () => {
     setVisible(false)
@@ -77,7 +114,7 @@ export default function SubTagListSheet({
         }}
       />
 
-      {/* シート本体（下からスライドアップ） */}
+      {/* シート本体 */}
       <div
         className="flex flex-col"
         style={{
@@ -93,6 +130,7 @@ export default function SubTagListSheet({
           flexShrink: 0, padding: '16px 20px',
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           display: 'flex', alignItems: 'center', gap: 12,
+          position: 'relative',
         }}>
           <div style={{ position: 'relative', display: 'inline-block', minWidth: 120, zIndex: showBackBubble ? 50 : undefined }}>
             <button
@@ -100,7 +138,6 @@ export default function SubTagListSheet({
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#3B2F1E', padding: 0, position: 'relative', zIndex: showBackBubble ? 50 : undefined }}
             >← 戻る</button>
 
-            {/* チュートリアル：戻るボタンの真下中央に吹き出し（次のステップへ誘導） */}
             {showBackBubble && (
               <div
                 style={{
@@ -109,7 +146,6 @@ export default function SubTagListSheet({
                 }}
               >
                 <div style={{ position: 'relative' }}>
-                  {/* 上向き三角（赤枠） */}
                   <div style={{
                     position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
                     width: 0, height: 0,
@@ -117,7 +153,6 @@ export default function SubTagListSheet({
                     borderRight: '7px solid transparent',
                     borderBottom: '7px solid #DC2626',
                   }} />
-                  {/* 三角の白い内側 */}
                   <div style={{
                     position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
                     width: 0, height: 0,
@@ -126,7 +161,6 @@ export default function SubTagListSheet({
                     borderBottom: '6px solid white',
                     marginBottom: -1,
                   }} />
-                  {/* 吹き出し本体 */}
                   <div style={{
                     background: 'white',
                     border: '1.5px solid #DC2626',
@@ -142,10 +176,22 @@ export default function SubTagListSheet({
               </div>
             )}
           </div>
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#3B2F1E' }}>{formatHashtag(tag.text)}</p>
+
+          <p style={{ flex: 1, margin: 0, fontSize: 15, fontWeight: 700, color: '#3B2F1E', textAlign: 'center' }}>
+            {formatHashtag(tag.text)}
+          </p>
+
+          <button
+            onClick={() => setShowMembers(true)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 22, padding: 4, color: '#4A7C59',
+            }}
+            aria-label="メンバー一覧"
+          >👥</button>
         </div>
 
-        {/* List */}
+        {/* チャンネル一覧 */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {/* ALL */}
           <div style={{ position: 'relative', zIndex: showAllArrow ? 50 : undefined }}>
@@ -161,7 +207,6 @@ export default function SubTagListSheet({
               <span style={{ fontSize: 14, fontWeight: 600, color: '#4A7C59' }}>💬 ALL</span>
             </button>
 
-            {/* チュートリアル：ALLを指す矢印 */}
             {showAllArrow && (
               <div
                 className="absolute flex items-center gap-2 animate-bounce"
@@ -212,7 +257,6 @@ export default function SubTagListSheet({
             ))
           )}
 
-          {/* チャンネル作成 */}
           <button
             onClick={() => setShowCreate(true)}
             style={{
@@ -230,6 +274,80 @@ export default function SubTagListSheet({
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
         />
+      )}
+
+      {/* メンバーボトムシート */}
+      {showMembers && (
+        <>
+          <div
+            onClick={() => setShowMembers(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(59,47,30,0.4)', zIndex: 50 }}
+          />
+          <div style={{
+            position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+            width: '100%', maxWidth: 390,
+            background: '#F5F0E8', borderRadius: '20px 20px 0 0',
+            borderTop: '1px solid #D4B896', zIndex: 51,
+            paddingBottom: 40,
+          }}>
+            <div style={{ width: 36, height: 4, background: 'rgba(139,105,20,.25)', borderRadius: 2, margin: '10px auto 0' }} />
+            <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: 14, color: '#8B6914', fontWeight: 700, margin: 0 }}>
+                👥 メンバー（{members.length}人）
+              </h3>
+              <button
+                onClick={() => setShowMembers(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#A09070' }}
+              >✕</button>
+            </div>
+            <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+              {membersLoading ? (
+                <p style={{ textAlign: 'center', padding: 24, fontSize: 13, color: '#A09070' }}>読み込み中...</p>
+              ) : members.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: 24, fontSize: 13, color: '#A09070' }}>まだメンバーがいません</p>
+              ) : (
+                members.map(member => (
+                  <div
+                    key={member.id}
+                    onClick={() => {
+                      setShowMembers(false)
+                      const myId = sessionStorage.getItem('user_id')
+                      if (member.id === myId) { router.push('/profile'); return }
+                      router.push(`/profile/${member.id}`)
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', cursor: 'pointer',
+                      borderBottom: '0.5px solid rgba(139,105,20,0.1)',
+                    }}
+                  >
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: '#4A7C59', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', color: '#F5F0E8',
+                      fontSize: 16, fontWeight: 'bold', overflow: 'hidden', flexShrink: 0,
+                    }}>
+                      {member.avatar_url
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={member.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span>{member.username[0].toUpperCase()}</span>
+                      }
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 500, color: '#3B2F1E', margin: 0 }}>
+                        {member.username}
+                      </p>
+                      <p style={{ fontSize: 11, color: '#8B6914', margin: '2px 0 0' }}>
+                        @{member.username}
+                      </p>
+                    </div>
+                    <div style={{ marginLeft: 'auto', color: '#D4B896', fontSize: 16 }}>›</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

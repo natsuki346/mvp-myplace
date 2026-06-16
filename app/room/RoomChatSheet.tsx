@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { getMatchingTags, incrementGrowthPoint } from '@/src/lib/supabase/rooms'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import RoomChat from '@/src/components/room/RoomChat'
-import { DUMMY_MESSAGES, DUMMY_MESSAGES_VIEWONLY } from './dummy-messages'
+import { DUMMY_MESSAGES_VIEWONLY, DUMMY_MESSAGES_COMMON } from './dummy-messages'
 
 type RoomType = 'light' | 'shadow'
 
@@ -31,6 +32,7 @@ export default function RoomChatSheet({
   onClose:    () => void
   onMessageSent?: () => void
 }) {
+  const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [matchTagIds, setMatchTagIds] = useState<string[]>([])
   const info = ROOM_INFO[type]
@@ -60,7 +62,20 @@ export default function RoomChatSheet({
     setTimeout(onClose, 300)
   }
 
-  const introMessages = subTagId ? [] : (viewOnly ? DUMMY_MESSAGES_VIEWONLY[type] : DUMMY_MESSAGES[type])
+  const handleProfileClick = (targetUserId: string) => {
+    sessionStorage.setItem('daime_chat_return', JSON.stringify({
+      type,
+      tagId,
+      tagText,
+      subTagId: subTagId ?? null,
+      subTagName: subTagName ?? null,
+    }))
+    router.push(`/profile/${targetUserId}`)
+  }
+
+  const introMessages = subTagId
+    ? []
+    : (viewOnly ? DUMMY_MESSAGES_VIEWONLY[type] : DUMMY_MESSAGES_COMMON)
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', justifyContent: 'center' }}>
@@ -75,6 +90,7 @@ export default function RoomChatSheet({
         }}
       >
         <RoomChat
+          onProfileClick={handleProfileClick}
           header={
             viewOnly
               ? {
@@ -102,7 +118,6 @@ export default function RoomChatSheet({
             </div>
           )}
           introMessages={introMessages}
-          introVariant={viewOnly ? 'viewonly' : 'chat'}
           matchTagIds={matchTagIds}
           subTagId={subTagId}
           ownTagId={tagId}

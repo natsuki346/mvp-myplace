@@ -8,10 +8,12 @@ export type RoomTagRef = { id: string; user_id: string }
  * 「同じタグを持つ人数」や、共有ルームのメッセージ取得範囲（tag_id 群）に使う。
  */
 export async function getMatchingTags(text: string, type: 'light' | 'shadow'): Promise<RoomTagRef[]> {
+  // # 有無の揺れを吸収: "存在する" と "#存在する" を同一ルームとして扱う
+  const stripped = text.replace(/^#+/, '')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from('tags') as any)
     .select('id, user_id')
-    .eq('text', text)
+    .in('text', [stripped, `#${stripped}`])
     .eq('type', type)
     .eq('is_active', true)
   if (error || !data) return []

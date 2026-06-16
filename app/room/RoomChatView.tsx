@@ -7,7 +7,7 @@ import { getMatchingTags, incrementGrowthPoint, creditDailyView } from '@/src/li
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import RootGrowAnimation, { ROOT_GROW_SHOWN_KEY } from '@/src/components/tutorial/RootGrowAnimation'
 import RoomChat from '@/src/components/room/RoomChat'
-import { DUMMY_MESSAGES } from './dummy-messages'
+import { DUMMY_MESSAGES_COMMON } from './dummy-messages'
 
 const ROOM_INFO: Record<'light' | 'shadow', { icon: string; label: string; backHref: string }> = {
   light:  { icon: '🌼', label: 'Daisy', backHref: '/onboarding/room-visit/light' },
@@ -57,8 +57,9 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
       // 同じタグを持つ全ユーザーのタグ範囲を取得
       const matches = await getMatchingTags(tag, type)
       if (cancelled) return
-      setMatchTagIds(matches.map(m => m.id))
-      setReady(true)
+      const ids = matches.map(m => m.id)
+      setMatchTagIds(ids)
+      setReady(true)  // matchTagIdsが0件でもreadyにする（空部屋として表示）
     })()
 
     return () => { cancelled = true }
@@ -77,7 +78,7 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
             subtitle: `${info.icon} ${info.label}`,
             onBack: () => router.push(info.backHref),
           }}
-          introMessages={DUMMY_MESSAGES[type]}
+          introMessages={DUMMY_MESSAGES_COMMON}
           matchTagIds={matchTagIds}
           ownTagId={ownTagId}
           channelKey={`${type}-${tag}`}

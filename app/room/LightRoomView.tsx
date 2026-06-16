@@ -25,6 +25,24 @@ export default function LightRoomView() {
   const [openTag, setOpenTag] = useState<Tag | null>(null)
   const [channel, setChannel] = useState<SelectedChannel | null>(null)
 
+  // プロフィール閲覧から戻ってきた場合にチャットを復元する
+  useEffect(() => {
+    const stored = sessionStorage.getItem('daime_chat_return')
+    if (!stored) return
+    try {
+      const state = JSON.parse(stored) as {
+        type: string; tagId: string; tagText: string
+        subTagId: string | null; subTagName: string | null
+      }
+      if (state.type !== 'light') return
+      sessionStorage.removeItem('daime_chat_return')
+      setOpenTag({ id: state.tagId, text: state.tagText })
+      setChannel({ subTagId: state.subTagId, name: state.subTagName ?? state.tagText })
+    } catch {
+      sessionStorage.removeItem('daime_chat_return')
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
 

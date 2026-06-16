@@ -74,11 +74,11 @@ export default function OnboardingPage() {
     if (userId) {
       const allTags = [
         ...lightTags.map((text) => ({
-          user_id: userId, text, type: 'light' as const,
+          user_id: userId, text: text.replace(/^#+/, ''), type: 'light' as const,
           color:   '#F5D78E',
         })),
         ...shadowTags.map((text, i) => ({
-          user_id: userId, text, type: 'shadow' as const,
+          user_id: userId, text: text.replace(/^#+/, ''), type: 'shadow' as const,
           color:   '#D4B896',
           seed_weight: shadowSeedWeights[i],
         })),
