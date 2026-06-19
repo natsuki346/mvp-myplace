@@ -2,7 +2,7 @@ import { supabase } from './client'
 
 export type EventType =
   | 'registered' | 'deactivated' | 'reactivated' | 'room_entered'
-  | 'room_open' | 'chat_open' | 'message_sent'
+  | 'room_open' | 'chat_open' | 'message_sent' | 'visit'
 
 /**
  * tag_events に1件記録（fire-and-forget）。

@@ -8,9 +8,17 @@ const STEPS = [
   { num: '③', label: '向き合い、成長する' },
 ]
 
-type Props = { onStart: () => void }
+const BUTTON_LABELS: Record<1 | 2 | 3, string> = {
+  1: 'はじめる',
+  2: 'はじめる',
+  3: '向き合ってみる',
+}
 
-export default function WhyModal({ onStart }: Props) {
+const HIGHLIGHT = '#C0392B'
+
+type Props = { onStart: () => void; currentStep?: 1 | 2 | 3 }
+
+export default function WhyModal({ onStart, currentStep }: Props) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -56,25 +64,44 @@ export default function WhyModal({ onStart }: Props) {
 
         {/* ステップ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
-          {STEPS.map(({ num, label }) => (
-            <div key={num} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <span
-                style={{
-                  fontSize: 17,
-                  fontWeight: 800,
-                  color: '#4A7C59',
-                  width: 26,
-                  flexShrink: 0,
-                  textAlign: 'center',
-                }}
-              >
-                {num}
-              </span>
-              <span style={{ fontSize: 15, fontWeight: 600, color: '#3B2F1E' }}>
-                {label}
-              </span>
-            </div>
-          ))}
+          {STEPS.map(({ num, label }, i) => {
+            const active = currentStep === i + 1
+            return (
+              <div key={num} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 800,
+                    color: active ? HIGHLIGHT : '#4A7C59',
+                    width: 26,
+                    flexShrink: 0,
+                    textAlign: 'center',
+                  }}
+                >
+                  {num}
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 600, color: active ? HIGHLIGHT : '#3B2F1E', flex: 1 }}>
+                  {label}
+                </span>
+                {active && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: HIGHLIGHT,
+                      border: `1px solid ${HIGHLIGHT}`,
+                      borderRadius: 4,
+                      padding: '1px 5px',
+                      lineHeight: 1.4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    次ここ
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* CTA */}
@@ -92,7 +119,7 @@ export default function WhyModal({ onStart }: Props) {
             cursor: 'pointer',
           }}
         >
-          はじめる
+          {currentStep ? BUTTON_LABELS[currentStep] : 'はじめる'}
         </button>
       </div>
     </div>

@@ -6,10 +6,11 @@ import Fireworks from '@/src/components/tree/Fireworks'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 
 type GrowthModalProps = {
-  onStart: () => void
+  onStart?: () => void
+  onComplete?: () => void
 }
 
-export default function GrowthModal({ onStart }: GrowthModalProps) {
+export default function GrowthModal({ onStart, onComplete }: GrowthModalProps) {
   const { setGrowthStage } = useGrowthStage()
   const [showFireworks, setShowFireworks] = useState(true)
 
@@ -52,7 +53,7 @@ export default function GrowthModal({ onStart }: GrowthModalProps) {
 
       <div className="gm-copy" style={{ width: '100%', maxWidth: 300, textAlign: 'center', marginTop: 24 }}>
         <button
-          onClick={onStart}
+          onClick={() => { onStart?.(); onComplete?.() }}
           style={{
             width: '100%', padding: '14px',
             borderRadius: 24, border: 'none',

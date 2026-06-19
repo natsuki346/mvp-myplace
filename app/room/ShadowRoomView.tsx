@@ -5,11 +5,22 @@ import { supabase } from '@/src/lib/supabase/client'
 import { getStage, maxDepth, commitSessionPoints, LIGHT_THRESHOLDS, HEAVY_THRESHOLDS, type ActionDepth } from '@/src/lib/growthPoint'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
+import { recordTagEvent } from '@/src/lib/supabase/events'
 import RoomChatSheet from './RoomChatSheet'
 import SubTagListSheet, { type SelectedChannel } from './SubTagListSheet'
-import SeedGraphic from './SeedGraphic'
+import SeedQuoteModal from '@/src/components/room/SeedQuoteModal'
 
-type Tag = { id: string; text: string; growth_point: number; stage: number; seed_weight: 'light' | 'heavy' }
+type Tag = { id: string; text: string; growth_point: number; stage: number; seed_weight: string | null }
+
+// ガーデンと同じ設計：seed_weight の数値でステージを決定
+function getSeedBubble(seedWeight: string | null): { emoji: string; bg: string; textColor: string } {
+  const sw = parseFloat(String(seedWeight ?? ''))
+  if (!isNaN(sw)) {
+    if (sw >= 7) return { emoji: '🌼', bg: '#F5D78E', textColor: '#7A5C00' }
+    if (sw >= 3) return { emoji: '🌿', bg: '#9DC08B', textColor: '#2D5A27' }
+  }
+  return { emoji: '🌱', bg: '#D4B896', textColor: '#6B4E1A' }
+}
 
 // チュートリアル：水やり〜成長演出の進行状態
 type TutorialGrowth = {
@@ -32,9 +43,10 @@ const GROUND_LINE_Y = 300 // 地面ライン（画面の約71%）
 const GRASS_HEIGHT  = 8
 const SOIL_HEIGHT   = 5
 
-const SOIL_TOP  = GROUND_LINE_Y + GRASS_HEIGHT + SOIL_HEIGHT
-const SEED_TOP  = SOIL_TOP + 25    // タネ：土の中に埋まった位置に中心が乗る
-const LABEL_TOP = GROUND_LINE_Y - 80 // 地表・空気の中（境界線より上）
+const BUBBLE_DIAMETER = 80
+// バブル中心 = 地面ラインに合わせる（ガーデンと同じ）
+const BUBBLE_TOP_Y  = GROUND_LINE_Y - BUBBLE_DIAMETER / 2   // = 260
+const LABEL_TOP     = BUBBLE_TOP_Y - 40  // バブルの上にラベル
 
 async function fetchShadowTags(userId: string): Promise<Tag[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,14 +68,14 @@ async function fetchShadowTags(userId: string): Promise<Tag[]> {
       .order('created_at', { ascending: true })
 
     return ((fallback.data as Omit<Tag, 'stage' | 'seed_weight'>[] | null) ?? []).map(t => ({
-      ...t, stage: 0, seed_weight: 'light' as const,
+      ...t, stage: 0, seed_weight: null,
     }))
   }
 
   return (data as Tag[]) ?? []
 }
 
-export default function ShadowRoomView() {
+export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: () => void }) {
   const { step, advanceStep } = useTutorialStep()
   const [tags, setTags]               = useState<Tag[]>([])
   const [loading, setLoading]         = useState(true)
@@ -71,9 +83,9 @@ export default function ShadowRoomView() {
   const [spacer, setSpacer]           = useState(0)
   const [openTag, setOpenTag]         = useState<Tag | null>(null)
   const [channel, setChannel]         = useState<SelectedChannel | null>(null)
+  const [quoteTarget, setQuoteTarget]       = useState<{ id: string; text: string } | null>(null)
   const [wateringTagId, setWateringTagId]   = useState<string | null>(null)
   const [growingTagId, setGrowingTagId]     = useState<string | null>(null)
-  const [revealStage, setRevealStage]       = useState(false)
   const [tutorialGrowth, setTutorialGrowth] = useState<TutorialGrowth | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -146,6 +158,12 @@ export default function ShadowRoomView() {
   // タップして部屋に入る → セッションの最深アクションを「ルームを開く」で開始
   const openRoom = (tag: Tag) => {
     sessionDepthRef.current = 'room_open'
+    if (step === 'room_chat_ne') {
+      sessionStorage.setItem('onboarding_seed_tag_id', tag.id)
+    }
+    if (step === 'onboarding_seed_visit') {
+      sessionStorage.setItem('onboarding_room_visited', tag.id)
+    }
     setOpenTag(tag)
   }
 
@@ -162,12 +180,39 @@ export default function ShadowRoomView() {
 
   // 閲覧チャットを閉じる → チャンネル一覧（SubTagListSheet）に戻るだけ
   const handleChatClose = () => {
-    // チュートリアル：ALLを閲覧して戻ったら、SubTagListScreenの「戻る」に水やり誘導を出す
-    if (step === 'room_chat_ne' && channel?.subTagId === null) {
-      advanceStep('watering')
-    }
     setChannel(null)
   }
+
+  // Seedルーム訪問時に seed_weight を +1（1セッション1タグにつき1回のみ）
+  useEffect(() => {
+    if (!openTag) return
+    const userId = sessionStorage.getItem('user_id')
+    if (!userId) return
+
+    const visitKey = `seed_visited_${openTag.id}`
+    if (sessionStorage.getItem(visitKey)) return
+    sessionStorage.setItem(visitKey, '1')
+
+    ;(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: tagData } = await (supabase.from('tags') as any)
+        .select('seed_weight')
+        .eq('id', openTag.id)
+        .single()
+
+      const currentSw = parseFloat(String(tagData?.seed_weight ?? '0'))
+      const newSw = (isNaN(currentSw) ? 0 : currentSw) + 1
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('tags') as any)
+        .update({ seed_weight: String(newSw) })
+        .eq('id', openTag.id)
+        .eq('user_id', userId)
+
+      await recordTagEvent(openTag.id, userId, 'visit')
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTag?.id])
 
   // 育ったタネを反映：水滴アニメーション → growth_point/stage更新 → 成長アニメーション
   const revealLevelUp = (tagId: string, newGrowthPoint: number, newStage: number) => {
@@ -208,7 +253,6 @@ export default function ShadowRoomView() {
       setTimeout(() => {
         setWateringTagId(null)
         setTags(prev => prev.map(t => (t.id === tag.id ? { ...t, growth_point: newGrowthPoint, stage: newStage } : t)))
-        setRevealStage(true)
         setGrowingTagId(tag.id)
         requestAnimationFrame(() => {
           requestAnimationFrame(() => setGrowingTagId(null))
@@ -245,23 +289,37 @@ export default function ShadowRoomView() {
     setOpenTag(null)
     setChannel(null)
 
+    // Seedルーム閲覧完了（戻る2回目）→ アニメーションへ
+    if (step === 'room_chat_ne') {
+      onSeedChatDone?.()
+      return
+    }
+
     // チュートリアル：水やり演出 → 成長モーダルへ
     if (step === 'watering' && tag) {
       runTutorialGrowthSequence(tag)
       return
     }
 
-    // チュートリアル完了後のみポイント加算（訪問ごと・セッション内最深のみ）
-    if (step === 'done' && tag && depth) {
-      const userId = sessionStorage.getItem('user_id')
-      if (userId) {
-        commitSessionPoints(tag.id, depth, userId).then(({ newGrowthPoint, newStage, leveledUp }) => {
-          if (leveledUp) {
-            revealLevelUp(tag.id, newGrowthPoint, newStage)
-          } else {
-            setTags(prev => prev.map(t => (t.id === tag.id ? { ...t, growth_point: newGrowthPoint, stage: newStage } : t)))
-          }
-        })
+    // 名言モーダルを表示（onboarding_seed_visit は除外：ガーデン誘導フローがある）
+    if (tag && step !== 'onboarding_seed_visit') {
+      // 0件の場合はモーダル内で即 onClose() が呼ばれる
+      setQuoteTarget({ id: tag.id, text: tag.text })
+    }
+
+    // ポイント加算：チュートリアル完了後のみ
+    if ((step === 'done' || step === 'completed') && tag) {
+      if (depth) {
+        const userId = sessionStorage.getItem('user_id')
+        if (userId) {
+          commitSessionPoints(tag.id, depth, userId).then(({ newGrowthPoint, newStage, leveledUp }) => {
+            if (leveledUp) {
+              revealLevelUp(tag.id, newGrowthPoint, newStage)
+            } else {
+              setTags(prev => prev.map(t => (t.id === tag.id ? { ...t, growth_point: newGrowthPoint, stage: newStage } : t)))
+            }
+          })
+        }
       }
     }
   }
@@ -377,7 +435,10 @@ export default function ShadowRoomView() {
         >
           <div style={{ flexShrink: 0, width: spacer }} />
           {tags.map((tag, i) => {
-            const active = i === activeIndex
+            const active   = i === activeIndex
+            const isGrow   = growingTagId === tag.id
+            const bubble   = getSeedBubble(tag.seed_weight)
+            const dispBubble = isGrow ? { emoji: '🌿', bg: '#9DC08B', textColor: '#2D5A27' } : bubble
             return (
               <button
                 key={tag.id}
@@ -389,11 +450,11 @@ export default function ShadowRoomView() {
                   zIndex: (active && step === 'room_chat_ne' && !openTag) ? 50 : undefined,
                 }}
               >
-                {/* ハッシュタグラベル：土の上に浮かぶ（中央＝アクティブな種のみ表示） */}
+                {/* ハッシュタグラベル（アクティブのみ、バブルの上） */}
                 {active && (
                   <span style={{
                     position: 'absolute', top: LABEL_TOP, left: '50%',
-                    transform: 'translate(-50%, -50%)',
+                    transform: 'translateX(-50%)',
                     fontSize: 11, fontWeight: 600, color: '#8B6914', background: '#F5D78E',
                     borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap',
                   }}>
@@ -401,24 +462,37 @@ export default function ShadowRoomView() {
                   </span>
                 )}
 
-                {/* タネ：成長段階に応じたSVG */}
+                {/* Seed バブル：ガーデンと同じ円形デザイン */}
                 <div style={{
-                  position: 'absolute', top: SEED_TOP, left: '50%',
+                  position: 'absolute', top: BUBBLE_TOP_Y, left: '50%',
                   transform: active
-                    ? 'translate(-50%, -50%) scale(1.45)'
-                    : 'translate(-50%, -50%) scale(0.85)',
-                  opacity: active ? 1 : 0.55,
-                  transition: 'transform 0.25s ease, opacity 0.25s ease',
+                    ? 'translate(-50%, 0) scale(1.2)'
+                    : 'translate(-50%, 0) scale(0.8)',
+                  opacity: active ? 1 : 0.5,
+                  transition: 'transform 0.25s ease, opacity 0.25s ease, background 0.5s ease',
+                  width: BUBBLE_DIAMETER, height: BUBBLE_DIAMETER,
+                  borderRadius: '50%',
+                  background: dispBubble.bg,
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: 2,
+                  boxShadow: active
+                    ? '0 4px 16px rgba(0,0,0,0.18)'
+                    : '0 2px 8px rgba(0,0,0,0.12)',
                 }}>
-                  <SeedGraphic
-                    stage={(step === 'done' || step === 'growth_result' || step === 'growth_explain' || step === 'growth_modal' || step === 'thankyou_modal' || revealStage) ? getStage(tag.growth_point, tag.seed_weight ?? 'light') : 0}
-                    animate={growingTagId === tag.id}
-                  />
+                  <span style={{ fontSize: 28, lineHeight: 1 }}>{dispBubble.emoji}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, color: dispBubble.textColor,
+                    maxWidth: BUBBLE_DIAMETER - 8,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    paddingLeft: 4, paddingRight: 4,
+                  }}>
+                    #{tag.text.replace(/^#+/, '')}
+                  </span>
                 </div>
 
                 {/* 水やりアニメーション：水滴が落ちてくる */}
                 {wateringTagId === tag.id && (
-                  <div style={{ position: 'absolute', top: SEED_TOP - 70, left: '50%', pointerEvents: 'none' }}>
+                  <div style={{ position: 'absolute', top: BUBBLE_TOP_Y - 50, left: '50%', pointerEvents: 'none' }}>
                     {[0, 1, 2, 3, 4, 5].map(d => (
                       <span
                         key={d}
@@ -439,7 +513,7 @@ export default function ShadowRoomView() {
                 {tutorialGrowth?.tagId === tag.id && (tutorialGrowth.phase === 'point' || tutorialGrowth.phase === 'progress') && (
                   <div
                     className="animate-popIn"
-                    style={{ position: 'absolute', top: SEED_TOP - 102, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'none', whiteSpace: 'nowrap' }}
+                    style={{ position: 'absolute', top: BUBBLE_TOP_Y - 36, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'none', whiteSpace: 'nowrap' }}
                   >
                     <span style={{ fontSize: 20, fontWeight: 600, color: '#4A7C59' }}>+{tutorialGrowth.points}pt</span>
                   </div>
@@ -447,7 +521,7 @@ export default function ShadowRoomView() {
 
                 {/* チュートリアル：次の成長までのプロセスバー */}
                 {tutorialGrowth?.tagId === tag.id && progressInfo && (
-                  <div style={{ position: 'absolute', top: SEED_TOP - 70, left: '50%', transform: 'translateX(-50%)', width: 140, pointerEvents: 'none' }}>
+                  <div style={{ position: 'absolute', top: BUBBLE_TOP_Y - 24, left: '50%', transform: 'translateX(-50%)', width: 140, pointerEvents: 'none' }}>
                     <p style={{ margin: '0 0 4px', fontSize: 11, color: '#8B6914', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       次の成長まで あと{progressInfo.remaining}pt
                     </p>
@@ -481,6 +555,13 @@ export default function ShadowRoomView() {
           subTagName={channel.name}
           onClose={handleChatClose}
           onMessageSent={handleMessageSent}
+        />
+      )}
+
+      {quoteTarget && (
+        <SeedQuoteModal
+          tagId={quoteTarget.id}
+          onClose={() => setQuoteTarget(null)}
         />
       )}
     </div>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
 type RoomIntroModalProps = {
   onNext: () => void
@@ -44,19 +43,25 @@ export default function RoomIntroModal({ onNext }: RoomIntroModalProps) {
           boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
         }}
       >
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 12px' }}>
-          🏠 ルームってなに？
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 16px' }}>
+          🏠 ルームとは
         </h2>
-        <div style={{ fontSize: 13, color: 'rgba(59,47,30,0.7)', lineHeight: 1.7, textAlign: 'center', margin: '0 0 24px' }}>
-          <p style={{ margin: 0 }}>同じタグを持つ人たちが集まり、<br />チャットで会話ができます。</p>
-
-          <p style={{ margin: '12px 0 0', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <DaisyIcon size={18} stage={4} active /> Daisy
-          </p>
-          <p style={{ margin: 0 }}>自分の好きなことや<br />同じ共通点を持つ人たちが集まる場所。</p>
-
-          <p style={{ margin: '12px 0 0', fontWeight: 600 }}>🌱 Seed</p>
-          <p style={{ margin: 0 }}>なかなか打ち明けられなかった言葉や<br />同じ境遇を持つ人が集まり、<br />言葉を交わすことができます。</p>
+        <p style={{ fontSize: 15, color: 'rgba(59,47,30,0.7)', lineHeight: 1.8, textAlign: 'center', margin: '0 0 20px' }}>
+          自分と同じタグを持つ仲間と<br />チャットして繋がれる場所
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28, textAlign: 'center' }}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#3B2F1E', margin: '0 0 4px' }}>🌼 Daisy</p>
+            <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.65)', lineHeight: 1.6, margin: 0 }}>
+              あなたの好きやワクワクで繋がれる😊
+            </p>
+          </div>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#3B2F1E', margin: '0 0 4px' }}>🌱 Seed</p>
+            <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.65)', lineHeight: 1.6, margin: 0 }}>
+              あなたが持つ悩みで共に成長する💪🔥
+            </p>
+          </div>
         </div>
         <button
           onClick={handleNext}

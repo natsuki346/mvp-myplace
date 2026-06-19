@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import WhyModal from '@/src/components/onboarding/WhyModal'
+import ProcessOverviewScreen from '@/src/components/onboarding/ProcessOverviewScreen'
 
 // 花びらの配置角度（外側13枚・内側13枚は半分オフセット、約27.7°間隔）
 const PETAL_COUNT = 13
@@ -22,19 +23,31 @@ const SEED_DOTS = [
 
 export default function WelcomePage() {
   const router    = useRouter()
-  const [loaded,      setLoaded]      = useState(false)
-  const [isLeaving,   setIsLeaving]   = useState(false)
-  const [showWhyModal, setShowWhyModal] = useState(false)
+  const [loaded,           setLoaded]           = useState(false)
+  const [isLeaving,        setIsLeaving]        = useState(false)
+  const [showProcessOverview, setShowProcessOverview] = useState(false)
+  const [showWhyModal,     setShowWhyModal]     = useState(false)
+  const [showStartPopup,   setShowStartPopup]   = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 60)
     return () => clearTimeout(t)
   }, [])
 
-  const handleStart = () => setShowWhyModal(true)
+  const handleStart = () => setShowProcessOverview(true)
+
+  const handleProcessUnderstand = () => {
+    setShowProcessOverview(false)
+    setShowWhyModal(true)
+  }
 
   const handleWhyStart = () => {
     setShowWhyModal(false)
+    setShowStartPopup(true)
+  }
+
+  const handleStartPopup = () => {
+    setShowStartPopup(false)
     setIsLeaving(true)
     setTimeout(() => router.push('/onboarding'), 900)
   }
@@ -326,7 +339,40 @@ export default function WelcomePage() {
       </div>
 
     </div>
-    {showWhyModal && <WhyModal onStart={handleWhyStart} />}
+    {showProcessOverview && <ProcessOverviewScreen onUnderstand={handleProcessUnderstand} />}
+    {showWhyModal && <WhyModal onStart={handleWhyStart} currentStep={1} />}
+    {showStartPopup && (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0 24px',
+        background: 'rgba(59,47,30,0.35)',
+      }}>
+        <div style={{
+          width: '100%', maxWidth: 342,
+          background: '#FFFFFF', borderRadius: 20,
+          padding: 32, textAlign: 'center',
+        }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
+            まず4つの質問に答えてみよう🌱
+          </h2>
+          <p style={{ fontSize: 13, color: '#8B6914', margin: '8px 0 0' }}>
+            あなたの実と根のタネが生まれます
+          </p>
+          <button
+            onClick={handleStartPopup}
+            style={{
+              width: '100%', padding: '14px', marginTop: 24,
+              borderRadius: 24, border: 'none',
+              background: '#4A7C59', color: '#FFFFFF',
+              fontSize: 15, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            はじめる
+          </button>
+        </div>
+      </div>
+    )}
     </>
   )
 }

@@ -37,7 +37,7 @@ export default function RoomChatSheet({
   const [matchTagIds, setMatchTagIds] = useState<string[]>([])
   const info = ROOM_INFO[type]
   const { step } = useTutorialStep()
-  const viewOnly = (type === 'light' && step === 'room_chat_mi') || (type === 'shadow' && step === 'room_chat_ne')
+  const viewOnly = (type === 'light' && step === 'room_chat_mi') || (type === 'shadow' && (step === 'room_chat_ne' || step === 'onboarding_seed_visit'))
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 20)

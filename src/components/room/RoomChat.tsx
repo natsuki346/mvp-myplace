@@ -84,7 +84,10 @@ export default function RoomChat({
   // イントロ会話（mock）用のリアクション。DBには保存せずローカルのみで管理
   const [introReactionsMap, setIntroReactionsMap] = useState<ReactionsMap>({})
   const [openPickerMsgId, setOpenPickerMsgId] = useState<string | null>(null)
+  const [longPressedMsgId, setLongPressedMsgId] = useState<string | null>(null)
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [activeCatIndex, setActiveCatIndex] = useState(0)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionUsers, setMentionUsers] = useState<ChatMessageUser[]>([])
   const matchingIdsRef = useRef<Set<string>>(new Set())
@@ -161,6 +164,21 @@ export default function RoomChat({
         }
       }
       setReactionsMap(map)
+    })()
+  }, [messages, userId])
+
+  // 保存済みメッセージID取得
+  useEffect(() => {
+    if (!userId || messages.length === 0) return
+    const ids = messages.map(m => m.id)
+    ;(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase.from('saved_messages') as any)
+        .select('message_id')
+        .eq('user_id', userId)
+        .in('message_id', ids)
+      if (!data) return
+      setSavedIds(new Set((data as { message_id: string }[]).map(r => r.message_id)))
     })()
   }, [messages, userId])
 
@@ -275,6 +293,45 @@ export default function RoomChat({
       }
       return { ...prev, [messageId]: [...current, { emoji, count: 1, reacted: true }] }
     })
+  }
+
+  // ブックマーク保存トグル（楽観的更新）
+  const handleToggleSave = async (messageId: string, content: string) => {
+    if (!userId) return
+    const isSaved = savedIds.has(messageId)
+    setSavedIds(prev => {
+      const next = new Set(prev)
+      isSaved ? next.delete(messageId) : next.add(messageId)
+      return next
+    })
+    const tagId = ownTagId ?? matchTagIds[0] ?? null
+    if (isSaved) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('saved_messages') as any)
+        .delete()
+        .eq('user_id', userId)
+        .eq('message_id', messageId)
+      if (error) {
+        console.error('[save delete error]', error)
+        setSavedIds(prev => { const next = new Set(prev); next.add(messageId); return next })
+      }
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('saved_messages') as any)
+        .insert([{ user_id: userId, message_id: messageId, content, tag_id: tagId }])
+      if (error) {
+        console.error('[save insert error]', error)
+        setSavedIds(prev => { const next = new Set(prev); next.delete(messageId); return next })
+      }
+    }
+  }
+
+  // 長押し
+  const startLongPress = (msgId: string) => {
+    longPressTimerRef.current = setTimeout(() => setLongPressedMsgId(msgId), 500)
+  }
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
   }
 
   // ============================================================
@@ -427,7 +484,13 @@ export default function RoomChat({
                   )}
 
                   {/* メッセージ本文 */}
-                  <div style={{ fontSize: 14, lineHeight: 1.5, color: '#3B2F1E', wordBreak: 'break-word' }}>
+                  <div
+                    onPointerDown={() => startLongPress(msg.id)}
+                    onPointerUp={cancelLongPress}
+                    onPointerLeave={cancelLongPress}
+                    onPointerCancel={cancelLongPress}
+                    style={{ fontSize: 14, lineHeight: 1.5, color: '#3B2F1E', wordBreak: 'break-word', userSelect: 'none', WebkitUserSelect: 'none' }}
+                  >
                     {msg.content.split(/(@\w+)/g).map((part, i) =>
                       /^@\w+$/.test(part)
                         ? <span key={i} style={{ color: '#4A7C59', fontWeight: 600 }}>{part}</span>
@@ -435,7 +498,7 @@ export default function RoomChat({
                     )}
                   </div>
 
-                  {/* リアクション */}
+                  {/* アクション + リアクション */}
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
                     {reactions.map(r => (
                       <button key={r.emoji}
@@ -451,12 +514,39 @@ export default function RoomChat({
                     ))}
                     <button
                       onClick={() => { setActiveCatIndex(0); setOpenPickerMsgId(msg.id) }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '0.4')}
                       style={{
                         background: 'transparent', border: '1px solid rgba(139,105,20,0.25)',
-                        borderRadius: 20, padding: '2px 8px', fontSize: 12,
-                        cursor: 'pointer', color: 'rgba(139,105,20,0.5)',
+                        borderRadius: 20, padding: '3px 7px',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                        opacity: 0.4,
                       }}
-                    >+</button>
+                      aria-label="リアクション"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B2F1E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                        <line x1="9" y1="9" x2="9.01" y2="9"/>
+                        <line x1="15" y1="9" x2="15.01" y2="9"/>
+                      </svg>
+                    </button>
+                    {!isIntro && (
+                      <button
+                        onClick={() => handleToggleSave(msg.id, msg.content)}
+                        style={{
+                          background: 'transparent', border: '1px solid rgba(139,105,20,0.25)',
+                          borderRadius: 20, padding: '3px 7px',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center',
+                          opacity: savedIds.has(msg.id) ? 1 : 0.4,
+                        }}
+                        aria-label="保存"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={savedIds.has(msg.id) ? '#4A7C59' : 'none'} stroke={savedIds.has(msg.id) ? '#4A7C59' : '#3B2F1E'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -529,6 +619,33 @@ export default function RoomChat({
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}
             >›</button>
+          </div>
+        </>
+      )}
+
+      {/* 長押しアクションシート */}
+      {longPressedMsgId && (
+        <>
+          <div
+            onClick={() => setLongPressedMsgId(null)}
+            style={{ position: 'absolute', inset: 0, background: 'rgba(59,47,30,0.35)', zIndex: 10 }}
+          />
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            background: '#F5F0E8', borderRadius: '20px 20px 0 0',
+            borderTop: '1px solid #D4B896', zIndex: 11, paddingBottom: 32,
+          }}>
+            <div style={{ width: 36, height: 4, background: 'rgba(139,105,20,.25)', borderRadius: 2, margin: '10px auto 8px' }} />
+            <button
+              onClick={() => { setOpenPickerMsgId(longPressedMsgId); setActiveCatIndex(0); setLongPressedMsgId(null) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                padding: '14px 24px', background: 'none', border: 'none',
+                cursor: 'pointer', fontSize: 15, color: '#3B2F1E', fontWeight: 500,
+              }}
+            >
+              <span style={{ fontSize: 22 }}>😊</span> リアクション
+            </button>
           </div>
         </>
       )}

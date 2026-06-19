@@ -41,8 +41,8 @@ export default function SubTagListSheet({
   const [members, setMembers] = useState<RoomMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const { step } = useTutorialStep()
-  const showAllArrow = (step === 'room_chat_mi' && !chatVisited) || step === 'room_chat_ne'
-  const showBackBubble = step === 'watering' || (step === 'room_chat_mi' && chatVisited)
+  const showAllArrow = (step === 'room_chat_mi' || step === 'room_chat_ne' || step === 'onboarding_seed_visit') && !chatVisited
+  const showBackBubble = step === 'watering' || (step === 'room_chat_mi' && chatVisited) || (step === 'room_chat_ne' && chatVisited) || (step === 'onboarding_seed_visit' && chatVisited)
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 20)

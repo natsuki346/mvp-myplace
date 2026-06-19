@@ -5,14 +5,11 @@ import GardenDisplay from './garden-display'
 import { BottomNav } from '@/src/components/BottomNav'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import RoomNavArrow from '@/src/components/tutorial/RoomNavArrow'
-import GrowthTree from '@/src/components/tree/GrowthTree'
-import { useGrowthStage, GROWTH_STAGE_LABELS } from '@/src/components/tree/useGrowthStage'
+import GardenOnboardingModal from '@/src/components/onboarding/GardenOnboardingModal'
 
 export default function HomePage() {
   const { step, advanceStep } = useTutorialStep()
-  const { stage } = useGrowthStage()
 
-  // チュートリアル：ルーム誘導の矢印案内の前に表示する案内ポップアップ
   const [roomGuideDismissed, setRoomGuideDismissed] = useState(false)
 
   return (
@@ -22,31 +19,18 @@ export default function HomePage() {
         height: '100svh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}
     >
-      {/* ────────────────── ヘッダー ────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '44px 20px 12px', flexShrink: 0,
-      }}>
-        <h1 style={{ fontSize: 19, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
-          あなたのガーデン
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <GrowthTree stage={stage} size={28} />
-          <span style={{ fontSize: 11, color: '#8B6914', fontWeight: 600 }}>
-            {GROWTH_STAGE_LABELS[stage]}
-          </span>
-        </div>
-      </div>
-
-      {/* ────────────────── 農園表示 ────────────────── */}
-      {/* flex:1でボトムナビの直前まで広げる（デコレーション編集時と同じ大きさ） */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingBottom: 80 }}>
+      {/* ────────────────── ガーデン表示 ────────────────── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 80 }}>
         <GardenDisplay />
       </div>
 
       <BottomNav onRoomClick={() => { if (step === 'room_nav_arrow') advanceStep('room_intro') }} />
 
       {step === 'room_nav_arrow' && roomGuideDismissed && <RoomNavArrow />}
+
+      {step === 'garden_onboarding' && (
+        <GardenOnboardingModal onClose={() => {}} />
+      )}
 
       {/* ────────────────── チュートリアル：ルーム誘導前の案内ポップアップ ────────────────── */}
       {step === 'room_nav_arrow' && !roomGuideDismissed && (

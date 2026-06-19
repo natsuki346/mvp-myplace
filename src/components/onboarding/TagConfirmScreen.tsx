@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
+import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
+import WhyModal from '@/src/components/onboarding/WhyModal'
 
 type Props = {
   lightTags: string[]
@@ -11,7 +12,8 @@ type Props = {
 
 export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
   const router = useRouter()
-  const { advanceStep } = useTutorialStep()
+  const [showAnimation, setShowAnimation] = useState(false)
+  const [showWhyModal, setShowWhyModal] = useState(false)
   const total = lightTags.length + shadowTags.length
   const [visibleCount, setVisibleCount] = useState(0)
 
@@ -43,6 +45,7 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
   )
 
   return (
+    <>
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 400,
@@ -59,12 +62,12 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
         </p>
 
         {/* Light タグ */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ marginBottom: 32, textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
             <span style={{ fontSize: 20 }}>🌼</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: '#3B2F1E' }}>Daisy</span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
             {lightTags.map((tag, i) => (
               <Chip key={i} text={tag} index={i} bg="#F5D78E" />
             ))}
@@ -72,12 +75,12 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
         </div>
 
         {/* Shadow タグ */}
-        <div style={{ marginBottom: 40 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <div style={{ marginBottom: 40, textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 14 }}>
             <span style={{ fontSize: 20 }}>🌱</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: '#3B2F1E' }}>Seed</span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
             {shadowTags.map((tag, i) => (
               <Chip key={i} text={tag} index={lightTags.length + i} bg="#D4B896" />
             ))}
@@ -86,7 +89,7 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
       </div>
 
       <button
-        onClick={() => { advanceStep('room_intro'); router.push('/room') }}
+        onClick={() => setShowAnimation(true)}
         style={{
           width: '100%', padding: '14px',
           borderRadius: 24, border: 'none',
@@ -95,8 +98,27 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
           flexShrink: 0,
         }}
       >
-        ルームを見てみる
+        これが自分！
       </button>
     </div>
+
+    {showAnimation && (
+      <GrowthTransitionOverlay
+        stage="sprout"
+        quote={{ text: '自分を知ることが、\nすべての知恵の始まりだ。', author: 'アリストテレス' }}
+        message={{ title: '言葉にできてすごい💯' }}
+        buttonText="次へ"
+        onNext={() => setShowWhyModal(true)}
+      />
+    )}
+
+    {showWhyModal && (
+      <WhyModal
+        currentStep={2}
+        onStart={() => { setShowAnimation(false); setShowWhyModal(false); router.push('/home') }}
+      />
+    )}
+
+    </>
   )
 }

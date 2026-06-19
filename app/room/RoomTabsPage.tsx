@@ -1,21 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import LightRoomView from './LightRoomView'
 import ShadowRoomView from './ShadowRoomView'
 import FriendRoomView from '@/src/components/room/FriendRoomView'
-import GrowthHelpModal from './GrowthHelpModal'
+import HelpModal from '@/src/components/HelpModal'
 import { BottomNav } from '@/src/components/BottomNav'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import RoomIntroModal from '@/src/components/tutorial/RoomIntroModal'
-import RoomExplainMiModal from '@/src/components/tutorial/RoomExplainMiModal'
-import RoomExplainNeModal from '@/src/components/tutorial/RoomExplainNeModal'
 import NeRoomPopup from '@/src/components/tutorial/NeRoomPopup'
-import GrowthResultModal from '@/src/components/tutorial/GrowthResultModal'
-import GrowthModal from '@/src/components/tutorial/GrowthModal'
-import ThankYouModal from '@/src/components/tutorial/ThankYouModal'
 import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
+import WhyModal from '@/src/components/onboarding/WhyModal'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 
@@ -34,19 +30,27 @@ const ACTIVE_TEXT   = '#F5F0E8'
 const INACTIVE_BG   = '#D4B896'
 const INACTIVE_TEXT = '#5C3A1E'
 
-type TutorialPhase = 'room_intro' | 'room_explain_mi' | 'ne_room_popup' | 'room_explain_ne' | null
+type TutorialPhase = 'room_intro' | 'ne_room_popup' | null
 
 export default function RoomTabsPage({ type }: { type: RoomType }) {
   const router = useRouter()
   const { step, advanceStep } = useTutorialStep()
   const { setGrowthStage } = useGrowthStage()
   const [showGrowthHelp, setShowGrowthHelp] = useState(false)
+  const [showSeedWhyModal, setShowSeedWhyModal] = useState(false)
+  const [showRoomIntro, setShowRoomIntro] = useState(false)
+
+  // 初回訪問時にルーム案内ポップアップを自動表示
+  useEffect(() => {
+    if (!sessionStorage.getItem('room_visited')) {
+      sessionStorage.setItem('room_visited', 'true')
+      setShowRoomIntro(true)
+    }
+  }, [])
 
   const phase: TutorialPhase =
-    step === 'room_intro' ? 'room_intro'
-    : step === 'room_explain_mi' ? 'room_explain_mi'
+    step === 'room_intro'      ? 'room_intro'
     : step === 'ne_room_popup' ? 'ne_room_popup'
-    : step === 'room_explain_ne' ? 'room_explain_ne'
     : null
 
   const handleTabClick = (t: RoomType) => {
@@ -109,62 +113,67 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
         })}
       </div>
 
-      {type === 'light' ? <LightRoomView /> : type === 'shadow' ? <ShadowRoomView /> : <FriendRoomView />}
+      {type === 'light' ? <LightRoomView /> : type === 'shadow' ? <ShadowRoomView onSeedChatDone={() => advanceStep('room_grow_animation')} /> : <FriendRoomView />}
 
       <BottomNav />
 
-      {phase === 'room_intro' && (
-        <RoomIntroModal onNext={() => advanceStep('room_explain_mi')} />
-      )}
-
-      {phase === 'room_explain_mi' && (
-        <RoomExplainMiModal onNext={() => { advanceStep('room_chat_mi'); router.replace('/room/light') }} />
-      )}
-
-      {/* 成長アニメーション3：芽 → つぼみ */}
-      {step === 'room_grow_animation' && (
-        <GrowthTransitionOverlay
-          stage="budding"
-          quote={{ text: '喜びは分かち合うことで倍になり\n悲しみは分かち合うことで半分になる。', author: 'ゲーテ' }}
-          message={{ title: 'あなたは一人じゃない。', subtitle: 'あなたの言葉が、人を繋ぐ。\nあなたの言葉は、誰かを救う', subtitleSize: 19 }}
-          buttonText="次へ"
-          onNext={() => { setGrowthStage('budding'); advanceStep('ne_room_popup') }}
-        />
+      {(showRoomIntro || phase === 'room_intro') && (
+        <RoomIntroModal onNext={() => {
+          setShowRoomIntro(false)
+          advanceStep('room_chat_mi')
+        }} />
       )}
 
       {phase === 'ne_room_popup' && (
         <NeRoomPopup
-          onNext={() => advanceStep('room_explain_ne')}
-          onSkip={() => advanceStep('watering')}
+          onNext={() => { advanceStep('room_chat_ne'); router.replace('/room/shadow') }}
+          onSkip={() => advanceStep('thankyou_modal')}
         />
       )}
 
-      {phase === 'room_explain_ne' && (
-        <RoomExplainNeModal onNext={() => { advanceStep('room_chat_ne'); router.replace('/room/shadow') }} />
+      {/* 成長アニメーション：Seedルーム閲覧完了後 */}
+      {step === 'room_grow_animation' && (
+        <GrowthTransitionOverlay
+          stage="budding"
+          quote={{ text: '喜びは分かち合うことで倍になり\n悲しみは分かち合うことで半分になる', author: 'ゲーテ', fontSize: 17 }}
+          message={{ title: 'あなたは一人じゃない。🤝', subtitle: 'あなたのままでつながれる', subtitleSize: 19 }}
+          buttonText="次へ"
+          onNext={() => { setGrowthStage('budding'); setShowSeedWhyModal(true) }}
+        />
       )}
 
-      {/* 「成長した！向き合えた！」モーダル */}
-      {step === 'growth_result' && (
-        <GrowthResultModal onNext={() => advanceStep('growth_explain')} />
+      {/* プロセスモーダル③：アニメーション後に表示 */}
+      {showSeedWhyModal && (
+        <WhyModal
+          currentStep={3}
+          onStart={() => { setShowSeedWhyModal(false); advanceStep('garden_onboarding'); router.push('/home') }}
+        />
       )}
 
-      {/* 成長の仕組み説明（？ヘルプ画面と同じ内容） */}
-      {step === 'growth_explain' && (
-        <GrowthHelpModal buttonText="次へ" onClose={() => advanceStep('growth_modal')} />
-      )}
-
-      {/* 「向き合えてえらい！」モーダル */}
-      {step === 'growth_modal' && (
-        <GrowthModal onStart={() => advanceStep('thankyou_modal')} />
-      )}
-
-      {/* 「協力ありがとう」モーダル */}
-      {step === 'thankyou_modal' && (
-        <ThankYouModal onClose={() => { advanceStep('done'); router.push('/home') }} />
+      {/* オンボーディング最終：Seedルーム閲覧後にガーデンへ */}
+      {step === 'onboarding_seed_visit' && (
+        <div style={{
+          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: 390, padding: '0 24px', zIndex: 100,
+          pointerEvents: 'none',
+        }}>
+          <button
+            onClick={() => router.push('/home')}
+            style={{
+              width: '100%', padding: '14px', borderRadius: 24, border: 'none',
+              background: '#4A7C59', color: '#FFFFFF',
+              fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              pointerEvents: 'auto',
+              boxShadow: '0 4px 16px rgba(74,124,89,0.4)',
+            }}
+          >
+            ガーデンへ 🌿
+          </button>
+        </div>
       )}
 
       {showGrowthHelp && (
-        <GrowthHelpModal onClose={() => setShowGrowthHelp(false)} />
+        <HelpModal onClose={() => setShowGrowthHelp(false)} />
       )}
     </div>
   )
