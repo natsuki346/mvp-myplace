@@ -14,6 +14,7 @@ import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverl
 import WhyModal from '@/src/components/onboarding/WhyModal'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
+import { supabase } from '@/src/lib/supabase/client'
 
 type RoomType = 'light' | 'shadow' | 'friend'
 
@@ -52,6 +53,31 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
     step === 'room_intro'      ? 'room_intro'
     : step === 'ne_room_popup' ? 'ne_room_popup'
     : null
+
+  // 「今はいい」でSeedルーム訪問をスキップした場合、成長演出〜完了画面までの
+  // 流れ自体は実際に訪れた場合と同じにするが、訪れていないのでバブルは育てない
+  // （seed_weight・visitイベントは記録しない）。garden側の吹き出しテキストを
+  // 切り替えるためのフラグだけセットする。
+  const handleSkipSeedVisit = async () => {
+    const userId = sessionStorage.getItem('user_id')
+    if (userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: tag } = await (supabase.from('tags') as any)
+        .select('id')
+        .eq('user_id', userId)
+        .eq('type', 'shadow')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (tag?.id) {
+        sessionStorage.setItem('onboarding_seed_tag_id', tag.id)
+        sessionStorage.setItem('onboarding_seed_visit_skipped', '1')
+      }
+    }
+    advanceStep('room_grow_animation')
+  }
 
   const handleTabClick = (t: RoomType) => {
     router.replace(`/room/${t}`)
@@ -127,11 +153,11 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
       {phase === 'ne_room_popup' && (
         <NeRoomPopup
           onNext={() => { advanceStep('room_chat_ne'); router.replace('/room/shadow') }}
-          onSkip={() => advanceStep('thankyou_modal')}
+          onSkip={() => { void handleSkipSeedVisit() }}
         />
       )}
 
-      {/* 成長アニメーション：Seedルーム閲覧完了後 */}
+      {/* 成長アニメーション：Seedルーム閲覧完了後（「今はいい」でスキップした場合も同じアニメーション・同じ流れに合流する） */}
       {step === 'room_grow_animation' && (
         <GrowthTransitionOverlay
           stage="budding"

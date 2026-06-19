@@ -15,3 +15,20 @@ export function markRoomOnboardingDone(): void {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(roomOnboardingDoneKey(), 'true')
 }
+
+// バブル詳細モーダルの案内ツールチップ（「保存した言葉」「メモ・ジャーナル」を指し示すもの）を
+// 既に見たかどうか。ユーザーごとに、初回表示の1回限りで案内する。
+function bubbleDetailTooltipSeenKey(): string {
+  const userId = typeof window !== 'undefined' ? window.sessionStorage.getItem('user_id') : null
+  return `canvas:bubbleDetailTooltipSeen:${userId ?? 'anon'}`
+}
+
+export function isBubbleDetailTooltipSeen(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(bubbleDetailTooltipSeenKey()) === 'true'
+}
+
+export function markBubbleDetailTooltipSeen(): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(bubbleDetailTooltipSeenKey(), 'true')
+}

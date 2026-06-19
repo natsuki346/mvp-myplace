@@ -40,7 +40,7 @@ export default function GrowthExplainModal({ onClose, onOpenBubble, onOpenHelp }
           fontSize: 20, fontWeight: 800, color: '#3B2F1E',
           margin: '0 0 20px', textAlign: 'center',
         }}>
-          バブルは育つ
+          バブルの育ち方
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>

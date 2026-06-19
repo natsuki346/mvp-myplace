@@ -7,14 +7,14 @@ import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
 import ThankYouModal from '@/src/components/tutorial/ThankYouModal'
 import BubbleDetailModal from '@/src/components/BubbleDetailModal'
-import BubbleGrowthPopup from '@/src/components/garden/BubbleGrowthPopup'
 import GrowthExplainModal from '@/src/components/onboarding/GrowthExplainModal'
 import GrowthModal from '@/src/components/tutorial/GrowthModal'
+import GrowthWelcomeMessage from '@/src/components/tutorial/GrowthWelcomeMessage'
 import HelpModal from '@/src/components/HelpModal'
 import DaisyBubble from '@/src/components/DaisyBubble'
 
 type LightTag  = { id: string; text: string; growth_point: number; position_x?: number | null; position_y?: number | null }
-type ShadowTag = { id: string; text: string; seed_weight: string | null; stage: string | null; position_x?: number | null; position_y?: number | null }
+type ShadowTag = { id: string; text: string; growth_point: number; seed_weight: string | null; stage: string | null; position_x?: number | null; position_y?: number | null }
 type FriendBubble = {
   id: string              // friend の user ID
   text: string            // username（表示・key用）
@@ -63,26 +63,28 @@ function getSeedBubble(stage: string | null, seedWeight: string | null): { emoji
   return { emoji: '🌱', bg: '#D4B896', text: '#6B4E1A' }
 }
 
-const BASE_SEED_SIZE = 68
-
-function getSeedSize(seedWeight: string | null): number {
-  const sw = parseFloat(String(seedWeight ?? ''))
-  if (!isNaN(sw)) {
-    if (sw >= 7) return Math.round(BASE_SEED_SIZE * 1.4)  // 95
-    if (sw >= 3) return Math.round(BASE_SEED_SIZE * 1.2)  // 82
-    return BASE_SEED_SIZE                                  // 68
-  }
-  if (seedWeight === 'heavy') return Math.round(BASE_SEED_SIZE * 1.4)
-  return BASE_SEED_SIZE
-}
+const BASE_SEED_SIZE  = 68
+const BASE_DAISY_SIZE = 52
+const MAX_BUBBLE_SIZE = 100
+// 通常タグの満開ライン（growthPoint.ts の LIGHT_THRESHOLDS 最大値）に合わせて
+// この点数でバブルが最大サイズに達するようにする
+const POINT_SIZE_CAP = 30
 
 function clamp(v: number, min: number, max: number) { return Math.min(Math.max(v, min), max) }
 
-function getDaisySize(gp: number): number {
-  if (gp >= 30) return 100
-  if (gp >= 20) return 84
-  if (gp >= 10) return 68
-  return 52
+// growth_point に応じてバブルサイズを base〜MAX_BUBBLE_SIZE の範囲で滑らかに大きくする。
+// ルームを訪れる（ポイントが入る）たびに少しずつ膨らんでいく。
+function sizeFromPoints(growthPoint: number, base: number): number {
+  const ratio = clamp(growthPoint, 0, POINT_SIZE_CAP) / POINT_SIZE_CAP
+  return Math.round(base + (MAX_BUBBLE_SIZE - base) * ratio)
+}
+
+function getSeedSize(growthPoint: number): number {
+  return sizeFromPoints(growthPoint, BASE_SEED_SIZE)
+}
+
+function getDaisySize(growthPoint: number): number {
+  return sizeFromPoints(growthPoint, BASE_DAISY_SIZE)
 }
 
 function getConsecutiveDays(dates: string[]): number {
@@ -99,74 +101,156 @@ function getConsecutiveDays(dates: string[]): number {
   return count
 }
 
+// position_x / position_y は「バブル中心座標」(cx, cy) として保存・解釈する。
+// GardenSetupFlow.savePositions が書き込む値と意味を統一している。
+// generatePositions の戻り値 positions[].x/.y は CSS left/top 用の「左上座標」なので、
+// 中心 → 左上の変換は必ず (cx - r, cy - r) で行うこと。
 type StoredPos = { x?: number | null; y?: number | null }
 
+// バブル配置エリアの上端マージン。タブ行とバブルエリアの間は元々marginBottom:12pxしか
+// 無く、バブルのboxShadow(最大10pxにじみ)と合わさってタブに重なって見えるため確保する。
+// ※ バブルエリア自体は既にタブの下（通常のflowの後続要素）に配置されているので、
+//   ヘッダー全体の高さを足す必要はなく、エリア内の小さな安全マージンで十分。
+const BUBBLE_TOP_OFFSET = 24
+
 // ── 配置アルゴリズム ──
-// 重なりを最優先で排除。Y方向は最大1200pxまで拡張してスクロールで対応。
-// 1. 大きい順にソート
-// 2. 最大500回ランダム試行（gap=12px）
-// 3. 全試行失敗 → 既存バブルの最下部に積み上げ（gap=20px、必ず非重複）
+// 重なりを最優先で排除しつつ、隙間なく密着させ、サイズが大きいバブルほど
+// 中央寄りになるようにする（同心円状の「空き地サーチ」による円充填）。
+// 1. 保存済み座標(中心)を元の順序で検証 → 既存同士で重ならず、上端マージンも
+//    侵していないものだけ確定採用（ユーザーが手動でドラッグした位置を無駄に動かさないため）
+// 2. 重なっていた/上端マージンに食い込んでいた/未保存のものは「未検査」として再生成対象に回す
+// 3. 再生成対象は直径の大きい順に処理し、配置エリアの中心から外側へリング状に
+//    候補点を走査して、最初に見つかった非重複地点（＝中心に最も近い空き）に置く
+//    （gap=2px、ほぼ密着）。大きいバブルが先に中心の最良地点を確保するため、
+//    自然と「大きいほど中央・小さいほど外側」になる。
+// 4. 配置エリア内に空きが見つからない極端なケースのみ、既存バブルの最下部に
+//    積み上げるフォールバック（gap=2px、必ず非重複）
+// changedIndices には「保存値と異なる座標になった（≒DBに書き戻すべき）」インデックスを返す
 function generatePositions(
   count: number,
   w: number,
   sizes: number[],
   storedPos?: StoredPos[],
-): Array<{ x: number; y: number }> {
-  if (count === 0) return []
+  topOffset: number = BUBBLE_TOP_OFFSET,
+): { positions: Array<{ x: number; y: number }>; changedIndices: number[] } {
+  if (count === 0) return { positions: [], changedIndices: [] }
 
+  // ほぼ密着させるための最小ギャップ（0だとアンチエイリアスや影で接触に見えづらいため2px確保）
+  const GAP = 2
   const result: Array<{ x: number; y: number }> = Array.from({ length: count }, () => ({ x: 0, y: 0 }))
   const placed: Array<{ cx: number; cy: number; r: number }> = []
-
-  // Phase 0: 両方非ゼロの保存済み座標はそのまま使う
   const needsGen: number[] = []
+
+  const noOverlap = (cx: number, cy: number, r: number): boolean =>
+    placed.every(p => Math.hypot(cx - p.cx, cy - p.cy) >= r + p.r + GAP)
+
+  // Phase 0: 保存済み座標(中心)を元の順序で検証。
+  // すでに確定済みの placed と重ならず、上端マージンも侵していない場合のみ確定採用し、
+  // それ以外は未検査として needsGen（再生成対象）に積む。
   for (let i = 0; i < count; i++) {
     const sp = storedPos?.[i]
     const r  = (sizes[i] ?? 52) / 2
-    if (sp && sp.x != null && sp.x !== 0 && sp.y != null && sp.y !== 0) {
-      result[i] = { x: sp.x, y: sp.y }
-      placed.push({ cx: sp.x + r, cy: sp.y + r, r })
+    if (
+      sp && sp.x != null && sp.x !== 0 && sp.y != null && sp.y !== 0 &&
+      noOverlap(sp.x, sp.y, r) && sp.y - r >= topOffset
+    ) {
+      result[i] = { x: sp.x - r, y: sp.y - r }
+      placed.push({ cx: sp.x, cy: sp.y, r })
     } else {
       needsGen.push(i)
     }
   }
-  if (needsGen.length === 0) return result
+  if (needsGen.length === 0) return { positions: result, changedIndices: [] }
 
-  // 直径の大きい順に処理
+  // 直径の大きい順に処理（先に確保したバブルほど中心の最良地点を取れる）
   const order = [...needsGen].sort((a, b) => (sizes[b] ?? 0) - (sizes[a] ?? 0))
 
-  const GAP = 20
-  const noOverlap = (cx: number, cy: number, r: number): boolean =>
-    placed.every(p => Math.hypot(cx - p.cx, cy - p.cy) >= r + p.r + GAP)
+  // 配置エリアのY方向の上限は、未配置バブルの総面積から動的に算出する。
+  // 「総面積 × 余裕係数 ÷ 幅」で必要分だけ確保する（最小300pxは保証）。
+  // 余裕係数1.7は実測調整値：これより小さいとリングサーチが配置エリア内で
+  // 空きを見つけられず最下部フォールバックに落ちる頻度が増え、密着配置が崩れる。
+  const needsGenArea = needsGen.reduce((sum, idx) => {
+    const r = (sizes[idx] ?? 52) / 2
+    return sum + Math.PI * r * r
+  }, 0)
+  const AREA_FACTOR = 1.7
+  const yCap = Math.max(300, topOffset + (needsGenArea * AREA_FACTOR) / w)
 
-  for (const idx of order) {
-    const r   = (sizes[idx] ?? 52) / 2
-    const loX = r + 10
-    const hiX = w - r - 10
-    const loY = r + 10
+  // 配置エリアの中心（大きいバブルをここに最優先で寄せる）
+  const cx0 = w / 2
+  const cy0 = topOffset + (yCap - topOffset) / 2
 
-    let cx = 0, cy = 0
-    let found = false
+  const inBounds = (cx: number, cy: number, r: number): boolean =>
+    cx - r >= 10 && cx + r <= w - 10 &&
+    cy - r >= topOffset + 10 && cy + r <= yCap - 10
 
-    // 最大500回ランダム試行（Y 上限 1200px）
-    for (let t = 0; t < 500 && !found; t++) {
-      const tx = loX + Math.random() * Math.max(0, hiX - loX)
-      const ty = loY + Math.random() * Math.max(0, 1200 - r - loY)
-      if (noOverlap(tx, ty, r)) { cx = tx; cy = ty; found = true }
+  // 中心から配置エリアの隅までの最大距離（リングサーチの探索上限）
+  const maxRadius = Math.hypot(w / 2, (yCap - topOffset) / 2) + 20
+  const RADIAL_STEP = 3 // リングの半径方向の刻み(px)：小さいほど密着できるが探索コストが増える
+  const ARC_RES = 4     // 各リング上での弧の刻み(px)：小さいほど精度が上がるが探索コストが増える
+
+  // 中心(cx0, cy0)から外側へリング状に候補点を走査し、最初に見つかった
+  // 非重複・範囲内の地点を返す（＝中心に最も近い空き地）
+  const findNearestFreeSpot = (r: number): { cx: number; cy: number } | null => {
+    if (inBounds(cx0, cy0, r) && noOverlap(cx0, cy0, r)) return { cx: cx0, cy: cy0 }
+    for (let radius = RADIAL_STEP; radius <= maxRadius; radius += RADIAL_STEP) {
+      const numSamples = Math.max(8, Math.min(360, Math.ceil((2 * Math.PI * radius) / ARC_RES)))
+      for (let s = 0; s < numSamples; s++) {
+        const angle = (2 * Math.PI * s) / numSamples
+        const tx = cx0 + radius * Math.cos(angle)
+        const ty = cy0 + radius * Math.sin(angle)
+        if (inBounds(tx, ty, r) && noOverlap(tx, ty, r)) return { cx: tx, cy: ty }
+      }
     }
-
-    // 全試行失敗 → Y方向に積み上げ、X はランダム（中央集中を防ぐ）
-    if (!found) {
-      cx = loX + Math.random() * Math.max(0, hiX - loX)
-      cy = placed.length > 0
-        ? Math.max(...placed.map(p => p.cy + p.r)) + r + GAP + 10
-        : r + 10
-    }
-
-    placed.push({ cx, cy, r })
-    result[idx] = { x: cx - r, y: cy - r }
+    return null
   }
 
-  return result
+  // シェルフ（行）パッキング・フォールバック：配置エリア内に空きが見つからない
+  // 極端なケースのみ、左→右に詰めて入らなくなったら次の行へ折り返す。
+  // 最初の行のベースラインは必ず yCap 以上にする（cx=w/2 固定で詰んでいくと
+  // 縦一列に並ぶ不具合があったため修正）。yCap はリングサーチが届く範囲
+  // （cy+r <= yCap-10）の上限でもあるため、これより下から開始すれば、処理順が
+  // 後になるリングサーチ済みバブルと時系列的に衝突することも構造的に無くなる。
+  let shelfActive = false
+  let shelfY = 0
+  let shelfNextX = 0
+  let shelfRowMaxR = 0
+  let fallbackCount = 0
+
+  const startNewShelfRow = (r: number, baseline: number) => {
+    shelfY = baseline + r + GAP + 10
+    shelfNextX = 10
+    shelfRowMaxR = r
+  }
+
+  for (const idx of order) {
+    const r = (sizes[idx] ?? 52) / 2
+    let spot = findNearestFreeSpot(r)
+
+    if (!spot) {
+      fallbackCount++
+      if (!shelfActive) {
+        const placedBottomMax = placed.length > 0 ? Math.max(...placed.map(p => p.cy + p.r)) : topOffset
+        startNewShelfRow(r, Math.max(yCap, placedBottomMax))
+        shelfActive = true
+      } else if (shelfNextX + r * 2 > w - 10) {
+        startNewShelfRow(r, shelfY + shelfRowMaxR)
+      }
+      const cx = shelfNextX + r
+      spot = { cx, cy: shelfY }
+      shelfRowMaxR = Math.max(shelfRowMaxR, r)
+      shelfNextX += r * 2 + GAP
+    }
+
+    placed.push({ cx: spot.cx, cy: spot.cy, r })
+    result[idx] = { x: spot.cx - r, y: spot.cy - r }
+  }
+
+  if (fallbackCount > 0) {
+    console.log(`[generatePositions] needsGen=${needsGen.length} fallback(shelf)=${fallbackCount} yCap=${yCap.toFixed(0)}`)
+  }
+
+  return { positions: result, changedIndices: needsGen }
 }
 
 const DAISY_LEGEND = [
@@ -205,18 +289,41 @@ export default function GardenDisplay() {
   const [selectedBubble, setSelectedBubble] = useState<{ tagId: string; tagText: string; tagType: 'light' | 'shadow' } | null>(null)
 
   const [expandedTagId, setExpandedTagId]           = useState<string | null>(null)
-  const [showGrowthPopup, setShowGrowthPopup]       = useState(false)
+  const [showGrowthToast, setShowGrowthToast]       = useState(false)
+  const [growthToastSkipped, setGrowthToastSkipped] = useState(false)
   const [growingTagId, setGrowingTagId]             = useState<string | null>(null)
+  const [pulseTagIds, setPulseTagIds]               = useState<Set<string>>(new Set())
   const [toastVisible, setToastVisible]             = useState(false)
   const [showFinalAnimation, setShowFinalAnimation] = useState(false)
   const [showThankYou, setShowThankYou]             = useState(false)
   const [pendingOnboardingTagId, setPendingOnboardingTagId] = useState<string | null>(null)
   const [showCompleteAnimation, setShowCompleteAnimation]   = useState(false)
+  const [showFinalMessage, setShowFinalMessage]             = useState(false)
   const [showHelp, setShowHelp]                             = useState(false)
 
   // ドラッグ用 ref
   const dragRef    = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null)
   const isDragging = useRef(false)
+
+  // ポイントで育って一回り大きくなったバブルに「膨らみ」アニメーションを付ける
+  const pulseTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const triggerGrowthPulse = (tagId: string) => {
+    setPulseTagIds(prev => new Set(prev).add(tagId))
+    const existing = pulseTimers.current.get(tagId)
+    if (existing) clearTimeout(existing)
+    pulseTimers.current.set(tagId, setTimeout(() => {
+      setPulseTagIds(prev => {
+        if (!prev.has(tagId)) return prev
+        const next = new Set(prev)
+        next.delete(tagId)
+        return next
+      })
+      pulseTimers.current.delete(tagId)
+    }, 700))
+  }
+  useEffect(() => {
+    return () => { pulseTimers.current.forEach(t => clearTimeout(t)) }
+  }, [])
 
   // ── データフェッチ ──
   useEffect(() => {
@@ -231,8 +338,22 @@ export default function GardenDisplay() {
           .select('created_at').eq('user_id', userId),
       ])
       if (tagsRes.data) {
-        setLightTags(tagsRes.data.filter((t: any) => t.type === 'light'))
-        setShadowTags(tagsRes.data.filter((t: any) => t.type === 'shadow'))
+        const newLight  = tagsRes.data.filter((t: any) => t.type === 'light')
+        const newShadow = tagsRes.data.filter((t: any) => t.type === 'shadow')
+        setLightTags(newLight)
+        setShadowTags(newShadow)
+
+        // 前回ガーデンを見た時より育っているバブルには「膨らみ」アニメーションを付ける
+        // （初回訪問時は比較対象がないので発火させず、基準値の記録のみ行う）
+        for (const t of [...newLight, ...newShadow] as { id: string; growth_point: number }[]) {
+          const seenKey = `bubble_seen_gp_${t.id}`
+          const seenGp  = Number(sessionStorage.getItem(seenKey) ?? 'NaN')
+          const curGp   = t.growth_point ?? 0
+          if (!isNaN(seenGp) && curGp > seenGp) {
+            setTimeout(() => triggerGrowthPulse(t.id), 500)
+          }
+          sessionStorage.setItem(seenKey, String(curGp))
+        }
       }
       if (eventsRes.data) {
         setEventCount(eventsRes.data.length)
@@ -326,15 +447,19 @@ export default function GardenDisplay() {
         (payload: any) => {
           const updated = payload.new
           if (updated.type === 'shadow') {
-            setShadowTags(prev => prev.map(t =>
-              t.id === updated.id
-                ? { ...t, seed_weight: String(updated.seed_weight ?? ''), stage: updated.stage ?? null }
-                : t
-            ))
+            setShadowTags(prev => prev.map(t => {
+              if (t.id !== updated.id) return t
+              const newGp = updated.growth_point ?? 0
+              if (newGp > (t.growth_point ?? 0)) triggerGrowthPulse(t.id)
+              return { ...t, growth_point: newGp, seed_weight: String(updated.seed_weight ?? ''), stage: updated.stage ?? null }
+            }))
           } else if (updated.type === 'light') {
-            setLightTags(prev => prev.map(t =>
-              t.id === updated.id ? { ...t, growth_point: updated.growth_point ?? 0 } : t
-            ))
+            setLightTags(prev => prev.map(t => {
+              if (t.id !== updated.id) return t
+              const newGp = updated.growth_point ?? 0
+              if (newGp > (t.growth_point ?? 0)) triggerGrowthPulse(t.id)
+              return { ...t, growth_point: newGp }
+            }))
           }
         },
       )
@@ -366,6 +491,7 @@ export default function GardenDisplay() {
   }, [pendingOnboardingTagId])
 
   // ── Seedバブル成長演出（onboarding_seed_visit） ──
+  // 成長したバブルを指す吹き出し（トースト通知）を表示する。
   useEffect(() => {
     if (step !== 'onboarding_seed_visit') return
     const tagId = sessionStorage.getItem('onboarding_seed_tag_id')
@@ -373,18 +499,22 @@ export default function GardenDisplay() {
 
     setTab('shadow')
     setPan({ x: 0, y: 0 })
+    setGrowthToastSkipped(sessionStorage.getItem('onboarding_seed_visit_skipped') === '1')
 
     const t1 = setTimeout(() => setExpandedTagId(tagId), 300)
-    const t2 = setTimeout(() => setShowGrowthPopup(true), 900)
-    const t3 = setTimeout(() => {
-      setShowGrowthPopup(false)
-      sessionStorage.removeItem('onboarding_seed_tag_id')
-      advanceStep('growth_explain')
-    }, 3900)
+    const t2 = setTimeout(() => setShowGrowthToast(true), 900)
 
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
+
+  // トースト通知の「閉じる」ボタン：閉じたら成長の仕組み説明モーダルへ遷移する
+  const handleCloseGrowthToast = () => {
+    setShowGrowthToast(false)
+    sessionStorage.removeItem('onboarding_seed_tag_id')
+    sessionStorage.removeItem('onboarding_seed_visit_skipped')
+    advanceStep('growth_explain')
+  }
 
   // ── タブ切替でバブルフェードイン & pan リセット ──
   useEffect(() => {
@@ -399,19 +529,40 @@ export default function GardenDisplay() {
 
   const bubbleSizes = useMemo(() => {
     if (tab === 'light')  return lightTags.map(t => getDaisySize(t.growth_point ?? 0))
-    if (tab === 'shadow') return shadowTags.map(t => getSeedSize(t.seed_weight))
+    if (tab === 'shadow') return shadowTags.map(t => getSeedSize(t.growth_point ?? 0))
     return friendBubbles.map(f => FRIEND_LEVEL_SIZES[f.level])
   }, [tab, lightTags, shadowTags, friendBubbles])
 
-  const positions = useMemo(() => {
-    if (containerW === 0) return []
+  const { positions, changedIndices } = useMemo(() => {
+    if (containerW === 0) return { positions: [], changedIndices: [] }
     return generatePositions(
       currentTags.length,
       containerW,
       bubbleSizes,
       currentTags.map(t => ({ x: t.position_x, y: t.position_y })),
+      BUBBLE_TOP_OFFSET,
     )
   }, [tab, containerW, bubbleSizes, currentTags])
+
+  // 衝突解消で座標が変わった（≒保存値と異なる）タグはDBへ書き戻す。
+  // 次回読み込み時にも同じ重ならない配置がそのまま再現されるようにする。
+  // Friendバブルは tags テーブルの行を持たないため対象外。
+  useEffect(() => {
+    if (tab === 'friend' || changedIndices.length === 0) return
+    const userId = sessionStorage.getItem('user_id')
+    if (!userId) return
+    for (const i of changedIndices) {
+      const tag = currentTags[i]
+      const pos = positions[i]
+      if (!tag || !pos) continue
+      const r = (bubbleSizes[i] ?? 52) / 2
+      // result は左上座標なので、DB保存用の中心座標に変換し直す
+      ;(supabase.from('tags') as any)
+        .update({ position_x: pos.x + r, position_y: pos.y + r })
+        .eq('id', tag.id)
+        .eq('user_id', userId)
+    }
+  }, [changedIndices, positions, currentTags, bubbleSizes, tab])
 
   // 最も下のバブルの底辺 + 余白
   const canvasH = useMemo(() => {
@@ -458,82 +609,95 @@ export default function GardenDisplay() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <style>{`@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
+      <style>{`@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        @keyframes bubble-tooltip-in { from { opacity: 0; transform: translateX(-50%) translateY(-100%) scale(0.85); } to { opacity: 1; transform: translateX(-50%) translateY(-100%) scale(1); } }
+        @keyframes bubble-pulse { 0% { transform: scale(1); } 45% { transform: scale(1.25); } 75% { transform: scale(0.95); } 100% { transform: scale(1); } }`}</style>
 
-      {/* ── ヘッダー ── */}
-      <div style={{
-        padding: '44px 20px 8px', flexShrink: 0,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-      }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#3B2F1E', margin: '0 0 2px' }}>
-            🌿 わたしのガーデン
-          </h1>
-          <p style={{ fontSize: 12, color: 'rgba(59,47,30,0.45)', margin: 0 }}>
-            タグをタップしてルームへ
-          </p>
-        </div>
-        <button
-          onClick={() => setShowHelp(true)}
-          aria-label="ヘルプ"
-          style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: '#FFFFFF', border: '1px solid rgba(139,105,20,0.2)',
-            cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#8B6914',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, marginTop: 4,
-          }}
-        >
-          ？
-        </button>
-      </div>
-
-      {/* ── ステータス行 ── */}
-      <div style={{ display: 'flex', padding: '10px 20px 14px', flexShrink: 0 }}>
-        {[
-          { label: '向き合った回数', value: `${eventCount}回` },
-          { label: 'タグ数',         value: `${totalTags}個` },
-          { label: '連続日数',       value: `${consecutiveDays}日` },
-        ].map(({ label, value }, i) => (
-          <div key={label} style={{
-            flex: 1, textAlign: 'center',
-            borderLeft: i > 0 ? '1px solid rgba(59,47,30,0.1)' : 'none',
-          }}>
-            <p style={{ fontSize: 18, fontWeight: 700, color: '#3B2F1E', margin: 0 }}>{value}</p>
-            <p style={{ fontSize: 10, color: 'rgba(59,47,30,0.5)', margin: 0 }}>{label}</p>
+      {/* ── ヘッダー（タイトル・統計・タブをまとめて最前面に固定） ── */}
+      {/* バブル側の座標計算が多少ズレてもヘッダーに重ならないよう、座標ではなく
+          スタッキング自体で確実に分離する。z-indexはスタッキングコンテキストの
+          兄弟間でのみ比較されるため、このラッパーとバブルエリアは同じ親(この
+          コンポーネントのルート)の直下の兄弟である必要がある。背景色がないと
+          最前面でもバブルが透けて見えるため、ページ背景色を明示的に敷く。 */}
+      <div style={{ position: 'relative', zIndex: 50, background: '#F5F0E8', flexShrink: 0 }}>
+        {/* ── タイトル行 ── */}
+        <div style={{
+          padding: '44px 20px 8px', flexShrink: 0,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        }}>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#3B2F1E', margin: '0 0 2px' }}>
+              🌿 わたしのガーデン
+            </h1>
+            <p style={{ fontSize: 12, color: 'rgba(59,47,30,0.45)', margin: 0 }}>
+              タグをタップしてルームへ
+            </p>
           </div>
-        ))}
-      </div>
+          <button
+            onClick={() => setShowHelp(true)}
+            aria-label="ヘルプ"
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: '#FFFFFF', border: '1px solid rgba(139,105,20,0.2)',
+              cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#8B6914',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, marginTop: 4,
+            }}
+          >
+            ？
+          </button>
+        </div>
 
-      {/* ── タブ ── */}
-      <div style={{ display: 'flex', padding: '0 20px', gap: 8, marginBottom: 12, flexShrink: 0 }}>
-        {(['light', 'shadow', 'friend'] as TabType[]).map(t => {
-          const tabBg   = t === 'light' ? '#F5D78E' : t === 'shadow' ? '#D4B896' : '#B8D4E8'
-          const tabText = t === 'light' ? '#7A5C00' : t === 'shadow' ? '#6B4E1A' : '#2C5F7A'
-          const tabLabel = t === 'light' ? '🌼 Daisy' : t === 'shadow' ? '🌱 Seed' : '🤝 Friend'
-          return (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                flex: 1, padding: '10px 0', borderRadius: 12, border: 'none',
-                background: tab === t ? tabBg : 'rgba(59,47,30,0.07)',
-                color: tab === t ? tabText : 'rgba(59,47,30,0.4)',
-                fontSize: 13, fontWeight: tab === t ? 700 : 500, cursor: 'pointer',
-                transition: 'background 0.2s ease, color 0.2s ease',
-              }}
-            >
-              {tabLabel}
-            </button>
-          )
-        })}
+        {/* ── ステータス行 ── */}
+        <div style={{ display: 'flex', padding: '10px 20px 14px', flexShrink: 0 }}>
+          {[
+            { label: '向き合った回数', value: `${eventCount}回` },
+            { label: 'タグ数',         value: `${totalTags}個` },
+            { label: '連続日数',       value: `${consecutiveDays}日` },
+          ].map(({ label, value }, i) => (
+            <div key={label} style={{
+              flex: 1, textAlign: 'center',
+              borderLeft: i > 0 ? '1px solid rgba(59,47,30,0.1)' : 'none',
+            }}>
+              <p style={{ fontSize: 18, fontWeight: 700, color: '#3B2F1E', margin: 0 }}>{value}</p>
+              <p style={{ fontSize: 10, color: 'rgba(59,47,30,0.5)', margin: 0 }}>{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── タブ ── */}
+        <div style={{ display: 'flex', padding: '0 20px', gap: 8, marginBottom: 12, flexShrink: 0 }}>
+          {(['light', 'shadow', 'friend'] as TabType[]).map(t => {
+            const tabBg   = t === 'light' ? '#F5D78E' : t === 'shadow' ? '#D4B896' : '#B8D4E8'
+            const tabText = t === 'light' ? '#7A5C00' : t === 'shadow' ? '#6B4E1A' : '#2C5F7A'
+            const tabLabel = t === 'light' ? '🌼 Daisy' : t === 'shadow' ? '🌱 Seed' : '🤝 Friend'
+            return (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                style={{
+                  flex: 1, padding: '10px 0', borderRadius: 12, border: 'none',
+                  background: tab === t ? tabBg : 'rgba(59,47,30,0.07)',
+                  color: tab === t ? tabText : 'rgba(59,47,30,0.4)',
+                  fontSize: 13, fontWeight: tab === t ? 700 : 500, cursor: 'pointer',
+                  transition: 'background 0.2s ease, color 0.2s ease',
+                }}
+              >
+                {tabLabel}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── バブルエリア（ドラッグ可能） ── */}
+      {/* ヘッダーラッパー（zIndex:50）より確実に背面（zIndex:0）に固定する。
+          個々のバブル要素は明示的なzIndexを持たない（DOM順のautoスタッキングのみ）ため、
+          このコンテナのzIndexがそのままバブル全体の階層を決める。 */}
       <div
         ref={el => { if (el) setContainerW(el.clientWidth) }}
         style={{
-          flex: 1, position: 'relative',
+          flex: 1, position: 'relative', zIndex: 0,
           margin: '0 20px', overflow: 'visible',
           cursor: 'grab', touchAction: 'none',
         }}
@@ -563,6 +727,7 @@ export default function GardenDisplay() {
             const isFriend   = tab === 'friend'
             const isGrowing  = !isFriend && growingTagId === tag.id
             const isExpanded = !isFriend && expandedTagId === tag.id
+            const isPulsing  = !isFriend && pulseTagIds.has(tag.id)
             const baseSize   = bubbleSizes[i] ?? 60
             const size       = isGrowing ? baseSize + 20 : baseSize
             const pos        = positions[i] ?? { x: 0, y: 0 }
@@ -597,19 +762,21 @@ export default function GardenDisplay() {
                   position: 'absolute',
                   left: pos.x, top: pos.y,
                   width: size, height: size,
+                  minWidth: size, minHeight: size,
                   borderRadius: '50%',
                   background: (tab === 'light' && !isGrowing) ? 'none' : bg,
-                  border: 'none', cursor: 'pointer',
+                  border: 'none', cursor: 'pointer', padding: 0,
                   display: 'flex', flexDirection: 'column',
                   alignItems: 'center', justifyContent: 'center', gap: 2,
                   overflow: 'hidden',
-                  boxShadow: isGrowing || isExpanded
+                  boxShadow: isGrowing || isExpanded || isPulsing
                     ? '0 0 20px rgba(74,124,89,0.55), 0 3px 10px rgba(0,0,0,0.1)'
                     : '0 3px 10px rgba(0,0,0,0.1)',
                   opacity: visible ? 1 : 0,
                   transform: isExpanded
                     ? 'scale(1.3)'
                     : visible ? 'scale(1)' : 'scale(0.75)',
+                  animation: isPulsing ? 'bubble-pulse 0.7s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
                   transition: isGrowing
                     ? 'width 0.8s cubic-bezier(0.34,1.56,0.64,1), height 0.8s cubic-bezier(0.34,1.56,0.64,1), background 0.8s ease, box-shadow 0.8s ease'
                     : isExpanded
@@ -685,18 +852,60 @@ export default function GardenDisplay() {
             )
           })}
 
-          {/* ── Seedバブル成長ポップアップ ── */}
+          {/* ── Seedルーム訪問後の成長通知（成長したバブルを指す吹き出し） ──
+              アプリのルート要素(position:relative)を基準としたposition:absoluteで、
+              パンキャンバスと同じ座標系に配置する。画面(viewport)基準のposition:fixed
+              は使わない。 */}
           {(() => {
-            if (!showGrowthPopup || !expandedTagId || tab !== 'shadow') return null
+            if (!showGrowthToast || !expandedTagId || tab !== 'shadow') return null
             const idx  = shadowTags.findIndex(t => t.id === expandedTagId)
             if (idx < 0) return null
             const pos  = positions[idx] ?? { x: 0, y: 0 }
             const size = bubbleSizes[idx] ?? 60
+            const cx = pos.x + size / 2
+            const cy = pos.y
             return (
-              <BubbleGrowthPopup
-                cx={pos.x + size / 2}
-                cy={pos.y}
-              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: cx, top: cy - 10,
+                  transform: 'translateX(-50%) translateY(-100%)',
+                  animation: 'bubble-tooltip-in 0.25s ease both',
+                  zIndex: 10,
+                }}
+              >
+                {/* 吹き出し本体 */}
+                <div style={{
+                  position: 'relative',
+                  background: '#FFFFFF', borderRadius: 16,
+                  padding: '16px 18px 36px 18px',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.16)',
+                  maxWidth: 300,
+                }}>
+                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#3B2F1E', fontWeight: 500 }}>
+                    {growthToastSkipped ? 'Seedに向き合うと成長します🌱' : 'Seedルームを訪れて成長しました🌱'}
+                  </p>
+                  <button
+                    onClick={handleCloseGrowthToast}
+                    style={{
+                      position: 'absolute', bottom: 8, right: 8,
+                      borderRadius: 20,
+                      border: 'none', background: 'rgba(59,47,30,0.08)', color: 'rgba(59,47,30,0.7)',
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '5px 12px',
+                    }}
+                  >
+                    閉じる
+                  </button>
+                </div>
+
+                {/* 吹き出し三角（下向き：成長したバブルを指す） */}
+                <div style={{
+                  position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+                  width: 0, height: 0,
+                  borderLeft: '8px solid transparent', borderRight: '8px solid transparent',
+                  borderTop: '8px solid #FFFFFF',
+                }} />
+              </div>
             )
           })()}
         </div>
@@ -740,13 +949,25 @@ export default function GardenDisplay() {
         />
       )}
 
-      {/* ── オンボーディング完了アニメーション ── */}
+      {/* ── オンボーディング完了アニメーション ──
+          「つづける」を押したらこのアニメーションを閉じてガーデン画面に戻し、
+          続きのメッセージはガーデン上のポップアップ（showFinalMessage）で表示する。 */}
       {showCompleteAnimation && (
         <GrowthModal
           onComplete={() => {
+            setShowCompleteAnimation(false)
+            setShowFinalMessage(true)
+          }}
+        />
+      )}
+
+      {/* ── オンボーディング完了メッセージ（ガーデン画面に戻った後に表示） ── */}
+      {showFinalMessage && (
+        <GrowthWelcomeMessage
+          onNext={() => {
             advanceStep('completed')
             sessionStorage.removeItem('onboarding_seed_tag_id')
-            setShowCompleteAnimation(false)
+            setShowFinalMessage(false)
           }}
         />
       )}

@@ -23,6 +23,7 @@ alter table public.tag_events
     'deactivated',
     'reactivated',
     'room_entered',
+    'visit',
     'room_open',
     'chat_open',
     'message_sent'

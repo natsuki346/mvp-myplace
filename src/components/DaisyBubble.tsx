@@ -54,6 +54,7 @@ export default function DaisyBubble({ size }: DaisyBubbleProps) {
       width={size}
       height={size}
       viewBox="0 0 100 100"
+      preserveAspectRatio="xMidYMid meet"
       style={{ display: 'block', flexShrink: 0 }}
     >
       <BloomSVG />

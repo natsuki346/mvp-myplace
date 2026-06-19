@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/src/lib/supabase/client'
+import { commitSessionPoints, maxDepth, type ActionDepth } from '@/src/lib/growthPoint'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import DaisyBubble from '@/src/components/DaisyBubble'
 import RoomChatSheet from './RoomChatSheet'
 import SubTagListSheet, { type SelectedChannel } from './SubTagListSheet'
 
-type Tag = { id: string; text: string }
+type Tag = { id: string; text: string; growth_point: number }
 
 // ── Seed と完全統一した定数 ──
 const TOTAL_HEIGHT  = 420
@@ -44,7 +45,7 @@ export default function LightRoomView() {
       }
       if (state.type !== 'light') return
       sessionStorage.removeItem('daime_chat_return')
-      setOpenTag({ id: state.tagId, text: state.tagText })
+      setOpenTag({ id: state.tagId, text: state.tagText, growth_point: 0 })
       setChannel({ subTagId: state.subTagId, name: state.subTagName ?? state.tagText })
     } catch {
       sessionStorage.removeItem('daime_chat_return')
@@ -58,7 +59,7 @@ export default function LightRoomView() {
       if (!userId) { setLoading(false); return }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from('tags') as any)
-        .select('id, text')
+        .select('id, text, growth_point')
         .eq('user_id', userId)
         .eq('type', 'light')
         .eq('is_active', true)
@@ -87,6 +88,45 @@ export default function LightRoomView() {
 
   const goTo = (i: number) => {
     scrollRef.current?.scrollTo({ left: i * STEP, behavior: 'smooth' })
+  }
+
+  // チュートリアル完了後：このルーム滞在中のセッション内最深アクション（Seedと同じ仕組み）
+  const sessionDepthRef = useRef<ActionDepth | null>(null)
+
+  // タップして部屋に入る → セッションの最深アクションを「ルームを開く」で開始
+  const openRoom = (tag: Tag) => {
+    sessionDepthRef.current = 'room_open'
+    setOpenTag(tag)
+  }
+
+  // チャンネル（ALL/サブタグ）を選ぶ → セッションの最深アクションを更新
+  const handleSelectChannel = (ch: SelectedChannel) => {
+    sessionDepthRef.current = maxDepth(sessionDepthRef.current, 'chat_open')
+    setChannel(ch)
+  }
+
+  // メッセージを送信した → セッションの最深アクションを更新
+  const handleMessageSent = () => {
+    sessionDepthRef.current = maxDepth(sessionDepthRef.current, 'message_sent')
+  }
+
+  // チャンネル一覧を閉じる（部屋から出る）→ チュートリアル完了後のみポイント加算
+  const handleSubTagListClose = () => {
+    const tag = openTag
+    const depth = sessionDepthRef.current
+    sessionDepthRef.current = null
+    setOpenTag(null)
+    setChannel(null)
+    if (step === 'room_chat_mi') advanceStep('ne_room_popup')
+
+    if ((step === 'done' || step === 'completed') && tag && depth) {
+      const userId = sessionStorage.getItem('user_id')
+      if (userId) {
+        commitSessionPoints(tag.id, depth, userId).then(({ newGrowthPoint }) => {
+          setTags(prev => prev.map(t => (t.id === tag.id ? { ...t, growth_point: newGrowthPoint } : t)))
+        })
+      }
+    }
   }
 
   if (loading) {
@@ -190,7 +230,7 @@ export default function LightRoomView() {
             return (
               <button
                 key={tag.id}
-                onClick={() => active ? setOpenTag(tag) : goTo(i)}
+                onClick={() => active ? openRoom(tag) : goTo(i)}
                 style={{
                   scrollSnapAlign: 'center', flexShrink: 0,
                   position: 'relative', width: ITEM_WIDTH, height: '100%',
@@ -238,12 +278,8 @@ export default function LightRoomView() {
         <SubTagListSheet
           type="light"
           tag={openTag}
-          onClose={() => {
-            setOpenTag(null)
-            setChannel(null)
-            if (step === 'room_chat_mi') advanceStep('ne_room_popup')
-          }}
-          onSelect={setChannel}
+          onClose={handleSubTagListClose}
+          onSelect={handleSelectChannel}
         />
       )}
 
@@ -255,6 +291,7 @@ export default function LightRoomView() {
           subTagId={channel.subTagId}
           subTagName={channel.name}
           onClose={() => setChannel(null)}
+          onMessageSent={handleMessageSent}
         />
       )}
     </div>

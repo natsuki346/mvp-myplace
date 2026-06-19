@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/src/lib/supabase/client'
 import BubbleGrowthIndicator from '@/src/components/BubbleGrowthIndicator'
+import { isBubbleDetailTooltipSeen, markBubbleDetailTooltipSeen } from '@/src/lib/onboarding'
 
 export interface BubbleDetailModalProps {
   tagId: string
@@ -27,6 +28,8 @@ type Journal = {
   created_at: string
 }
 
+type TourStep = 'saved' | 'journal' | 'back' | 'done'
+
 function getStageInfo(growthPoint: number): { emoji: string; label: string; bg: string } {
   if (growthPoint >= 30) return { emoji: '🌸', label: '花',  bg: '#F5A8C0' }
   if (growthPoint >= 20) return { emoji: '🌼', label: '蕾',  bg: '#F5D78E' }
@@ -39,6 +42,51 @@ function formatDate(iso: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
+// 初めて訪れたユーザー向けの案内ツールチップ（吹き出し＋上向き矢印）。
+// HelpModal/GrowthExplainModalと同じ配色（#8B6914／#3B2F1E／#F5F0E8系）に合わせている。
+function GuideTooltip({ text, onClose }: { text: string; onClose: () => void }) {
+  return (
+    <div style={{ position: 'absolute', top: 30, left: 0, zIndex: 10, width: 260 }}>
+      <div style={{
+        position: 'relative',
+        background: '#FFFFFF',
+        border: '1.5px solid #8B6914',
+        borderRadius: 12,
+        padding: '10px 14px 26px 14px',
+        boxShadow: '0 4px 14px rgba(139,105,20,0.22)',
+      }}>
+        {/* 上向きの矢印：すぐ上のセクション見出しを指し示す */}
+        <div style={{
+          position: 'absolute', top: -7, left: 14, width: 0, height: 0,
+          borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
+          borderBottom: '7px solid #8B6914',
+        }} />
+        <div style={{
+          position: 'absolute', top: -5.3, left: 15.5, width: 0, height: 0,
+          borderLeft: '5.5px solid transparent', borderRight: '5.5px solid transparent',
+          borderBottom: '5.5px solid #FFFFFF',
+        }} />
+
+        <p style={{ fontSize: 12.5, color: '#3B2F1E', lineHeight: 1.55, margin: 0, fontWeight: 500 }}>
+          {text}
+        </p>
+
+        <button
+          onClick={onClose}
+          aria-label="閉じる"
+          style={{
+            position: 'absolute', bottom: 6, right: 8,
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 11, color: 'rgba(59,47,30,0.4)', lineHeight: 1, padding: 2,
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function BubbleDetailModal({ tagId, tagText, tagType, onClose }: BubbleDetailModalProps) {
   const [tagData, setTagData]           = useState<TagData | null>(null)
   const [visitCount, setVisitCount]     = useState(0)
@@ -48,6 +96,14 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose }: 
   const [loading, setLoading]           = useState(true)
   const [journalText, setJournalText]   = useState('')
   const [savingJournal, setSavingJournal] = useState(false)
+  // 初めて開いたユーザーにのみ、「保存した言葉」→「メモ・ジャーナル」→「戻るボタン」の
+  // 順で1つずつ案内ツールチップを出すオンボーディングツアー。表示が始まった時点で
+  // 「既読」を記録し、次回以降はモーダルを開いてもツアーが出ないようにする。
+  const [tourStep, setTourStep] = useState<TourStep>(() => {
+    if (isBubbleDetailTooltipSeen()) return 'done'
+    markBubbleDetailTooltipSeen()
+    return 'saved'
+  })
 
   const fetchJournals = useCallback(async () => {
     const userId = sessionStorage.getItem('user_id')
@@ -142,14 +198,22 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose }: 
 
         {/* ヘッダー */}
         <div style={{ padding: '52px 20px 12px' }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 14, color: '#3B2F1E', padding: 0,
-              display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16,
-            }}
-          >← 戻る</button>
+          <div style={{ position: 'relative', display: 'inline-block', marginBottom: 16 }}>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 14, color: '#3B2F1E', padding: 0,
+                display: 'flex', alignItems: 'center', gap: 4,
+              }}
+            >← 戻る</button>
+            {tourStep === 'back' && (
+              <GuideTooltip
+                text="前の画面に戻ろう"
+                onClose={() => setTourStep('done')}
+              />
+            )}
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{
@@ -204,8 +268,14 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose }: 
             )}
 
             {/* 保存した言葉 */}
-            <div style={{ padding: '0 20px 20px' }}>
+            <div style={{ padding: '0 20px 20px', position: 'relative' }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, color: '#8B6914', margin: '0 0 10px' }}>🔖 保存した言葉</h3>
+              {tourStep === 'saved' && (
+                <GuideTooltip
+                  text="チャットで保存（ブックマーク）した言葉がここに集まります"
+                  onClose={() => setTourStep('journal')}
+                />
+              )}
               {savedMessages.length === 0 ? (
                 <div style={{
                   background: '#FFFFFF', borderRadius: 12, padding: '16px',
@@ -235,8 +305,14 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose }: 
             </div>
 
             {/* メモ・ジャーナル */}
-            <div style={{ padding: '0 20px 24px' }}>
+            <div style={{ padding: '0 20px 24px', position: 'relative' }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, color: '#8B6914', margin: '0 0 10px' }}>📝 メモ・ジャーナル</h3>
+              {tourStep === 'journal' && (
+                <GuideTooltip
+                  text="気づいたことや感じたことを自由に書き残せます"
+                  onClose={() => setTourStep('back')}
+                />
+              )}
 
               {/* メモ一覧 */}
               {journals.length === 0 ? (

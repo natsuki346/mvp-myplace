@@ -16,6 +16,9 @@ type TagPosition = { id: string; text: string; cx: number; cy: number }
 
 const DRAG_THRESHOLD = 6
 
+// cx/cy はバブル「中心」座標。重複は考慮しないため、初期配置のまま確定すると
+// 重なる可能性がある（その場合は garden-display.tsx 側の generatePositions が
+// 次回表示時に検出し、重ならない位置へ再配置してDBへ書き戻す）。
 function initPositions(tags: Tag[]): TagPosition[] {
   return tags.map((tag, index) => ({
     id: tag.id,
@@ -29,6 +32,8 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
+// DBの position_x/position_y は「バブル中心座標」(cx, cy) として保存する。
+// garden-display.tsx の generatePositions もこの意味で読み取る。
 async function savePositions(positions: TagPosition[]) {
   await Promise.all(
     positions.map(p =>
