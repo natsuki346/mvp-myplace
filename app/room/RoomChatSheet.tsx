@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getMatchingTags, incrementGrowthPoint } from '@/src/lib/supabase/rooms'
-import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
-import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import RoomChat from '@/src/components/room/RoomChat'
-import { DUMMY_MESSAGES_VIEWONLY, DUMMY_MESSAGES_COMMON } from './dummy-messages'
+import { DUMMY_MESSAGES_COMMON } from './dummy-messages'
 
 type RoomType = 'light' | 'shadow'
 
@@ -36,8 +34,6 @@ export default function RoomChatSheet({
   const [visible, setVisible] = useState(false)
   const [matchTagIds, setMatchTagIds] = useState<string[]>([])
   const info = ROOM_INFO[type]
-  const { step } = useTutorialStep()
-  const viewOnly = (type === 'light' && step === 'room_chat_mi') || (type === 'shadow' && (step === 'room_chat_ne' || step === 'onboarding_seed_visit'))
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 20)
@@ -45,8 +41,8 @@ export default function RoomChatSheet({
   }, [])
 
   useEffect(() => {
-    // 入室のたびに growth_point を +1（閲覧モードは対象外。チュートリアルでは閉じた時に加算する）
-    if (!viewOnly) incrementGrowthPoint(tagId)
+    // 入室のたびに growth_point を +1
+    incrementGrowthPoint(tagId)
 
     let cancelled = false
     ;(async () => {
@@ -55,7 +51,7 @@ export default function RoomChatSheet({
     })()
 
     return () => { cancelled = true }
-  }, [tagId, tagText, type, viewOnly])
+  }, [tagId, tagText, type])
 
   const close = () => {
     setVisible(false)
@@ -73,9 +69,7 @@ export default function RoomChatSheet({
     router.push(`/profile/${targetUserId}`)
   }
 
-  const introMessages = subTagId
-    ? []
-    : (viewOnly ? DUMMY_MESSAGES_VIEWONLY[type] : DUMMY_MESSAGES_COMMON)
+  const introMessages = subTagId ? [] : DUMMY_MESSAGES_COMMON
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', justifyContent: 'center' }}>
@@ -83,46 +77,23 @@ export default function RoomChatSheet({
         style={{
           position: 'relative', width: '100%', maxWidth: 390, height: '100%',
           background: '#F5F0E8',
-          opacity: viewOnly ? (visible ? 1 : 0) : undefined,
-          transform: viewOnly ? undefined : (visible ? 'translateY(0)' : 'translateY(100%)'),
-          transition: viewOnly ? 'opacity 0.3s ease' : 'transform 0.32s ease',
+          transform: visible ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.32s ease',
           overflow: 'hidden',
         }}
       >
         <RoomChat
           onProfileClick={handleProfileClick}
           tagType={type}
-          header={
-            viewOnly
-              ? {
-                  title: formatHashtag(tagText),
-                  onBack: close,
-                  backContent: '← 戻る',
-                  backColor: '#3B2F1E',
-                  borderColor: 'rgba(59,47,30,0.08)',
-                  extra: visible && (
-                    <span style={{
-                      fontSize: 11, background: '#FEE2E2', color: '#DC2626',
-                      borderRadius: 12, padding: '3px 10px', whiteSpace: 'nowrap', flexShrink: 0,
-                    }}>読んだら戻ろう</span>
-                  ),
-                }
-              : {
-                  title: subTagId ? `#${subTagName}` : `${tagText} の部屋`,
-                  subtitle: `${info.icon} ${info.label}`,
-                  onBack: close,
-                }
-          }
-          banner={viewOnly && (
-            <div style={{ flexShrink: 0, padding: '6px 16px', background: '#D4B896', textAlign: 'center' }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#3B2F1E' }}>👀 閲覧モード</span>
-            </div>
-          )}
+          header={{
+            title: subTagId ? `#${subTagName}` : `${tagText} の部屋`,
+            subtitle: `${info.icon} ${info.label}`,
+            onBack: close,
+          }}
           introMessages={introMessages}
           matchTagIds={matchTagIds}
           subTagId={subTagId}
           ownTagId={tagId}
-          readOnly={viewOnly}
           channelKey={`${type}-${tagId}-${subTagId ?? 'main'}`}
           onMessageSent={onMessageSent}
         />

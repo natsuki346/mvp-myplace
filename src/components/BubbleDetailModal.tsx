@@ -10,6 +10,9 @@ export interface BubbleDetailModalProps {
   tagText: string
   tagType: 'light' | 'shadow'
   onClose: () => void
+  // プレビュー埋め込み用。trueの場合、本物の初回ツアー（保存した言葉/メモ/戻るボタンの案内）の
+  // 既読状態を更新・消費しない（オンボーディングのスライド内に縮小表示する用途）
+  previewMode?: boolean
 }
 
 type TagData = {
@@ -43,7 +46,7 @@ function formatDate(iso: string): string {
 }
 
 // 初めて訪れたユーザー向けの案内ツールチップ（吹き出し＋上向き矢印）。
-// HelpModal/GrowthExplainModalと同じ配色（#8B6914／#3B2F1E／#F5F0E8系）に合わせている。
+// HelpModalと同じ配色（#8B6914／#3B2F1E／#F5F0E8系）に合わせている。
 function GuideTooltip({ text, onClose }: { text: string; onClose: () => void }) {
   return (
     <div style={{ position: 'absolute', top: 30, left: 0, zIndex: 10, width: 260 }}>
@@ -87,7 +90,7 @@ function GuideTooltip({ text, onClose }: { text: string; onClose: () => void }) 
   )
 }
 
-export default function BubbleDetailModal({ tagId, tagText, tagType, onClose }: BubbleDetailModalProps) {
+export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, previewMode = false }: BubbleDetailModalProps) {
   const [tagData, setTagData]           = useState<TagData | null>(null)
   const [visitCount, setVisitCount]     = useState(0)
   const [lastVisit, setLastVisit]       = useState<string | null>(null)
@@ -100,7 +103,7 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose }: 
   // 順で1つずつ案内ツールチップを出すオンボーディングツアー。表示が始まった時点で
   // 「既読」を記録し、次回以降はモーダルを開いてもツアーが出ないようにする。
   const [tourStep, setTourStep] = useState<TourStep>(() => {
-    if (isBubbleDetailTooltipSeen()) return 'done'
+    if (previewMode || isBubbleDetailTooltipSeen()) return 'done'
     markBubbleDetailTooltipSeen()
     return 'saved'
   })

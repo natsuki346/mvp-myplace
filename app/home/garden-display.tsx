@@ -3,13 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
-import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
-import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
-import ThankYouModal from '@/src/components/tutorial/ThankYouModal'
 import BubbleDetailModal from '@/src/components/BubbleDetailModal'
-import GrowthExplainModal from '@/src/components/onboarding/GrowthExplainModal'
-import GrowthModal from '@/src/components/tutorial/GrowthModal'
-import GrowthWelcomeMessage from '@/src/components/tutorial/GrowthWelcomeMessage'
 import HelpModal from '@/src/components/HelpModal'
 import DaisyBubble from '@/src/components/DaisyBubble'
 
@@ -272,7 +266,6 @@ const FRIEND_LEGEND = [
 // canvasH は positions から動的に算出するため定数不要
 
 export default function GardenDisplay() {
-  const { step, advanceStep } = useTutorialStep()
   const router = useRouter()
 
   const [tab, setTab]                   = useState<TabType>('light')
@@ -288,17 +281,7 @@ export default function GardenDisplay() {
 
   const [selectedBubble, setSelectedBubble] = useState<{ tagId: string; tagText: string; tagType: 'light' | 'shadow' } | null>(null)
 
-  const [expandedTagId, setExpandedTagId]           = useState<string | null>(null)
-  const [showGrowthToast, setShowGrowthToast]       = useState(false)
-  const [growthToastSkipped, setGrowthToastSkipped] = useState(false)
-  const [growingTagId, setGrowingTagId]             = useState<string | null>(null)
   const [pulseTagIds, setPulseTagIds]               = useState<Set<string>>(new Set())
-  const [toastVisible, setToastVisible]             = useState(false)
-  const [showFinalAnimation, setShowFinalAnimation] = useState(false)
-  const [showThankYou, setShowThankYou]             = useState(false)
-  const [pendingOnboardingTagId, setPendingOnboardingTagId] = useState<string | null>(null)
-  const [showCompleteAnimation, setShowCompleteAnimation]   = useState(false)
-  const [showFinalMessage, setShowFinalMessage]             = useState(false)
   const [showHelp, setShowHelp]                             = useState(false)
 
   // ドラッグ用 ref
@@ -360,12 +343,6 @@ export default function GardenDisplay() {
         setConsecutiveDays(getConsecutiveDays(eventsRes.data.map((e: any) => e.created_at as string)))
       }
       setLoading(false)
-
-      const visitedTagId = sessionStorage.getItem('onboarding_room_visited')
-      if (visitedTagId) {
-        sessionStorage.removeItem('onboarding_room_visited')
-        setPendingOnboardingTagId(visitedTagId)
-      }
     })()
   }, [])
 
@@ -468,54 +445,6 @@ export default function GardenDisplay() {
     return () => { supabase.removeChannel(ch) }
   }, [])
 
-  // ── オンボーディング完了演出 ──
-  useEffect(() => {
-    if (!pendingOnboardingTagId) return
-    setTab('shadow')
-    setPan({ x: 0, y: 0 })
-    const t1 = setTimeout(() => {
-      setGrowingTagId(pendingOnboardingTagId)
-      setShadowTags(prev => prev.map(t => t.id === pendingOnboardingTagId ? { ...t, stage: 'sprout' } : t))
-      const userId = sessionStorage.getItem('user_id')
-      if (userId) {
-        ;(supabase.from('tags') as any)
-          .update({ stage: 'sprout' })
-          .eq('id', pendingOnboardingTagId)
-          .eq('user_id', userId)
-      }
-      advanceStep('done')
-    }, 300)
-    const t2 = setTimeout(() => setToastVisible(true), 700)
-    const t3 = setTimeout(() => { setToastVisible(false); setShowFinalAnimation(true) }, 3200)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
-  }, [pendingOnboardingTagId])
-
-  // ── Seedバブル成長演出（onboarding_seed_visit） ──
-  // 成長したバブルを指す吹き出し（トースト通知）を表示する。
-  useEffect(() => {
-    if (step !== 'onboarding_seed_visit') return
-    const tagId = sessionStorage.getItem('onboarding_seed_tag_id')
-    if (!tagId) return
-
-    setTab('shadow')
-    setPan({ x: 0, y: 0 })
-    setGrowthToastSkipped(sessionStorage.getItem('onboarding_seed_visit_skipped') === '1')
-
-    const t1 = setTimeout(() => setExpandedTagId(tagId), 300)
-    const t2 = setTimeout(() => setShowGrowthToast(true), 900)
-
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step])
-
-  // トースト通知の「閉じる」ボタン：閉じたら成長の仕組み説明モーダルへ遷移する
-  const handleCloseGrowthToast = () => {
-    setShowGrowthToast(false)
-    sessionStorage.removeItem('onboarding_seed_tag_id')
-    sessionStorage.removeItem('onboarding_seed_visit_skipped')
-    advanceStep('growth_explain')
-  }
-
   // ── タブ切替でバブルフェードイン & pan リセット ──
   useEffect(() => {
     setVisible(false)
@@ -609,9 +538,7 @@ export default function GardenDisplay() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <style>{`@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-        @keyframes bubble-tooltip-in { from { opacity: 0; transform: translateX(-50%) translateY(-100%) scale(0.85); } to { opacity: 1; transform: translateX(-50%) translateY(-100%) scale(1); } }
-        @keyframes bubble-pulse { 0% { transform: scale(1); } 45% { transform: scale(1.25); } 75% { transform: scale(0.95); } 100% { transform: scale(1); } }`}</style>
+      <style>{`@keyframes bubble-pulse { 0% { transform: scale(1); } 45% { transform: scale(1.25); } 75% { transform: scale(0.95); } 100% { transform: scale(1); } }`}</style>
 
       {/* ── ヘッダー（タイトル・統計・タブをまとめて最前面に固定） ── */}
       {/* バブル側の座標計算が多少ズレてもヘッダーに重ならないよう、座標ではなく
@@ -725,11 +652,9 @@ export default function GardenDisplay() {
             </div>
           ) : currentTags.map((tag, i) => {
             const isFriend   = tab === 'friend'
-            const isGrowing  = !isFriend && growingTagId === tag.id
-            const isExpanded = !isFriend && expandedTagId === tag.id
             const isPulsing  = !isFriend && pulseTagIds.has(tag.id)
             const baseSize   = bubbleSizes[i] ?? 60
-            const size       = isGrowing ? baseSize + 20 : baseSize
+            const size       = baseSize
             const pos        = positions[i] ?? { x: 0, y: 0 }
 
             let bg: string
@@ -738,8 +663,6 @@ export default function GardenDisplay() {
             if (isFriend) {
               const colors = FRIEND_LEVEL_COLORS[(tag as FriendBubble).level]
               bg = colors.bg; textColor = colors.text
-            } else if (isGrowing) {
-              bg = '#9DC08B'; textColor = '#2D5A27'
             } else if (tab === 'light') {
               bg = activeBg; textColor = activeText
             } else {
@@ -764,24 +687,18 @@ export default function GardenDisplay() {
                   width: size, height: size,
                   minWidth: size, minHeight: size,
                   borderRadius: '50%',
-                  background: (tab === 'light' && !isGrowing) ? 'none' : bg,
+                  background: tab === 'light' ? 'none' : bg,
                   border: 'none', cursor: 'pointer', padding: 0,
                   display: 'flex', flexDirection: 'column',
                   alignItems: 'center', justifyContent: 'center', gap: 2,
                   overflow: 'hidden',
-                  boxShadow: isGrowing || isExpanded || isPulsing
+                  boxShadow: isPulsing
                     ? '0 0 20px rgba(74,124,89,0.55), 0 3px 10px rgba(0,0,0,0.1)'
                     : '0 3px 10px rgba(0,0,0,0.1)',
                   opacity: visible ? 1 : 0,
-                  transform: isExpanded
-                    ? 'scale(1.3)'
-                    : visible ? 'scale(1)' : 'scale(0.75)',
+                  transform: visible ? 'scale(1)' : 'scale(0.75)',
                   animation: isPulsing ? 'bubble-pulse 0.7s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
-                  transition: isGrowing
-                    ? 'width 0.8s cubic-bezier(0.34,1.56,0.64,1), height 0.8s cubic-bezier(0.34,1.56,0.64,1), background 0.8s ease, box-shadow 0.8s ease'
-                    : isExpanded
-                    ? 'transform 0.5s ease, box-shadow 0.5s ease'
-                    : `opacity 0.4s ease ${i * 0.12}s, transform 0.4s ease ${i * 0.12}s, width 0.5s ease, height 0.5s ease, background 0.5s ease`,
+                  transition: `opacity 0.4s ease ${i * 0.12}s, transform 0.4s ease ${i * 0.12}s, width 0.5s ease, height 0.5s ease, background 0.5s ease`,
                   pointerEvents: 'auto',
                   userSelect: 'none',
                 }}
@@ -815,7 +732,7 @@ export default function GardenDisplay() {
                       </span>
                     </>
                   )
-                })() : tab === 'light' && !isGrowing ? (
+                })() : tab === 'light' ? (
                   /* Daisy バブル: SVG が背景ごと描画、テキストを下部に重ねる */
                   <>
                     <DaisyBubble size={size} />
@@ -834,9 +751,7 @@ export default function GardenDisplay() {
                 ) : (
                   <>
                     <span style={{ fontSize: clamp(Math.round(size * 0.28), 16, 28) }}>
-                      {isGrowing ? '🌿'
-                        : getSeedBubble((tag as ShadowTag).stage, (tag as ShadowTag).seed_weight).emoji
-                      }
+                      {getSeedBubble((tag as ShadowTag).stage, (tag as ShadowTag).seed_weight).emoji}
                     </span>
                     <span style={{
                       fontSize: clamp(Math.round(size * 0.14), 8, 11),
@@ -851,63 +766,6 @@ export default function GardenDisplay() {
               </button>
             )
           })}
-
-          {/* ── Seedルーム訪問後の成長通知（成長したバブルを指す吹き出し） ──
-              アプリのルート要素(position:relative)を基準としたposition:absoluteで、
-              パンキャンバスと同じ座標系に配置する。画面(viewport)基準のposition:fixed
-              は使わない。 */}
-          {(() => {
-            if (!showGrowthToast || !expandedTagId || tab !== 'shadow') return null
-            const idx  = shadowTags.findIndex(t => t.id === expandedTagId)
-            if (idx < 0) return null
-            const pos  = positions[idx] ?? { x: 0, y: 0 }
-            const size = bubbleSizes[idx] ?? 60
-            const cx = pos.x + size / 2
-            const cy = pos.y
-            return (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: cx, top: cy - 10,
-                  transform: 'translateX(-50%) translateY(-100%)',
-                  animation: 'bubble-tooltip-in 0.25s ease both',
-                  zIndex: 10,
-                }}
-              >
-                {/* 吹き出し本体 */}
-                <div style={{
-                  position: 'relative',
-                  background: '#FFFFFF', borderRadius: 16,
-                  padding: '16px 18px 36px 18px',
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.16)',
-                  maxWidth: 300,
-                }}>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#3B2F1E', fontWeight: 500 }}>
-                    {growthToastSkipped ? 'Seedに向き合うと成長します🌱' : 'Seedルームを訪れて成長しました🌱'}
-                  </p>
-                  <button
-                    onClick={handleCloseGrowthToast}
-                    style={{
-                      position: 'absolute', bottom: 8, right: 8,
-                      borderRadius: 20,
-                      border: 'none', background: 'rgba(59,47,30,0.08)', color: 'rgba(59,47,30,0.7)',
-                      fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '5px 12px',
-                    }}
-                  >
-                    閉じる
-                  </button>
-                </div>
-
-                {/* 吹き出し三角（下向き：成長したバブルを指す） */}
-                <div style={{
-                  position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
-                  width: 0, height: 0,
-                  borderLeft: '8px solid transparent', borderRight: '8px solid transparent',
-                  borderTop: '8px solid #FFFFFF',
-                }} />
-              </div>
-            )
-          })()}
         </div>
       </div>
 
@@ -928,83 +786,12 @@ export default function GardenDisplay() {
           tagId={selectedBubble.tagId}
           tagText={selectedBubble.tagText}
           tagType={selectedBubble.tagType}
-          onClose={() => {
-            setSelectedBubble(null)
-            if (step === 'done') setShowCompleteAnimation(true)
-          }}
+          onClose={() => setSelectedBubble(null)}
         />
-      )}
-
-      {/* ── 成長の仕組み説明モーダル ── */}
-      {step === 'growth_explain' && (
-        <GrowthExplainModal
-          onClose={() => {}}
-          onOpenBubble={() => {
-            if (!expandedTagId) return
-            const tag = shadowTags.find(t => t.id === expandedTagId)
-            if (!tag) return
-            setSelectedBubble({ tagId: tag.id, tagText: tag.text, tagType: 'shadow' })
-          }}
-          onOpenHelp={() => setShowHelp(true)}
-        />
-      )}
-
-      {/* ── オンボーディング完了アニメーション ──
-          「つづける」を押したらこのアニメーションを閉じてガーデン画面に戻し、
-          続きのメッセージはガーデン上のポップアップ（showFinalMessage）で表示する。 */}
-      {showCompleteAnimation && (
-        <GrowthModal
-          onComplete={() => {
-            setShowCompleteAnimation(false)
-            setShowFinalMessage(true)
-          }}
-        />
-      )}
-
-      {/* ── オンボーディング完了メッセージ（ガーデン画面に戻った後に表示） ── */}
-      {showFinalMessage && (
-        <GrowthWelcomeMessage
-          onNext={() => {
-            advanceStep('completed')
-            sessionStorage.removeItem('onboarding_seed_tag_id')
-            setShowFinalMessage(false)
-          }}
-        />
-      )}
-
-      {/* ── 最終アニメーション ── */}
-      {showFinalAnimation && (
-        <GrowthTransitionOverlay
-          stage="bloom"
-          message={{ title: 'つながれた。🌿', subtitle: 'あなたのままで、ここにいていい。' }}
-          buttonText="次へ"
-          onNext={() => { setShowFinalAnimation(false); setShowThankYou(true) }}
-        />
-      )}
-
-      {/* ── 協力ありがとう ── */}
-      {showThankYou && (
-        <ThankYouModal onClose={() => setShowThankYou(false)} />
       )}
 
       {/* ── ヘルプモーダル ── */}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-
-      {/* ── オンボーディング完了トースト ── */}
-      {toastVisible && (
-        <div style={{
-          position: 'fixed', bottom: 88, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 500,
-          background: '#4A7C59', color: '#FFFFFF',
-          padding: '12px 24px', borderRadius: 30,
-          fontSize: 14, fontWeight: 700,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-          whiteSpace: 'nowrap',
-          animation: 'toast-in 0.3s ease both',
-        }}>
-          🌿 向き合えた！タネが芽吹いた
-        </div>
-      )}
     </div>
   )
 }

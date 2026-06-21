@@ -119,7 +119,7 @@ export default function LightRoomView() {
     setChannel(null)
     if (step === 'room_chat_mi') advanceStep('ne_room_popup')
 
-    if ((step === 'done' || step === 'completed') && tag && depth) {
+    if (step === 'completed' && tag && depth) {
       const userId = sessionStorage.getItem('user_id')
       if (userId) {
         commitSessionPoints(tag.id, depth, userId).then(({ newGrowthPoint }) => {
@@ -136,8 +136,6 @@ export default function LightRoomView() {
     return <p className="text-sm text-center mt-10" style={{ color: 'rgba(120,100,70,0.5)' }}>タグが見つかりません</p>
   }
 
-  const isTutorial = step === 'room_chat_mi' && !openTag
-
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <p className="text-center text-xs mb-4" style={{ color: 'rgba(59,47,30,0.45)', flexShrink: 0 }}>
@@ -152,46 +150,6 @@ export default function LightRoomView() {
         overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* チュートリアル：先頭バブルにスポットを当てる暗転オーバーレイ */}
-        {isTutorial && (
-          <div
-            className="absolute inset-0"
-            style={{
-              zIndex: 40, pointerEvents: 'none',
-              background: `radial-gradient(circle at 50% ${LABEL_TOP + 70}px, transparent 95px, rgba(0,0,0,0.45) 145px)`,
-            }}
-          />
-        )}
-
-        {/* チュートリアル：吹き出し（Seed と同一スタイル） */}
-        {isTutorial && (
-          <div
-            className="absolute"
-            style={{ left: '50%', top: LABEL_TOP - 58, transform: 'translateX(-50%)', zIndex: 50, pointerEvents: 'none' }}
-          >
-            <div
-              className="rounded-xl px-3 py-2 animate-bounce"
-              style={{
-                position: 'relative',
-                background: '#fff',
-                border: '1.5px solid #4A7C59',
-                color: '#3B2F1E',
-                fontSize: 12,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              タップして話してみよう
-              <div style={{
-                position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-                width: 0, height: 0,
-                borderLeft: '8px solid transparent',
-                borderRight: '8px solid transparent',
-                borderTop: '8px solid #fff',
-              }} />
-            </div>
-          </div>
-        )}
-
         {/* 地面ライン・土壌エリア背景（Seed と完全同一） */}
         <div style={{ flexShrink: 0, overflow: 'hidden' }}>
           <svg
@@ -235,7 +193,6 @@ export default function LightRoomView() {
                   scrollSnapAlign: 'center', flexShrink: 0,
                   position: 'relative', width: ITEM_WIDTH, height: '100%',
                   background: 'none', border: 'none', cursor: 'pointer',
-                  zIndex: (active && isTutorial) ? 50 : undefined,
                 }}
               >
                 {/* タグ名ラベル（アクティブのみ、バブルの上） */}

@@ -6,7 +6,7 @@ type Props = {
   questionNumber:   number
   totalQuestions:   number
   questionText:     string
-  questionSubText?: string
+  exampleTags?:     string[]  // 初回生成前に「例）」欄として表示しておく例タグ
   addButtonText?:   string   // タグ追加ボタンのラベル（デフォルト: '+ これ自分！'）
   onComplete:       (tags: string[]) => void
 }
@@ -129,17 +129,18 @@ export function QuestionCard({
   questionNumber,
   totalQuestions,
   questionText,
-  questionSubText,
+  exampleTags = [],
   addButtonText = '+ これ自分！',
   onComplete,
 }: Props) {
   const [text,           setText]           = useState('')
-  const [candidateTags,  setCandidateTags]  = useState<string[]>([])
+  const [candidateTags,  setCandidateTags]  = useState<string[]>(exampleTags)
   const [registeredTags, setRegisteredTags] = useState<string[]>([])
   const [isGenerating,   setIsGenerating]   = useState(false)
   const [error,          setError]          = useState<string | null>(null)
   const [showAll,        setShowAll]        = useState(false)
   const [suggestedTags,  setSuggestedTags]  = useState<Set<string>>(new Set())
+  const [hasGenerated,   setHasGenerated]   = useState(false)
 
   const suggestChainCount = useRef(0)
 
@@ -152,7 +153,6 @@ export function QuestionCard({
     pageBg:             isLight ? '#F5F0E8'             : '#EDE5D8',
     progress:           isLight ? 'rgba(93,72,40,0.45)' : 'rgba(60,40,15,0.42)',
     questionText:       isLight ? '#3B2F1E'             : '#2A1F0E',
-    subText:            isLight ? '#8B7355'             : '#7A6040',
     tagBg:              isLight ? '#3B2F1E'             : '#2A1F0E',
     tagColor:           isLight ? '#FFFFFF'             : '#F5EDD8',
     overflowBg:         isLight ? 'rgba(59,47,30,0.12)' : 'rgba(42,31,14,0.12)',
@@ -190,7 +190,9 @@ export function QuestionCard({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'エラーが発生しました')
-      setCandidateTags(data.tags ?? [])
+      const generated: string[] = data.tags ?? []
+      setCandidateTags(prev => [...prev, ...generated.filter(t => !prev.includes(t))])
+      setHasGenerated(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'エラーが発生しました')
     } finally {
@@ -289,15 +291,6 @@ export function QuestionCard({
               </p>
             ))}
           </div>
-          {questionSubText && (
-            <div className="mt-2">
-              {questionSubText.split('\n').map((line, i) => (
-                <p key={i} className="text-xs leading-relaxed" style={{ color: c.subText }}>
-                  {line}
-                </p>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* ── Textarea ── */}
@@ -377,7 +370,7 @@ export function QuestionCard({
         {/* ── Candidate tags ── */}
         {candidateTags.length > 0 && (
           <div className="mb-6">
-            <p className="text-xs mb-3" style={{ color: c.candidateLabel }}>生成されたタグ</p>
+            <p className="text-xs mb-3" style={{ color: c.candidateLabel }}>{hasGenerated ? '生成されたタグ' : '例）'}</p>
             <div className="flex flex-col gap-2">
               {candidateTags.map(tag => {
                 const added = registeredTags.includes(tag)

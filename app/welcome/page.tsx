@@ -356,9 +356,6 @@ export default function WelcomePage() {
           <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
             まず4つの質問に答えてみよう🌱
           </h2>
-          <p style={{ fontSize: 13, color: '#8B6914', margin: '8px 0 0' }}>
-            あなたの実と根のタネが生まれます
-          </p>
           <button
             onClick={handleStartPopup}
             style={{

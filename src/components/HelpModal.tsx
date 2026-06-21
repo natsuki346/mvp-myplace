@@ -1,12 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { ACTION_POINTS, type ActionDepth } from '@/src/lib/growthPoint'
 
 interface HelpModalProps {
   onClose: () => void
 }
 
 type SectionKey = 'bubble' | 'stage' | 'mechanism' | 'inside'
+
+const POINT_ACTIONS: { icon: string; label: string; key: ActionDepth }[] = [
+  { icon: '🚪', label: 'トークを開く',         key: 'room_open' },
+  { icon: '💬', label: 'チャットルームに入る', key: 'chat_open' },
+  { icon: '✍️', label: '言葉を送る',           key: 'message_sent' },
+]
 
 const STAGES = [
   { emoji: '🌱', label: 'タネ', bg: '#D4B896', ptRange: '0〜9pt',   desc: 'まだ種の状態。ルームをのぞいてみよう。' },
@@ -148,6 +155,32 @@ function SectionContent({ sectionKey }: { sectionKey: SectionKey }) {
             </div>
           ))}
         </div>
+
+        {/* ポイントのつき方 */}
+        <p style={{
+          fontSize: 13, fontWeight: 700, color: '#3B2F1E',
+          margin: '24px 0 10px',
+        }}>
+          ポイントのつき方
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {POINT_ACTIONS.map(({ icon, label, key }) => (
+            <div
+              key={key}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: '#FFFFFF', borderRadius: 8, padding: '10px 14px',
+                border: '1px solid rgba(139,105,20,0.1)',
+              }}
+            >
+              <span style={{ fontSize: 13, color: '#3B2F1E' }}>{icon} {label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#4A7C59' }}>+{ACTION_POINTS[key]}pt</span>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 12, color: 'rgba(59,47,30,0.55)', lineHeight: 1.7, margin: '10px 0 0' }}>
+          1回の訪問につき、最も深く進んだアクションのポイントだけが加算されます。
+        </p>
       </div>
     )
   }

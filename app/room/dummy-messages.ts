@@ -11,8 +11,3 @@ export type DummyMessage = {
 }
 
 export const DUMMY_MESSAGES_COMMON: DummyMessage[] = []
-
-export const DUMMY_MESSAGES_VIEWONLY: Record<'light' | 'shadow', DummyMessage[]> = {
-  light: [],
-  shadow: [],
-}

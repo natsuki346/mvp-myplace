@@ -32,3 +32,20 @@ export function markBubbleDetailTooltipSeen(): void {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(bubbleDetailTooltipSeenKey(), 'true')
 }
+
+// チャットの保存（ブックマーク）ボタンの案内ツールチップを既に見たかどうか。
+// ユーザーごとに、初めてチャットを開いた時の1回限りで案内する。
+function saveTooltipSeenKey(): string {
+  const userId = typeof window !== 'undefined' ? window.sessionStorage.getItem('user_id') : null
+  return `canvas:saveTooltipSeen:${userId ?? 'anon'}`
+}
+
+export function isSaveTooltipSeen(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(saveTooltipSeenKey()) === 'true'
+}
+
+export function markSaveTooltipSeen(): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(saveTooltipSeenKey(), 'true')
+}

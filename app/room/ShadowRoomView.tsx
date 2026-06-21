@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/src/lib/supabase/client'
-import { getStage, maxDepth, commitSessionPoints, LIGHT_THRESHOLDS, HEAVY_THRESHOLDS, type ActionDepth } from '@/src/lib/growthPoint'
+import { getStage, maxDepth, commitSessionPoints, type ActionDepth } from '@/src/lib/growthPoint'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import { recordTagEvent } from '@/src/lib/supabase/events'
@@ -20,17 +20,6 @@ function getSeedBubble(seedWeight: string | null): { emoji: string; bg: string; 
     if (sw >= 3) return { emoji: '🌿', bg: '#9DC08B', textColor: '#2D5A27' }
   }
   return { emoji: '🌱', bg: '#D4B896', textColor: '#6B4E1A' }
-}
-
-// チュートリアル：水やり〜成長演出の進行状態
-type TutorialGrowth = {
-  tagId: string
-  points: number
-  newGrowthPoint: number
-  afterStage: number
-  thresholds: number[]
-  phase: 'drops' | 'grow' | 'point' | 'progress'
-  barFilled: boolean
 }
 
 const ITEM_WIDTH = 160
@@ -86,7 +75,6 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
   const [quoteTarget, setQuoteTarget]       = useState<{ id: string; text: string } | null>(null)
   const [wateringTagId, setWateringTagId]   = useState<string | null>(null)
   const [growingTagId, setGrowingTagId]     = useState<string | null>(null)
-  const [tutorialGrowth, setTutorialGrowth] = useState<TutorialGrowth | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // プロフィール閲覧から戻ってきた場合にチャットを復元する
@@ -121,16 +109,6 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
     return () => { cancelled = true }
   }, [])
 
-  // チュートリアル完了時：実際のgrowth_pointを反映するため再取得
-  useEffect(() => {
-    if (step !== 'done') return
-    const userId = sessionStorage.getItem('user_id')
-    if (!userId) return
-
-    let cancelled = false
-    fetchShadowTags(userId).then(data => { if (!cancelled) setTags(data) })
-    return () => { cancelled = true }
-  }, [step])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -160,9 +138,6 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
     sessionDepthRef.current = 'room_open'
     if (step === 'room_chat_ne') {
       sessionStorage.setItem('onboarding_seed_tag_id', tag.id)
-    }
-    if (step === 'onboarding_seed_visit') {
-      sessionStorage.setItem('onboarding_room_visited', tag.id)
     }
     setOpenTag(tag)
   }
@@ -227,60 +202,6 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
     }, 600)
   }
 
-  // チュートリアル：水やり〜成長〜ポイント〜プロセスバーの一連の演出
-  const runTutorialGrowthSequence = (tag: Tag) => {
-    const userId = sessionStorage.getItem('user_id')
-    if (!userId) { advanceStep('growth_result'); return }
-
-    const thresholds = (tag.seed_weight ?? 'light') === 'heavy' ? HEAVY_THRESHOLDS : LIGHT_THRESHOLDS
-
-    // ① 水滴アニメーション（0ms〜600ms）
-    setWateringTagId(tag.id)
-    setTutorialGrowth({
-      tagId: tag.id,
-      points: 0,
-      newGrowthPoint: tag.growth_point ?? 0,
-      afterStage: tag.stage ?? 0,
-      thresholds,
-      phase: 'drops',
-      barFilled: false,
-    })
-
-    commitSessionPoints(tag.id, 'chat_open', userId).then(({ newGrowthPoint, newStage }) => {
-      const points = newGrowthPoint - (tag.growth_point ?? 0)
-
-      // ② タネ成長アニメーション（600ms〜1200ms）
-      setTimeout(() => {
-        setWateringTagId(null)
-        setTags(prev => prev.map(t => (t.id === tag.id ? { ...t, growth_point: newGrowthPoint, stage: newStage } : t)))
-        setGrowingTagId(tag.id)
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => setGrowingTagId(null))
-        })
-        setTutorialGrowth(prev => prev && { ...prev, phase: 'grow', points, newGrowthPoint, afterStage: newStage })
-      }, 600)
-
-      // ③ ポイント表示（1000ms〜）
-      setTimeout(() => {
-        setTutorialGrowth(prev => prev && { ...prev, phase: 'point' })
-      }, 1000)
-
-      // ④ プロセスバー表示（1400ms〜、0%→実際の%まで1sアニメーション）
-      setTimeout(() => {
-        setTutorialGrowth(prev => prev && { ...prev, phase: 'progress' })
-        setTimeout(() => {
-          setTutorialGrowth(prev => prev && { ...prev, barFilled: true })
-        }, 50)
-      }, 1400)
-
-      // ⑤ 次へ展開（プロセスバーアニメーション完了後）
-      setTimeout(() => {
-        setTutorialGrowth(null)
-        advanceStep('growth_result')
-      }, 2400)
-    })
-  }
-
   // チャンネル一覧を閉じる（部屋から出る）
   const handleSubTagListClose = () => {
     const tag = openTag
@@ -289,26 +210,28 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
     setOpenTag(null)
     setChannel(null)
 
+    // 初回チャット訪問が（Daisyではなく）Seedルームだった場合も、
+    // LightRoomViewと同じ仕組みでオンボーディングの案内シーケンス（ゲーテの名言など）に進める。
+    // ここでreturnしないと、下のランダム名言モーダルもこの後の案内シーケンス内の
+    // ゲーテの名言と重なって表示されてしまう。
+    if (step === 'room_chat_mi') {
+      advanceStep('ne_room_popup')
+      return
+    }
+
     // Seedルーム閲覧完了（戻る2回目）→ アニメーションへ
     if (step === 'room_chat_ne') {
       onSeedChatDone?.()
       return
     }
 
-    // チュートリアル：水やり演出 → 成長モーダルへ
-    if (step === 'watering' && tag) {
-      runTutorialGrowthSequence(tag)
-      return
-    }
-
-    // 名言モーダルを表示（onboarding_seed_visit は除外：ガーデン誘導フローがある）
-    if (tag && step !== 'onboarding_seed_visit') {
-      // 0件の場合はモーダル内で即 onClose() が呼ばれる
+    if (tag) {
+      // 通常時はランダムな名言モーダル（0件の場合はモーダル内で即 onClose() が呼ばれる）
       setQuoteTarget({ id: tag.id, text: tag.text })
     }
 
     // ポイント加算：チュートリアル完了後のみ
-    if ((step === 'done' || step === 'completed') && tag) {
+    if (step === 'completed' && tag) {
       if (depth) {
         const userId = sessionStorage.getItem('user_id')
         if (userId) {
@@ -332,72 +255,14 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
     return <p className="text-sm text-center mt-10" style={{ color: 'rgba(120,100,70,0.5)' }}>タグが見つかりません</p>
   }
 
-  // チュートリアル：プロセスバー表示用（次の成長までの残りポイント・進捗率）
-  const progressInfo = tutorialGrowth && tutorialGrowth.phase === 'progress'
-    ? (() => {
-        const { thresholds, afterStage, newGrowthPoint, barFilled } = tutorialGrowth
-        const lower = thresholds[afterStage]
-        const upper = thresholds[afterStage + 1] ?? lower
-        const remaining = Math.max(0, upper - newGrowthPoint)
-        const pct = upper > lower ? Math.min(100, Math.max(0, ((newGrowthPoint - lower) / (upper - lower)) * 100)) : 100
-        return { remaining, pct, barFilled }
-      })()
-    : null
-
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <p className="text-center text-xs mb-4" style={{ color: 'rgba(59,47,30,0.45)', flexShrink: 0 }}>
         スワイプして選び、タップして部屋に入る
       </p>
 
-      {/* チュートリアル：水やり〜成長演出の全画面オーバーレイ */}
-      {tutorialGrowth && (
-        <div className="fixed inset-0" style={{ zIndex: 200, background: 'rgba(0,0,0,0.45)', pointerEvents: 'none' }} />
-      )}
-
       {/* 土壌断面 + タネカルーセル：画面下部いっぱいに広げる */}
-      <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, flex: 1, minHeight: TOTAL_HEIGHT, overflow: 'hidden', display: 'flex', flexDirection: 'column', zIndex: tutorialGrowth ? 201 : undefined }}>
-        {/* チュートリアル：先頭タネだけ穴を開けて明るく見せる暗転オーバーレイ */}
-        {step === 'room_chat_ne' && !openTag && (
-          <div
-            className="absolute inset-0"
-            style={{
-              zIndex: 40, pointerEvents: 'none',
-              background: `radial-gradient(circle at 50% ${LABEL_TOP + 70}px, transparent 95px, rgba(0,0,0,0.45) 145px)`,
-            }}
-          />
-        )}
-
-        {/* 先頭のRoomへの誘導吹き出し：タネの真上に表示 */}
-        {step === 'room_chat_ne' && !openTag && (
-          <div
-            className="absolute"
-            style={{ left: '50%', top: LABEL_TOP - 58, transform: 'translateX(-50%)', zIndex: 50, pointerEvents: 'none' }}
-          >
-            <div
-              className="rounded-xl px-3 py-2 animate-bounce"
-              style={{
-                position: 'relative',
-                background: '#fff',
-                border: '1.5px solid #8B6914',
-                color: '#3B2F1E',
-                fontSize: 12,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              タップして話してみよう
-              {/* 吹き出しの三角：タネを指す */}
-              <div style={{
-                position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-                width: 0, height: 0,
-                borderLeft: '8px solid transparent',
-                borderRight: '8px solid transparent',
-                borderTop: '8px solid #fff',
-              }} />
-            </div>
-          </div>
-        )}
-
+      <div style={{ position: 'relative', marginLeft: -24, marginRight: -24, flex: 1, minHeight: TOTAL_HEIGHT, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* 地面ライン・土壌エリア（背景）：LightRoomViewと完全に統一 */}
         <div style={{ flexShrink: 0, overflow: 'hidden' }}>
           <svg
@@ -447,7 +312,6 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
                   scrollSnapAlign: 'center', flexShrink: 0,
                   position: 'relative', width: ITEM_WIDTH, height: '100%',
                   background: 'none', border: 'none', cursor: 'pointer',
-                  zIndex: (active && step === 'room_chat_ne' && !openTag) ? 50 : undefined,
                 }}
               >
                 {/* ハッシュタグラベル（アクティブのみ、バブルの上） */}
@@ -506,28 +370,6 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
                         }}
                       />
                     ))}
-                  </div>
-                )}
-
-                {/* チュートリアル：+Npt表示 */}
-                {tutorialGrowth?.tagId === tag.id && (tutorialGrowth.phase === 'point' || tutorialGrowth.phase === 'progress') && (
-                  <div
-                    className="animate-popIn"
-                    style={{ position: 'absolute', top: BUBBLE_TOP_Y - 36, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'none', whiteSpace: 'nowrap' }}
-                  >
-                    <span style={{ fontSize: 20, fontWeight: 600, color: '#4A7C59' }}>+{tutorialGrowth.points}pt</span>
-                  </div>
-                )}
-
-                {/* チュートリアル：次の成長までのプロセスバー */}
-                {tutorialGrowth?.tagId === tag.id && progressInfo && (
-                  <div style={{ position: 'absolute', top: BUBBLE_TOP_Y - 24, left: '50%', transform: 'translateX(-50%)', width: 140, pointerEvents: 'none' }}>
-                    <p style={{ margin: '0 0 4px', fontSize: 11, color: '#8B6914', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      次の成長まで あと{progressInfo.remaining}pt
-                    </p>
-                    <div style={{ width: '100%', height: 6, borderRadius: 3, background: '#D4B896', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', borderRadius: 3, background: '#4A7C59', width: progressInfo.barFilled ? `${progressInfo.pct}%` : '0%', transition: 'width 1s ease' }} />
-                    </div>
                   </div>
                 )}
               </button>

@@ -11,25 +11,25 @@ import TagConfirmScreen from '@/src/components/onboarding/TagConfirmScreen'
 type QuestionType = 'light' | 'shadow'
 
 // Q1・Q2 → 光タグ / Q3・Q4 → 影タグ
-const QUESTIONS: { text: string; subText?: string; type: QuestionType }[] = [
+const QUESTIONS: { text: string; exampleTags: string[]; type: QuestionType }[] = [
   {
     text: '自分の好きなところ、思う存分出してみよう',
-    subText: '例）優しい・明るい・粘り強い・人の気持ちがわかる\n細かいことに気づけるなど',
+    exampleTags: ['優しい', '明るい', '粘り強い', '人の気持ちがわかる', '細かいことに気づける'],
     type: 'light',
   },
   {
     text: '自分がテンション上がる瞬間って、\nどんな時？',
-    subText: '例）好きな音楽を聴いてる時・友達と話してる時\n新しいことを始める時・自然の中にいる時\n誰かに感謝された時・好きなものに没頭してる時など',
+    exampleTags: ['好きな音楽を聴いてる時', '友達と話してる時', '新しいことを始める時', '自然の中にいる時', '誰かに感謝された時', '好きなものに没頭してる時'],
     type: 'light',
   },
   {
     text: '自分ではわかってるけど\nあまり人に言わないこと、何かある？',
-    subText: '例）恋愛のこと・家族のこと・お金のこと・将来のこと・仕事のこと・人間関係のことなど',
+    exampleTags: ['恋人と別れそう', '親と喧嘩した', '転職したい', '結婚が不安', '仕事が辛い', '人間関係が苦手'],
     type: 'shadow',
   },
   {
     text: 'よく一人で悩んじゃうけど、\n誰にも吐き出してないもの——\n思うがままに出してみない？',
-    subText: '例）実は恋人が欲しい・実は孤独を感じてる\n実は誰かに認められたい・実は怖いことがあるなど',
+    exampleTags: ['実は恋人と別れたい', '実は孤独を感じてる', '実は友達との関係を切りたい', '実は怖いことがある', 'めっちゃ恋人が欲しい'],
     type: 'shadow',
   },
 ]
@@ -132,7 +132,7 @@ export default function OnboardingPage() {
       questionNumber={currentIndex + 1}
       totalQuestions={QUESTIONS.length}
       questionText={QUESTIONS[currentIndex].text}
-      questionSubText={QUESTIONS[currentIndex].subText}
+      exampleTags={QUESTIONS[currentIndex].exampleTags}
       addButtonText={currentIndex === 2 ? '+ これも自分' : currentIndex === 3 ? '+ 本当の自分' : undefined}
       onComplete={handleComplete}
     />

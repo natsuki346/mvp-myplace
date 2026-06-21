@@ -1,17 +1,17 @@
 'use client'
 
-export default function RoomNavArrow() {
+export default function GardenNavArrow() {
   return (
     <div
       className="fixed inset-0 flex justify-center"
       style={{ zIndex: 150, pointerEvents: 'none' }}
     >
       <div className="relative w-full" style={{ maxWidth: 390 }}>
-        {/* ルームナビのハイライト */}
+        {/* ガーデンナビのハイライト（左側のタブ） */}
         <div
           className="absolute rounded-2xl animate-pulse"
           style={{
-            left: '50%', bottom: 6, transform: 'translateX(-50%)',
+            left: '16.6667%', bottom: 6, transform: 'translateX(-50%)',
             width: 84, height: 56,
             border: '2.5px solid #E53935',
             background: 'rgba(229,57,53,0.08)',
@@ -22,7 +22,7 @@ export default function RoomNavArrow() {
         {/* 吹き出し + 矢印 */}
         <div
           className="absolute flex flex-col items-center"
-          style={{ left: '50%', bottom: 76, transform: 'translateX(-50%)', zIndex: 50 }}
+          style={{ left: '16.6667%', bottom: 76, transform: 'translateX(-50%)', zIndex: 50 }}
         >
           <div className="flex flex-col items-center animate-bounce">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none">

@@ -8,10 +8,8 @@ import FriendRoomView from '@/src/components/room/FriendRoomView'
 import HelpModal from '@/src/components/HelpModal'
 import { BottomNav } from '@/src/components/BottomNav'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
-import RoomIntroModal from '@/src/components/tutorial/RoomIntroModal'
-import NeRoomPopup from '@/src/components/tutorial/NeRoomPopup'
-import GrowthTransitionOverlay from '@/src/components/tree/GrowthTransitionOverlay'
-import WhyModal from '@/src/components/onboarding/WhyModal'
+import RoomIntroSlidesModal from '@/src/components/tutorial/RoomIntroSlidesModal'
+import FirstChatVisitWelcomeFlow from '@/src/components/onboarding/FirstChatVisitWelcomeFlow'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 import { supabase } from '@/src/lib/supabase/client'
@@ -31,14 +29,13 @@ const ACTIVE_TEXT   = '#F5F0E8'
 const INACTIVE_BG   = '#D4B896'
 const INACTIVE_TEXT = '#5C3A1E'
 
-type TutorialPhase = 'room_intro' | 'ne_room_popup' | null
+type TutorialPhase = 'room_intro' | null
 
 export default function RoomTabsPage({ type }: { type: RoomType }) {
   const router = useRouter()
   const { step, advanceStep } = useTutorialStep()
   const { setGrowthStage } = useGrowthStage()
   const [showGrowthHelp, setShowGrowthHelp] = useState(false)
-  const [showSeedWhyModal, setShowSeedWhyModal] = useState(false)
   const [showRoomIntro, setShowRoomIntro] = useState(false)
 
   // 初回訪問時にルーム案内ポップアップを自動表示
@@ -49,15 +46,12 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
     }
   }, [])
 
-  const phase: TutorialPhase =
-    step === 'room_intro'      ? 'room_intro'
-    : step === 'ne_room_popup' ? 'ne_room_popup'
-    : null
+  const phase: TutorialPhase = step === 'room_intro' ? 'room_intro' : null
 
-  // 「今はいい」でSeedルーム訪問をスキップした場合、成長演出〜完了画面までの
+  // Seedルームは常にスキップする運用のため、成長演出〜完了画面までの
   // 流れ自体は実際に訪れた場合と同じにするが、訪れていないのでバブルは育てない
-  // （seed_weight・visitイベントは記録しない）。garden側の吹き出しテキストを
-  // 切り替えるためのフラグだけセットする。
+  // （seed_weight・visitイベントは記録しない）。ガーデン説明スライド③の
+  // プレビューで使う実タグIDだけセットする。
   const handleSkipSeedVisit = async () => {
     const userId = sessionStorage.getItem('user_id')
     if (userId) {
@@ -73,11 +67,21 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
 
       if (tag?.id) {
         sessionStorage.setItem('onboarding_seed_tag_id', tag.id)
-        sessionStorage.setItem('onboarding_seed_visit_skipped', '1')
       }
     }
     advanceStep('room_grow_animation')
   }
+
+  // ne_room_popup に来たら、ポップアップを出さずに常にSeedルームをスキップする
+  useEffect(() => {
+    if (step === 'ne_room_popup') void handleSkipSeedVisit()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
+  // 初回チャット訪問後の案内シーケンスに入ったら、樹の成長ステージを更新
+  useEffect(() => {
+    if (step === 'room_grow_animation') setGrowthStage('budding')
+  }, [step, setGrowthStage])
 
   const handleTabClick = (t: RoomType) => {
     router.replace(`/room/${t}`)
@@ -141,61 +145,23 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
 
       {type === 'light' ? <LightRoomView /> : type === 'shadow' ? <ShadowRoomView onSeedChatDone={() => advanceStep('room_grow_animation')} /> : <FriendRoomView />}
 
-      <BottomNav />
+      <BottomNav
+        onGardenClick={() => { if (step === 'room_grow_animation') advanceStep('garden_onboarding') }}
+      />
 
       {(showRoomIntro || phase === 'room_intro') && (
-        <RoomIntroModal onNext={() => {
+        <RoomIntroSlidesModal onNext={() => {
           setShowRoomIntro(false)
           advanceStep('room_chat_mi')
         }} />
       )}
 
-      {phase === 'ne_room_popup' && (
-        <NeRoomPopup
-          onNext={() => { advanceStep('room_chat_ne'); router.replace('/room/shadow') }}
-          onSkip={() => { void handleSkipSeedVisit() }}
-        />
-      )}
-
-      {/* 成長アニメーション：Seedルーム閲覧完了後（「今はいい」でスキップした場合も同じアニメーション・同じ流れに合流する） */}
+      {/* 初回チャット訪問後：プロセスモーダル → ゲーテの名言 → ようこそモーダル → ガーデンへ矢印で誘導
+          矢印表示中はstepを'room_grow_animation'のまま保ち、実際にガーデンタブをタップした
+          瞬間（BottomNavのonGardenClick）にのみ'garden_onboarding'へ進める。ここでstepを
+          進めてしまうと表示条件が直ちにfalseになり矢印が一瞬で消えてしまうため注意。 */}
       {step === 'room_grow_animation' && (
-        <GrowthTransitionOverlay
-          stage="budding"
-          quote={{ text: '喜びは分かち合うことで倍になり\n悲しみは分かち合うことで半分になる', author: 'ゲーテ', fontSize: 17 }}
-          message={{ title: 'あなたは一人じゃない。🤝', subtitle: 'あなたのままでつながれる', subtitleSize: 19 }}
-          buttonText="次へ"
-          onNext={() => { setGrowthStage('budding'); setShowSeedWhyModal(true) }}
-        />
-      )}
-
-      {/* プロセスモーダル③：アニメーション後に表示 */}
-      {showSeedWhyModal && (
-        <WhyModal
-          currentStep={3}
-          onStart={() => { setShowSeedWhyModal(false); advanceStep('garden_onboarding'); router.push('/home') }}
-        />
-      )}
-
-      {/* オンボーディング最終：Seedルーム閲覧後にガーデンへ */}
-      {step === 'onboarding_seed_visit' && (
-        <div style={{
-          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: 390, padding: '0 24px', zIndex: 100,
-          pointerEvents: 'none',
-        }}>
-          <button
-            onClick={() => router.push('/home')}
-            style={{
-              width: '100%', padding: '14px', borderRadius: 24, border: 'none',
-              background: '#4A7C59', color: '#FFFFFF',
-              fontSize: 15, fontWeight: 700, cursor: 'pointer',
-              pointerEvents: 'auto',
-              boxShadow: '0 4px 16px rgba(74,124,89,0.4)',
-            }}
-          >
-            ガーデンへ 🌿
-          </button>
-        </div>
+        <FirstChatVisitWelcomeFlow />
       )}
 
       {showGrowthHelp && (

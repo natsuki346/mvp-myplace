@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import type { DummyMessage } from '@/app/room/dummy-messages'
 import { DEFAULT_MESSAGES } from '@/src/lib/defaultMessages'
+import { isSaveTooltipSeen, markSaveTooltipSeen } from '@/src/lib/onboarding'
 
 // ============================================================
 // 型定義
@@ -20,14 +21,9 @@ export type RoomChatHeader = {
   title: string
   subtitle?: string
   onBack?: () => void
-  backContent?: React.ReactNode
-  backColor?: string
-  borderColor?: string
-  extra?: React.ReactNode
 }
 export type RoomChatProps = {
   header: RoomChatHeader
-  banner?: React.ReactNode
   introMessages?: DummyMessage[]
   matchTagIds: string[]
   subTagId?: string | null
@@ -56,12 +52,55 @@ const EMOJI_CATS = [
   { icon: '#️⃣', label: '記号', emojis: ['#️⃣','*️⃣','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔠','🔡','🔢','🅰️','🆎','🅱️','🆑','🆒','🆓','ℹ️','🆔','Ⓜ️','🆕','🆖','🅾️','🆗','🅿️','🆘','🆙','🆚','▪️','▫️','◾','◽','◼️','◻️','⬛','⬜','🟥','🟧','🟨','🟩','🟦','🟪','🟫','⚫','⚪','🔴','🟠','🟡','🟢','🔵','🟣','🟤','🔶','🔷','🔸','🔹','🔺','🔻','💠','🔘','🔳','🔲','🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈'] },
 ]
 
+// 初めてチャットを開いたユーザー向けの、保存（ブックマーク）ボタンの案内ツールチップ。
+// BubbleDetailModalのGuideTooltipと同じ配色・見た目（吹き出し＋上向き矢印）。
+function SaveGuideTooltip({ top, left, onClose }: { top: number; left: number; onClose: () => void }) {
+  return (
+    <div style={{ position: 'fixed', top, left, transform: 'translateX(-50%)', zIndex: 200, width: 220 }}>
+      <div style={{
+        position: 'relative',
+        background: '#FFFFFF',
+        border: '1.5px solid #8B6914',
+        borderRadius: 12,
+        padding: '10px 14px 12px',
+        boxShadow: '0 4px 14px rgba(139,105,20,0.22)',
+      }}>
+        {/* 上向きの矢印：保存ボタンを指し示す */}
+        <div style={{
+          position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
+          borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
+          borderBottom: '7px solid #8B6914',
+        }} />
+        <div style={{
+          position: 'absolute', top: -5.3, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
+          borderLeft: '5.5px solid transparent', borderRight: '5.5px solid transparent',
+          borderBottom: '5.5px solid #FFFFFF',
+        }} />
+
+        <p style={{ fontSize: 12.5, color: '#3B2F1E', lineHeight: 1.55, margin: '0 0 10px', fontWeight: 500 }}>
+          気に入った言葉はここから保存できるよ🔖
+        </p>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%', padding: '7px', borderRadius: 8, border: 'none',
+            background: '#4A7C59', color: '#FFFFFF',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          わかった
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ============================================================
 // メインコンポーネント
 // ============================================================
 export default function RoomChat({
   header,
-  banner,
   introMessages = [],
   matchTagIds,
   subTagId = null,
@@ -93,6 +132,8 @@ export default function RoomChat({
   const matchingIdsRef = useRef<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const firstSaveBtnRef = useRef<HTMLButtonElement>(null)
+  const [saveTooltipAnchor, setSaveTooltipAnchor] = useState<{ top: number; left: number } | null>(null)
 
   // matchTagIds を ref に同期
   useEffect(() => {
@@ -127,6 +168,18 @@ export default function RoomChat({
       setMessages((data as ChatMessage[]) ?? [])
     })()
   }, [matchTagIds, subTagId])
+
+  // 初めてチャットを開いた時の1回限り：保存（ブックマーク）ボタンの案内ツールチップを出す
+  useEffect(() => {
+    if (readOnly || isSaveTooltipSeen()) return
+    const t = requestAnimationFrame(() => {
+      const rect = firstSaveBtnRef.current?.getBoundingClientRect()
+      if (!rect) return
+      markSaveTooltipSeen()
+      setSaveTooltipAnchor({ top: rect.bottom + 8, left: rect.left + rect.width / 2 })
+    })
+    return () => cancelAnimationFrame(t)
+  }, [readOnly, introMessages.length, messages.length])
 
   // メンション候補（introMessagesのユーザー + メッセージ履歴）
   // introMessages は定数(module-level)なので deps から除外
@@ -167,11 +220,14 @@ export default function RoomChat({
     })()
   }, [messages, userId])
 
-  // 保存済みメッセージID取得
+  // 保存済みメッセージID取得（DBメッセージ + イントロ/モックメッセージの両方をチェック）
+  // introMessages は定数(module-level)なので deps から除外
   useEffect(() => {
-    if (!userId || messages.length === 0) return
-    const ids = messages.map(m => m.id)
     ;(async () => {
+      if (!userId) { setSavedIds(new Set()); return }
+      const fallback = messages.length === 0 && !subTagId && tagType ? DEFAULT_MESSAGES[tagType] : []
+      const ids = [...introMessages, ...fallback, ...messages].map(m => m.id)
+      if (ids.length === 0) { setSavedIds(new Set()); return }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from('saved_messages') as any)
         .select('message_id')
@@ -180,7 +236,8 @@ export default function RoomChat({
       if (!data) return
       setSavedIds(new Set((data as { message_id: string }[]).map(r => r.message_id)))
     })()
-  }, [messages, userId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, subTagId, tagType, userId])
 
   // メッセージ リアルタイム
   useEffect(() => {
@@ -419,22 +476,19 @@ export default function RoomChat({
       {/* ヘッダー */}
       <div style={{
         flexShrink: 0, padding: '12px 16px',
-        borderBottom: `1px solid ${header.borderColor ?? '#D4B896'}`,
+        borderBottom: '1px solid #D4B896',
         background: '#F5F0E8', display: 'flex', alignItems: 'center', gap: 10,
       }}>
         {header.onBack && (
           <div onClick={header.onBack}
-            style={{ color: header.backColor ?? '#4A7C59', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}
-          >{header.backContent ?? '‹'}</div>
+            style={{ color: '#4A7C59', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}
+          >‹</div>
         )}
-        {header.extra}
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 'bold', color: '#3B2F1E' }}>{header.title}</div>
           {header.subtitle && <div style={{ fontSize: 11, color: '#8B6914', marginTop: 1 }}>{header.subtitle}</div>}
         </div>
       </div>
-
-      {banner}
 
       {/* メッセージエリア（introMessages + messages を統合レンダリング） */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px' }}>
@@ -531,22 +585,21 @@ export default function RoomChat({
                         <line x1="15" y1="9" x2="15.01" y2="9"/>
                       </svg>
                     </button>
-                    {!isIntro && (
-                      <button
-                        onClick={() => handleToggleSave(msg.id, msg.content)}
-                        style={{
-                          background: 'transparent', border: '1px solid rgba(139,105,20,0.25)',
-                          borderRadius: 20, padding: '3px 7px',
-                          cursor: 'pointer', display: 'flex', alignItems: 'center',
-                          opacity: savedIds.has(msg.id) ? 1 : 0.4,
-                        }}
-                        aria-label="保存"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={savedIds.has(msg.id) ? '#4A7C59' : 'none'} stroke={savedIds.has(msg.id) ? '#4A7C59' : '#3B2F1E'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-                        </svg>
-                      </button>
-                    )}
+                    <button
+                      ref={index === 0 ? firstSaveBtnRef : undefined}
+                      onClick={() => handleToggleSave(msg.id, msg.content)}
+                      style={{
+                        background: 'transparent', border: '1px solid rgba(139,105,20,0.25)',
+                        borderRadius: 20, padding: '3px 7px',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center',
+                        opacity: savedIds.has(msg.id) ? 1 : 0.4,
+                      }}
+                      aria-label="保存"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={savedIds.has(msg.id) ? '#4A7C59' : 'none'} stroke={savedIds.has(msg.id) ? '#4A7C59' : '#3B2F1E'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -555,6 +608,14 @@ export default function RoomChat({
         })}
         <div ref={bottomRef} />
       </div>
+
+      {saveTooltipAnchor && (
+        <SaveGuideTooltip
+          top={saveTooltipAnchor.top}
+          left={saveTooltipAnchor.left}
+          onClose={() => setSaveTooltipAnchor(null)}
+        />
+      )}
 
       {/* 入力エリア */}
       {!readOnly && (

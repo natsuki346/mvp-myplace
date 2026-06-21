@@ -5,19 +5,12 @@ import { useCallback, useSyncExternalStore } from 'react'
 export type TutorialStep =
   | 'room_nav_arrow'   // ① ルームへの矢印ガイド
   | 'room_intro'       // ④ ルームってなに？説明モーダル
-  | 'room_chat_mi'     // ⑤ 実の部屋チャット（閲覧モード）
+  | 'room_chat_mi'     // ⑤ 実の部屋チャット
   | 'room_grow_animation' // ⑥.5 成長アニメーション3（芽→つぼみ）
-  | 'ne_room_popup'         // ⑦ 根の部屋ものぞきますか？ポップアップ
-  | 'room_chat_ne'          // ⑧ 根の部屋チャット（閲覧モード）
-  | 'garden_onboarding'     // ⑧.5 ガーデン案内モーダル
-  | 'onboarding_seed_visit' // ⑨ オンボーディング最終Seedルーム訪問
-  | 'watering'         // ⑩ 水やり演出
-  | 'growth_result'    // ⑩.5 「成長した！向き合えた！」モーダル
-  | 'growth_explain'   // ⑩.7 成長の仕組み説明（ヘルプ画面）
-  | 'growth_modal'     // ⑪ 「向き合えてえらい！」モーダル
-  | 'thankyou_modal'   // ⑫ 「協力ありがとう」モーダル
-  | 'done'             // ⑬ 完了
-  | 'completed'        // ⑭ オンボーディング全体完了（再表示しない）
+  | 'ne_room_popup'         // ⑦ Seedルーム訪問の分岐点（常にスキップし room_grow_animation へ自動遷移）
+  | 'room_chat_ne'          // ⑧ 根の部屋チャット
+  | 'garden_onboarding'     // ⑧.5 ガーデン案内モーダル（ガーデン説明スライド→③チェック→名言→歓迎モーダル）
+  | 'completed'        // ⑨ オンボーディング全体完了（歓迎モーダルを閉じた時点で確定。再表示しない）
 
 const STORAGE_KEY = 'whyme_tutorial_step'
 

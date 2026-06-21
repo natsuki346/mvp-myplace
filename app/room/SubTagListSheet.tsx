@@ -6,7 +6,6 @@ import { supabase } from '@/src/lib/supabase/client'
 import { getMatchingTags } from '@/src/lib/supabase/rooms'
 import { getSubTags, type SubTag } from '@/src/lib/supabase/subtags'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
-import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import CreateChannelModal from './CreateChannelModal'
 
 type RoomType = 'light' | 'shadow'
@@ -35,14 +34,10 @@ export default function SubTagListSheet({
   const [subTags, setSubTags] = useState<SubTag[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
-  const [chatVisited, setChatVisited] = useState(false)
   const [matchTagIds, setMatchTagIds] = useState<string[]>([])
   const [showMembers, setShowMembers] = useState(false)
   const [members, setMembers] = useState<RoomMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  const { step } = useTutorialStep()
-  const showAllArrow = (step === 'room_chat_mi' || step === 'room_chat_ne' || step === 'onboarding_seed_visit') && !chatVisited
-  const showBackBubble = step === 'watering' || (step === 'room_chat_mi' && chatVisited) || (step === 'room_chat_ne' && chatVisited) || (step === 'onboarding_seed_visit' && chatVisited)
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 20)
@@ -97,7 +92,6 @@ export default function SubTagListSheet({
   }
 
   const handleSelect = (channel: SelectedChannel) => {
-    setChatVisited(true)
     onSelect(channel)
   }
 
@@ -131,49 +125,11 @@ export default function SubTagListSheet({
           display: 'flex', alignItems: 'center', gap: 12,
           position: 'relative',
         }}>
-          <div style={{ position: 'relative', display: 'inline-block', minWidth: 120, zIndex: showBackBubble ? 50 : undefined }}>
+          <div style={{ display: 'inline-block', minWidth: 120 }}>
             <button
               onClick={close}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#3B2F1E', padding: 0, position: 'relative', zIndex: showBackBubble ? 50 : undefined }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: '#3B2F1E', padding: 0 }}
             >← 戻る</button>
-
-            {showBackBubble && (
-              <div
-                style={{
-                  position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-                  marginTop: 8, whiteSpace: 'nowrap', zIndex: 50, pointerEvents: 'none',
-                }}
-              >
-                <div style={{ position: 'relative' }}>
-                  <div style={{
-                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                    width: 0, height: 0,
-                    borderLeft: '7px solid transparent',
-                    borderRight: '7px solid transparent',
-                    borderBottom: '7px solid #DC2626',
-                  }} />
-                  <div style={{
-                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                    width: 0, height: 0,
-                    borderLeft: '6px solid transparent',
-                    borderRight: '6px solid transparent',
-                    borderBottom: '6px solid white',
-                    marginBottom: -1,
-                  }} />
-                  <div style={{
-                    background: 'white',
-                    border: '1.5px solid #DC2626',
-                    borderRadius: 12,
-                    padding: '6px 14px',
-                    fontSize: 12,
-                    color: '#DC2626',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {step === 'watering' ? '戻って水を撒こう' : '戻って次に進もう'}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           <p style={{ flex: 1, margin: 0, fontSize: 15, fontWeight: 700, color: '#3B2F1E', textAlign: 'center' }}>
@@ -193,48 +149,17 @@ export default function SubTagListSheet({
         {/* チャンネル一覧 */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {/* ALL */}
-          <div style={{ position: 'relative', zIndex: showAllArrow ? 50 : undefined }}>
+          <div>
             <button
               onClick={() => handleSelect({ subTagId: null, name: tag.text })}
               style={{
                 display: 'flex', alignItems: 'center', width: '100%', height: 56, padding: '0 20px',
                 background: '#D4EED8', border: 'none', borderBottom: '1px solid rgba(0,0,0,0.06)',
                 cursor: 'pointer', textAlign: 'left',
-                position: 'relative', zIndex: showAllArrow ? 50 : undefined,
               }}
             >
               <span style={{ fontSize: 14, fontWeight: 600, color: '#4A7C59' }}>💬 ALL</span>
             </button>
-
-            {showAllArrow && (
-              <div
-                className="absolute flex items-center gap-2 animate-bounce"
-                style={{ top: 0, bottom: 0, right: 16, zIndex: 50, pointerEvents: 'none' }}
-              >
-                <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-                  <path
-                    d="M42 24 L10 24 M22 12 L8 24 L22 36"
-                    stroke="#E53935"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <div
-                  className="rounded-xl px-3 py-2"
-                  style={{
-                    background: '#fff',
-                    border: '1.5px solid #E53935',
-                    color: '#E53935',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  まずここをのぞいてみよう
-                </div>
-              </div>
-            )}
           </div>
 
           {loading ? (

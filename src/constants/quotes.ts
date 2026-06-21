@@ -1,4 +1,19 @@
-export type SeedQuote = { text: string; author: string }
+export type SeedQuote = { text: string; author: string; fontSize?: number }
+
+// 初回チャット訪問後の「ようこそ」モーダルで固定表示する名言
+// 1行が長いため、カード幅に収まるようフォントサイズを下げて指定
+export const WELCOME_QUOTE: SeedQuote = {
+  text: '喜びは分かち合うことで倍になり\n悲しみは分かち合うことで半分になる',
+  author: 'ゲーテ',
+  fontSize: 16,
+}
+
+// ガーデン案内（スライド→チェック→この名言→歓迎モーダル）の最後に固定表示する名言
+export const GARDEN_ONBOARDING_QUOTE: SeedQuote = {
+  text: 'あなた自身を愛しなさい。\n宇宙のどこを探しても、\nあなたほどあなたの愛に\n値する人はいない。',
+  author: 'ブッダ',
+  fontSize: 16,
+}
 
 export const SEED_PRAISE: string[] = [
   'また一歩、成長したね。🌱',
