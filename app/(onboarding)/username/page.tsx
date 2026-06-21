@@ -1,14 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
+import DaisyFlower from '@/src/components/DaisyFlower'
+
+type Stage = 'splash' | 'form'
 
 export default function UsernamePage() {
   const router = useRouter()
+  const [stage, setStage] = useState<Stage>('splash')
+  const [splashVisible, setSplashVisible] = useState(false)
+  const [formVisible, setFormVisible] = useState(false)
   const [username, setUsername] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
+
+  // 起動時：デイジーの花が咲くスプラッシュを少し見せてから、入力フォームへ
+  useEffect(() => {
+    const t1 = setTimeout(() => setSplashVisible(true), 20)
+    const t2 = setTimeout(() => setStage('form'), 1900)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
+
+  useEffect(() => {
+    if (stage !== 'form') return
+    const t = setTimeout(() => setFormVisible(true), 20)
+    return () => clearTimeout(t)
+  }, [stage])
 
   const isValid = username.trim().length > 0
 
@@ -50,8 +69,20 @@ export default function UsernamePage() {
     }
   }
 
+  if (stage === 'splash') {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F0E8', maxWidth: 390, margin: '0 auto' }}>
+        <DaisyFlower size={140} animate={splashVisible} />
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#F5F0E8', maxWidth: 390, margin: '0 auto' }}>
+    <div className="min-h-screen flex items-center justify-center px-6" style={{
+      background: '#F5F0E8', maxWidth: 390, margin: '0 auto',
+      opacity: formVisible ? 1 : 0,
+      transition: 'opacity 0.3s ease',
+    }}>
       <div className="w-full">
 
         <div className="mb-10">
