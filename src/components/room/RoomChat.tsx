@@ -52,46 +52,32 @@ const EMOJI_CATS = [
   { icon: '#️⃣', label: '記号', emojis: ['#️⃣','*️⃣','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔠','🔡','🔢','🅰️','🆎','🅱️','🆑','🆒','🆓','ℹ️','🆔','Ⓜ️','🆕','🆖','🅾️','🆗','🅿️','🆘','🆙','🆚','▪️','▫️','◾','◽','◼️','◻️','⬛','⬜','🟥','🟧','🟨','🟩','🟦','🟪','🟫','⚫','⚪','🔴','🟠','🟡','🟢','🔵','🟣','🟤','🔶','🔷','🔸','🔹','🔺','🔻','💠','🔘','🔳','🔲','🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈'] },
 ]
 
-// 初めてチャットを開いたユーザー向けの、保存（ブックマーク）ボタンの案内ツールチップ。
-// BubbleDetailModalのGuideTooltipと同じ配色・見た目（吹き出し＋上向き矢印）。
-function SaveGuideTooltip({ top, left, onClose }: { top: number; left: number; onClose: () => void }) {
+// 初めてチャットを開いたユーザー向けの、保存（ブックマーク）機能の案内バナー。
+// チャット画面の一番下（入力エリアの上）に固定表示する。個々のメッセージの
+// アイコン位置に依存しないため、位置計算やはみ出しの心配がない。
+function SaveGuideBanner({ onClose }: { onClose: () => void }) {
   return (
-    <div style={{ position: 'fixed', top, left, transform: 'translateX(-50%)', zIndex: 200, width: 220 }}>
-      <div style={{
-        position: 'relative',
-        background: '#FFFFFF',
-        border: '1.5px solid #8B6914',
-        borderRadius: 12,
-        padding: '10px 14px 12px',
-        boxShadow: '0 4px 14px rgba(139,105,20,0.22)',
-      }}>
-        {/* 上向きの矢印：保存ボタンを指し示す */}
-        <div style={{
-          position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
-          borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
-          borderBottom: '7px solid #8B6914',
-        }} />
-        <div style={{
-          position: 'absolute', top: -5.3, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0,
-          borderLeft: '5.5px solid transparent', borderRight: '5.5px solid transparent',
-          borderBottom: '5.5px solid #FFFFFF',
-        }} />
-
-        <p style={{ fontSize: 12.5, color: '#3B2F1E', lineHeight: 1.55, margin: '0 0 10px', fontWeight: 500 }}>
-          気に入った言葉はここから保存できるよ🔖
-        </p>
-
-        <button
-          onClick={onClose}
-          style={{
-            width: '100%', padding: '7px', borderRadius: 8, border: 'none',
-            background: '#4A7C59', color: '#FFFFFF',
-            fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          }}
-        >
-          わかった
-        </button>
-      </div>
+    <div style={{
+      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
+      padding: '12px 16px',
+      background: '#FFFFFF',
+      borderTop: '1.5px solid #8B6914',
+      boxShadow: '0 -4px 14px rgba(139,105,20,0.18)',
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <p style={{ flex: 1, fontSize: 12.5, color: '#3B2F1E', lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
+        🔖 気に入った言葉は、メッセージの保存ボタンから残せるよ
+      </p>
+      <button
+        onClick={onClose}
+        style={{
+          flexShrink: 0, padding: '7px 14px', borderRadius: 8, border: 'none',
+          background: '#4A7C59', color: '#FFFFFF',
+          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        }}
+      >
+        わかった
+      </button>
     </div>
   )
 }
@@ -132,8 +118,15 @@ export default function RoomChat({
   const matchingIdsRef = useRef<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
-  const firstSaveBtnRef = useRef<HTMLButtonElement>(null)
-  const [saveTooltipAnchor, setSaveTooltipAnchor] = useState<{ top: number; left: number } | null>(null)
+  // 初めてチャットを開いた時だけ、保存機能の案内バナーを1回限り出す。
+  // 既読化はユーザーが実際に閉じた時点（handleCloseSaveBanner）で行う。
+  // マウント時点で既読化すると、表示内容に不具合があった場合に再表示できなくなるため。
+  const [showSaveBanner, setShowSaveBanner] = useState(() => !readOnly && !isSaveTooltipSeen())
+
+  const handleCloseSaveBanner = () => {
+    markSaveTooltipSeen()
+    setShowSaveBanner(false)
+  }
 
   // matchTagIds を ref に同期
   useEffect(() => {
@@ -168,18 +161,6 @@ export default function RoomChat({
       setMessages((data as ChatMessage[]) ?? [])
     })()
   }, [matchTagIds, subTagId])
-
-  // 初めてチャットを開いた時の1回限り：保存（ブックマーク）ボタンの案内ツールチップを出す
-  useEffect(() => {
-    if (readOnly || isSaveTooltipSeen()) return
-    const t = requestAnimationFrame(() => {
-      const rect = firstSaveBtnRef.current?.getBoundingClientRect()
-      if (!rect) return
-      markSaveTooltipSeen()
-      setSaveTooltipAnchor({ top: rect.bottom + 8, left: rect.left + rect.width / 2 })
-    })
-    return () => cancelAnimationFrame(t)
-  }, [readOnly, introMessages.length, messages.length])
 
   // メンション候補（introMessagesのユーザー + メッセージ履歴）
   // introMessages は定数(module-level)なので deps から除外
@@ -586,7 +567,6 @@ export default function RoomChat({
                       </svg>
                     </button>
                     <button
-                      ref={index === 0 ? firstSaveBtnRef : undefined}
                       onClick={() => handleToggleSave(msg.id, msg.content)}
                       style={{
                         background: 'transparent', border: '1px solid rgba(139,105,20,0.25)',
@@ -609,13 +589,7 @@ export default function RoomChat({
         <div ref={bottomRef} />
       </div>
 
-      {saveTooltipAnchor && (
-        <SaveGuideTooltip
-          top={saveTooltipAnchor.top}
-          left={saveTooltipAnchor.left}
-          onClose={() => setSaveTooltipAnchor(null)}
-        />
-      )}
+      {showSaveBanner && <SaveGuideBanner onClose={handleCloseSaveBanner} />}
 
       {/* 入力エリア */}
       {!readOnly && (
