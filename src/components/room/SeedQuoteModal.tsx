@@ -27,6 +27,15 @@ export default function SeedQuoteModal({ tagId, onClose, zIndex = 400, fixedQuot
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
+  // 固定名言（アリストテレス／ゲーテ／ブッダ）の時だけ、3秒間は「つづける」ボタン自体を
+  // 表示しない（じっくり読んでもらうための一時的な間）。通常のランダム名言では出さない。
+  const [showContinueButton, setShowContinueButton] = useState(!fixedQuote)
+  useEffect(() => {
+    if (!fixedQuote) return
+    const t = setTimeout(() => setShowContinueButton(true), 3000)
+    return () => clearTimeout(t)
+  }, [fixedQuote])
+
   const praise = useMemo(() => fixedPraise ?? pickOne(SEED_PRAISE), [fixedPraise])
   const quote  = useMemo(() => fixedQuote ?? pickOne(SEED_QUOTES), [fixedQuote])
   const content = `${quote.text} ― ${quote.author}`
@@ -102,6 +111,12 @@ export default function SeedQuoteModal({ tagId, onClose, zIndex = 400, fixedQuot
         transition: 'background 0.3s ease',
       }}
     >
+      <style>{`
+        @keyframes seed-quote-continue-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
       <div
         style={{
           width: '100%',
@@ -182,25 +197,28 @@ export default function SeedQuoteModal({ tagId, onClose, zIndex = 400, fixedQuot
           </button>
         )}
 
-        {/* つづけるボタン */}
-        <button
-          onClick={close}
-          style={{
-            width: '100%',
-            padding: '14px',
-            borderRadius: 12,
-            border: 'none',
-            background: '#4A7C59',
-            color: '#FFFFFF',
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: 'pointer',
-            marginTop: 24,
-            display: 'block',
-          }}
-        >
-          つづける
-        </button>
+        {/* つづけるボタン（固定名言の時は3秒経つまで表示しない） */}
+        {showContinueButton && (
+          <button
+            onClick={close}
+            style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: 12,
+              border: 'none',
+              background: '#4A7C59',
+              color: '#FFFFFF',
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: 'pointer',
+              marginTop: 24,
+              display: 'block',
+              animation: 'seed-quote-continue-in 0.3s ease both',
+            }}
+          >
+            つづける
+          </button>
+        )}
       </div>
     </div>
   )

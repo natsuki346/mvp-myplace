@@ -33,13 +33,14 @@ export function markBubbleDetailTooltipSeen(): void {
   window.localStorage.setItem(bubbleDetailTooltipSeenKey(), 'true')
 }
 
-// チャットの保存（ブックマーク）ボタンの案内ツールチップを既に見たかどうか。
+// チャットの保存（ブックマーク）ボタンの案内バナーを既に見たかどうか。
 // ユーザーごとに、初めてチャットを開いた時の1回限りで案内する。
-// ※ キーに :v3 を付けているのは、位置計算が壊れていた過去バージョンで誤って
-// 既読化されてしまった既存ユーザーにも、直った状態でもう一度案内が出るようにするため。
+// ※ キーに :v4 を付けているのは、過去バージョン（位置がズレていた／非表示になっていた版）
+// のテスト中に誤って既読化されてしまった既存ユーザーにも、直った状態でもう一度案内が
+// 出るようにするため。
 function saveTooltipSeenKey(): string {
   const userId = typeof window !== 'undefined' ? window.sessionStorage.getItem('user_id') : null
-  return `canvas:saveTooltipSeen:v3:${userId ?? 'anon'}`
+  return `canvas:saveTooltipSeen:v4:${userId ?? 'anon'}`
 }
 
 export function isSaveTooltipSeen(): boolean {

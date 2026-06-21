@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import type { DummyMessage } from '@/app/room/dummy-messages'
@@ -52,32 +52,114 @@ const EMOJI_CATS = [
   { icon: '#️⃣', label: '記号', emojis: ['#️⃣','*️⃣','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔠','🔡','🔢','🅰️','🆎','🅱️','🆑','🆒','🆓','ℹ️','🆔','Ⓜ️','🆕','🆖','🅾️','🆗','🅿️','🆘','🆙','🆚','▪️','▫️','◾','◽','◼️','◻️','⬛','⬜','🟥','🟧','🟨','🟩','🟦','🟪','🟫','⚫','⚪','🔴','🟠','🟡','🟢','🔵','🟣','🟤','🔶','🔷','🔸','🔹','🔺','🔻','💠','🔘','🔳','🔲','🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈'] },
 ]
 
-// 初めてチャットを開いたユーザー向けの、保存（ブックマーク）機能の案内バナー。
-// チャット画面の一番下（入力エリアの上）に固定表示する。個々のメッセージの
-// アイコン位置に依存しないため、位置計算やはみ出しの心配がない。
-function SaveGuideBanner({ onClose }: { onClose: () => void }) {
+const SAVE_TOOLTIP_WIDTH  = 220
+const SAVE_TOOLTIP_MARGIN = 8   // 画面端からの最小マージン
+const SAVE_TOOLTIP_GAP    = 10  // アイコンと吹き出し本体の間隔
+
+// 初めてチャットを開いたユーザー向けの、保存（ブックマーク）ボタンの案内ツールチップ。
+// 対象メッセージ（最新メッセージ）の保存アイコンを、position:relativeなラッパー自身を
+// 基準にabsolute配置する（position:fixedはRoomChatSheetのslide-in transformに
+// 包まれると基準がビューポートからズレるため使わない）。
+// アイコンの右側に本体を出し、左向き矢印でアイコンを指す。メッセージ本文と重ならない。
+// 右側に置くと画面右端からはみ出す場合は、自動でアイコンの左側（右向き矢印）に切り替える。
+// 縦位置はCSSの top:50%/translateY(-50%) でアイコンに常に中央揃えになるため、
+// JSでの高さ測定は不要。デフォルト位置（測定前・測定失敗時）でも必ず描画される。
+function SaveGuideTooltip({
+  anchorRef,
+  onClose,
+}: {
+  anchorRef: React.RefObject<HTMLDivElement | null>
+  onClose: () => void
+}) {
+  const [pos, setPos] = useState<{ side: 'right' | 'left'; boxLeft: number }>({
+    side: 'right',
+    boxLeft: SAVE_TOOLTIP_GAP,
+  })
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current
+    if (!anchor) return
+    const rect = anchor.getBoundingClientRect()
+    if (rect.width === 0 && rect.height === 0) return
+    const viewportWidth = window.innerWidth
+
+    // アイコンの右側に置いて画面右端に収まるか判定。収まらなければ左側に切り替える
+    const fitsRight = rect.right + SAVE_TOOLTIP_GAP + SAVE_TOOLTIP_WIDTH <= viewportWidth - SAVE_TOOLTIP_MARGIN
+    const side: 'right' | 'left' = fitsRight ? 'right' : 'left'
+
+    let boxViewportLeft = side === 'right'
+      ? rect.right + SAVE_TOOLTIP_GAP
+      : rect.left - SAVE_TOOLTIP_GAP - SAVE_TOOLTIP_WIDTH
+
+    // 最終防衛：両側に置いても収まらない極端な画面幅でも、必ず画面内に収める
+    boxViewportLeft = Math.max(
+      SAVE_TOOLTIP_MARGIN,
+      Math.min(boxViewportLeft, viewportWidth - SAVE_TOOLTIP_MARGIN - SAVE_TOOLTIP_WIDTH),
+    )
+
+    // anchor（position:relativeなラッパー）基準のlocal座標に変換
+    setPos({ side, boxLeft: boxViewportLeft - rect.left })
+  }, [anchorRef])
+
+  const arrowOnRightEdge = pos.side === 'left' // 本体が左側にある時は、右端の矢印がアイコンを指す
+
   return (
     <div style={{
-      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
-      padding: '12px 16px',
-      background: '#FFFFFF',
-      borderTop: '1.5px solid #8B6914',
-      boxShadow: '0 -4px 14px rgba(139,105,20,0.18)',
-      display: 'flex', alignItems: 'center', gap: 12,
+      position: 'absolute', top: '50%', left: pos.boxLeft,
+      transform: 'translateY(-50%)', zIndex: 20, width: SAVE_TOOLTIP_WIDTH,
     }}>
-      <p style={{ flex: 1, fontSize: 12.5, color: '#3B2F1E', lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
-        🔖 気に入った言葉は、メッセージの保存ボタンから残せるよ
-      </p>
-      <button
-        onClick={onClose}
-        style={{
-          flexShrink: 0, padding: '7px 14px', borderRadius: 8, border: 'none',
-          background: '#4A7C59', color: '#FFFFFF',
-          fontSize: 12, fontWeight: 700, cursor: 'pointer',
-        }}
-      >
-        わかった
-      </button>
+      <div style={{
+        position: 'relative',
+        background: '#FFFFFF',
+        border: '1.5px solid #8B6914',
+        borderRadius: 12,
+        padding: '10px 14px 12px',
+        boxShadow: '0 4px 14px rgba(139,105,20,0.22)',
+      }}>
+        <p style={{ fontSize: 12.5, color: '#3B2F1E', lineHeight: 1.55, margin: '0 0 10px', fontWeight: 500 }}>
+          🔖 気に入った言葉は、メッセージの保存ボタンから残せるよ
+        </p>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%', padding: '7px', borderRadius: 8, border: 'none',
+            background: '#4A7C59', color: '#FFFFFF',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          わかった
+        </button>
+
+        {/* 矢印：本体が右側にある時は左向き（←）、左側にある時は右向き（→）でアイコンを指す */}
+        {arrowOnRightEdge ? (
+          <>
+            <div style={{
+              position: 'absolute', top: '50%', right: -7, transform: 'translateY(-50%)', width: 0, height: 0,
+              borderTop: '7px solid transparent', borderBottom: '7px solid transparent',
+              borderLeft: '7px solid #8B6914',
+            }} />
+            <div style={{
+              position: 'absolute', top: '50%', right: -5.3, transform: 'translateY(-50%)', width: 0, height: 0,
+              borderTop: '5.5px solid transparent', borderBottom: '5.5px solid transparent',
+              borderLeft: '5.5px solid #FFFFFF',
+            }} />
+          </>
+        ) : (
+          <>
+            <div style={{
+              position: 'absolute', top: '50%', left: -7, transform: 'translateY(-50%)', width: 0, height: 0,
+              borderTop: '7px solid transparent', borderBottom: '7px solid transparent',
+              borderRight: '7px solid #8B6914',
+            }} />
+            <div style={{
+              position: 'absolute', top: '50%', left: -5.3, transform: 'translateY(-50%)', width: 0, height: 0,
+              borderTop: '5.5px solid transparent', borderBottom: '5.5px solid transparent',
+              borderRight: '5.5px solid #FFFFFF',
+            }} />
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -118,14 +200,17 @@ export default function RoomChat({
   const matchingIdsRef = useRef<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
-  // 初めてチャットを開いた時だけ、保存機能の案内バナーを1回限り出す。
-  // 既読化はユーザーが実際に閉じた時点（handleCloseSaveBanner）で行う。
-  // マウント時点で既読化すると、表示内容に不具合があった場合に再表示できなくなるため。
-  const [showSaveBanner, setShowSaveBanner] = useState(() => !readOnly && !isSaveTooltipSeen())
+  const saveTooltipAnchorRef = useRef<HTMLDivElement>(null)
+  // 初めてチャットを開いた時だけ、保存ボタンの案内ツールチップを1回限り出す。
+  // 表示中は常に最新メッセージの保存アイコンを指す（未読の間だけ追従すればよいため、
+  // 既読化後は対象を固定し直す必要がない）。既読化はユーザーが実際に閉じた時点
+  // （handleCloseSaveTooltip）で行う。マウント時点で既読化すると、表示内容に
+  // 不具合があった場合に再表示できなくなるため。
+  const [showSaveTooltip, setShowSaveTooltip] = useState(() => !readOnly && !isSaveTooltipSeen())
 
-  const handleCloseSaveBanner = () => {
+  const handleCloseSaveTooltip = () => {
     markSaveTooltipSeen()
-    setShowSaveBanner(false)
+    setShowSaveTooltip(false)
   }
 
   // matchTagIds を ref に同期
@@ -477,6 +562,7 @@ export default function RoomChat({
           const mine = msg.user_id === userId
           const isIntro = introIds.has(msg.id)
           const first = isFirstInGroup(index, allMessages)
+          const isLastMessage = index === allMessages.length - 1
           const user = mine ? (msg.users ?? myProfile) : msg.users
           const reactions = isIntro
             ? (introReactionsMap[msg.id] ?? [])
@@ -566,20 +652,25 @@ export default function RoomChat({
                         <line x1="15" y1="9" x2="15.01" y2="9"/>
                       </svg>
                     </button>
-                    <button
-                      onClick={() => handleToggleSave(msg.id, msg.content)}
-                      style={{
-                        background: 'transparent', border: '1px solid rgba(139,105,20,0.25)',
-                        borderRadius: 20, padding: '3px 7px',
-                        cursor: 'pointer', display: 'flex', alignItems: 'center',
-                        opacity: savedIds.has(msg.id) ? 1 : 0.4,
-                      }}
-                      aria-label="保存"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={savedIds.has(msg.id) ? '#4A7C59' : 'none'} stroke={savedIds.has(msg.id) ? '#4A7C59' : '#3B2F1E'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-                      </svg>
-                    </button>
+                    <div style={{ position: 'relative' }} ref={isLastMessage ? saveTooltipAnchorRef : undefined}>
+                      <button
+                        onClick={() => handleToggleSave(msg.id, msg.content)}
+                        style={{
+                          background: 'transparent', border: '1px solid rgba(139,105,20,0.25)',
+                          borderRadius: 20, padding: '3px 7px',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center',
+                          opacity: savedIds.has(msg.id) ? 1 : 0.4,
+                        }}
+                        aria-label="保存"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={savedIds.has(msg.id) ? '#4A7C59' : 'none'} stroke={savedIds.has(msg.id) ? '#4A7C59' : '#3B2F1E'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                        </svg>
+                      </button>
+                      {isLastMessage && showSaveTooltip && (
+                        <SaveGuideTooltip anchorRef={saveTooltipAnchorRef} onClose={handleCloseSaveTooltip} />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -588,8 +679,6 @@ export default function RoomChat({
         })}
         <div ref={bottomRef} />
       </div>
-
-      {showSaveBanner && <SaveGuideBanner onClose={handleCloseSaveBanner} />}
 
       {/* 入力エリア */}
       {!readOnly && (
