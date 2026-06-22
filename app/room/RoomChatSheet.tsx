@@ -66,7 +66,7 @@ export default function RoomChatSheet({
       subTagId: subTagId ?? null,
       subTagName: subTagName ?? null,
     }))
-    router.push(`/profile/${targetUserId}`)
+    router.push(`/profile/view?userId=${targetUserId}`)
   }
 
   const introMessages = subTagId ? [] : DUMMY_MESSAGES_COMMON

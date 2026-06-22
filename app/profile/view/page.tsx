@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { UserAvatar } from '@/src/components/UserAvatar'
@@ -20,10 +20,10 @@ type Tag = {
 
 type ConnectionStatus = 'none' | 'pending' | 'received' | 'accepted'
 
-export default function OtherProfilePage() {
+function OtherProfileContent() {
   const router = useRouter()
-  const params = useParams<{ userId: string }>()
-  const targetUserId = params.userId
+  const searchParams = useSearchParams()
+  const targetUserId = searchParams.get('userId') ?? ''
 
   const [myUserId, setMyUserId] = useState<string | null>(null)
   const [user, setUser] = useState<UserRow | null>(null)
@@ -352,5 +352,13 @@ export default function OtherProfilePage() {
         )
       })()}
     </div>
+  )
+}
+
+export default function OtherProfilePage() {
+  return (
+    <Suspense fallback={null}>
+      <OtherProfileContent />
+    </Suspense>
   )
 }

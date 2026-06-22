@@ -402,7 +402,7 @@ export default function ProfilePage() {
                     return (
                       <div
                         key={conn.id}
-                        onClick={() => other && router.push(`/profile/${other.id}`)}
+                        onClick={() => other && router.push(`/profile/view?userId=${other.id}`)}
                         style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: other ? 'pointer' : 'default' }}
                       >
                         <UserAvatar username={other?.username} avatarUrl={other?.avatar_url} size={40} />

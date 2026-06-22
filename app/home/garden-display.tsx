@@ -676,7 +676,7 @@ export default function GardenDisplay() {
                 onClick={() => {
                   if (isDragging.current) return
                   if (isFriend) {
-                    router.push(`/room/friend/${tag.id}`)
+                    router.push(`/room/friend/chat?friendId=${tag.id}`)
                   } else {
                     setSelectedBubble({ tagId: tag.id, tagText: tag.text, tagType: tab as 'light' | 'shadow' })
                   }

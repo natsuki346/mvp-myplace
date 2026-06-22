@@ -78,7 +78,7 @@ export default function FriendRoomView() {
       {friends.map(friend => (
         <div
           key={friend.id}
-          onClick={() => router.push(`/room/friend/${friend.id}`)}
+          onClick={() => router.push(`/room/friend/chat?friendId=${friend.id}`)}
           style={{
             display: 'flex',
             flexDirection: 'column',

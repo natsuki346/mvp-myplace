@@ -237,7 +237,7 @@ export default function SubTagListSheet({
                       setShowMembers(false)
                       const myId = sessionStorage.getItem('user_id')
                       if (member.id === myId) { router.push('/profile'); return }
-                      router.push(`/profile/${member.id}`)
+                      router.push(`/profile/view?userId=${member.id}`)
                     }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,

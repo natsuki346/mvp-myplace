@@ -2,6 +2,18 @@
 
 import { useRef, useState } from 'react'
 
+// AI生成タグの呼び出し先（Supabase Edge Functions）。
+// Next.js API Routesは静的書き出し（output: 'export'）と相性が悪いため、
+// ここはNext.jsの外（Supabase Edge Function）に出している。
+const EDGE_FUNCTIONS_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+// Edge FunctionsはデフォルトでJWT検証が有効なため、匿名キーをBearerトークンとして送る
+// （supabase-jsクライアントが内部で行っているのと同じ仕組み）
+const EDGE_FUNCTION_HEADERS = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+  'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+}
+
 type Props = {
   questionNumber:   number
   totalQuestions:   number
@@ -134,13 +146,16 @@ export function QuestionCard({
   onComplete,
 }: Props) {
   const [text,           setText]           = useState('')
-  const [candidateTags,  setCandidateTags]  = useState<string[]>(exampleTags)
+  // AIが生成したタグ。空の間は固定の例タグ（exampleTags）を表示し、
+  // 生成が完了したらこちらだけを表示する（例タグは隠す）
+  const [generatedTags,  setGeneratedTags]  = useState<string[]>([])
   const [registeredTags, setRegisteredTags] = useState<string[]>([])
   const [isGenerating,   setIsGenerating]   = useState(false)
   const [error,          setError]          = useState<string | null>(null)
   const [showAll,        setShowAll]        = useState(false)
   const [suggestedTags,  setSuggestedTags]  = useState<Set<string>>(new Set())
-  const [hasGenerated,   setHasGenerated]   = useState(false)
+
+  const displayTags = generatedTags.length > 0 ? generatedTags : exampleTags
 
   const suggestChainCount = useRef(0)
 
@@ -183,16 +198,15 @@ export function QuestionCard({
     setIsGenerating(true)
     setError(null)
     try {
-      const res = await fetch('/api/generate-tags', {
+      const res = await fetch(`${EDGE_FUNCTIONS_BASE}/generate-tags`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: EDGE_FUNCTION_HEADERS,
         body: JSON.stringify({ text }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'エラーが発生しました')
       const generated: string[] = data.tags ?? []
-      setCandidateTags(prev => [...prev, ...generated.filter(t => !prev.includes(t))])
-      setHasGenerated(true)
+      setGeneratedTags(prev => [...prev, ...generated.filter(t => !prev.includes(t))])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'エラーが発生しました')
     } finally {
@@ -214,15 +228,15 @@ export function QuestionCard({
     suggestChainCount.current += 1
 
     try {
-      const res = await fetch('/api/suggest-tags', {
+      const res = await fetch(`${EDGE_FUNCTIONS_BASE}/suggest-tags`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: EDGE_FUNCTION_HEADERS,
         body: JSON.stringify({ selectedTags: selected, type: isLight ? 'light' : 'shadow' }),
       })
       const data = await res.json()
       const suggestions: string[] = Array.isArray(data.tags) ? data.tags : []
 
-      setCandidateTags(prev => {
+      setGeneratedTags(prev => {
         const additions = suggestions.filter(t => !prev.includes(t) && !selected.includes(t))
         if (additions.length === 0) return prev
         setSuggestedTags(prevSet => new Set([...prevSet, ...additions]))
@@ -296,7 +310,12 @@ export function QuestionCard({
         {/* ── Textarea ── */}
         <textarea
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => {
+            const next = e.target.value
+            setText(next)
+            // 入力が空になったら、生成済みタグをクリアして固定の例タグ表示に戻す
+            if (!next.trim() && generatedTags.length > 0) setGeneratedTags([])
+          }}
           placeholder="ここに書いてみてください..."
           rows={4}
           className="w-full rounded-2xl text-sm p-4 outline-none resize-none mb-4 placeholder:text-black/25"
@@ -368,11 +387,11 @@ export function QuestionCard({
         )}
 
         {/* ── Candidate tags ── */}
-        {candidateTags.length > 0 && (
+        {displayTags.length > 0 && (
           <div className="mb-6">
-            <p className="text-xs mb-3" style={{ color: c.candidateLabel }}>{hasGenerated ? '生成されたタグ' : '例）'}</p>
+            <p className="text-xs mb-3" style={{ color: c.candidateLabel }}>{generatedTags.length > 0 ? '生成されたタグ' : '例）'}</p>
             <div className="flex flex-col gap-2">
-              {candidateTags.map(tag => {
+              {displayTags.map(tag => {
                 const added = registeredTags.includes(tag)
                 return (
                   <div

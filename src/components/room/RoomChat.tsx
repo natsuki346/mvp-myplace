@@ -504,7 +504,7 @@ export default function RoomChat({
           if (!targetId) return
           if (targetId.startsWith('dummy-')) return
           if (onProfileClick) { onProfileClick(targetId); return }
-          router.push(`/profile/${targetId}`)
+          router.push(`/profile/view?userId=${targetId}`)
         }}
         style={{
           width: 36, height: 36, borderRadius: '50%',

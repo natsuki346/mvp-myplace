@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import { getMatchingTags, incrementGrowthPoint, creditDailyView } from '@/src/lib/supabase/rooms'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
@@ -14,10 +14,12 @@ const ROOM_INFO: Record<'light' | 'shadow', { icon: string; label: string; backH
   shadow: { icon: '🌱', label: 'Seed',  backHref: '/onboarding/room-visit/shadow' },
 }
 
-export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
+function RoomChatViewContent({ type }: { type: 'light' | 'shadow' }) {
   const router = useRouter()
-  const params = useParams<{ tag: string }>()
-  const tag = decodeURIComponent(params.tag ?? '')
+  const searchParams = useSearchParams()
+  // useSearchParams().get() は既にデコード済みの値を返すため、ここで再度
+  // decodeURIComponent すると tag に "%" を含む場合に二重デコードでエラーになる
+  const tag = searchParams.get('tag') ?? ''
   const info = ROOM_INFO[type]
   const { step } = useTutorialStep()
 
@@ -87,5 +89,13 @@ export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
         />
       )}
     </div>
+  )
+}
+
+export default function RoomChatView({ type }: { type: 'light' | 'shadow' }) {
+  return (
+    <Suspense fallback={null}>
+      <RoomChatViewContent type={type} />
+    </Suspense>
   )
 }

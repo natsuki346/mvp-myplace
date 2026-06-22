@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import { UserAvatar } from '@/src/components/UserAvatar'
 
@@ -32,10 +32,10 @@ const shouldShowDateDivider = (messages: Message[], index: number): boolean => {
   return prev !== curr
 }
 
-export default function FriendChatPage() {
+function FriendChatContent() {
   const router = useRouter()
-  const params = useParams<{ friendId: string }>()
-  const friendId = params.friendId
+  const searchParams = useSearchParams()
+  const friendId = searchParams.get('friendId') ?? ''
 
   const [myUserId, setMyUserId] = useState<string | null>(null)
   const [friend, setFriend] = useState<ChatUser | null>(null)
@@ -140,7 +140,7 @@ export default function FriendChatPage() {
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#8B6914', lineHeight: 1, padding: 0 }}
         >‹</button>
         <div
-          onClick={() => router.push(`/profile/${friendId}`)}
+          onClick={() => router.push(`/profile/view?userId=${friendId}`)}
           style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
         >
           <UserAvatar username={friend?.username} avatarUrl={friend?.avatar_url} size={36} />
@@ -173,7 +173,7 @@ export default function FriendChatPage() {
                     username={msg.sender?.username}
                     avatarUrl={msg.sender?.avatar_url}
                     size={32}
-                    onClick={() => router.push(`/profile/${msg.sender_id}`)}
+                    onClick={() => router.push(`/profile/view?userId=${msg.sender_id}`)}
                   />
                 )}
                 <div style={{
@@ -191,7 +191,7 @@ export default function FriendChatPage() {
                     username={msg.sender?.username}
                     avatarUrl={msg.sender?.avatar_url}
                     size={32}
-                    onClick={() => router.push(`/profile/${msg.sender_id}`)}
+                    onClick={() => router.push(`/profile/view?userId=${msg.sender_id}`)}
                   />
                 )}
               </div>
@@ -231,5 +231,13 @@ export default function FriendChatPage() {
         >›</button>
       </div>
     </div>
+  )
+}
+
+export default function FriendChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <FriendChatContent />
+    </Suspense>
   )
 }

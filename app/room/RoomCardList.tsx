@@ -118,7 +118,7 @@ export default function RoomCardList({ type }: { type: 'light' | 'shadow' }) {
       {cards.map(card => (
         <button
           key={card.id}
-          onClick={() => router.push(`/onboarding/room-visit/${card.type}/${encodeURIComponent(card.text)}`)}
+          onClick={() => router.push(`/onboarding/room-visit/${card.type}/chat?tag=${encodeURIComponent(card.text)}`)}
           className="w-full text-left px-5 py-4 rounded-2xl transition-opacity hover:opacity-80"
           style={{ background: style.bg, border: 'none' }}
         >
