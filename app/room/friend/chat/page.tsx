@@ -49,7 +49,7 @@ function FriendChatContent() {
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     ;(async () => {
-      const uid = sessionStorage.getItem('user_id')
+      const uid = localStorage.getItem('user_id')
       if (!uid || !friendId) {
         setLoading(false)
         return

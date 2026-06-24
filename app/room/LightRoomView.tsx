@@ -55,7 +55,7 @@ export default function LightRoomView() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const userId = sessionStorage.getItem('user_id')
+      const userId = localStorage.getItem('user_id')
       if (!userId) { setLoading(false); return }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supabase.from('tags') as any)
@@ -120,7 +120,7 @@ export default function LightRoomView() {
     if (step === 'room_chat_mi') advanceStep('ne_room_popup')
 
     if (step === 'completed' && tag && depth) {
-      const userId = sessionStorage.getItem('user_id')
+      const userId = localStorage.getItem('user_id')
       if (userId) {
         commitSessionPoints(tag.id, depth, userId).then(({ newGrowthPoint }) => {
           setTags(prev => prev.map(t => (t.id === tag.id ? { ...t, growth_point: newGrowthPoint } : t)))

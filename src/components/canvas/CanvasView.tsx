@@ -348,7 +348,7 @@ export function CanvasView({
     setSelectedItemId(null)
     // Supabase 保存済みタグなら deactivated イベントを fire-and-forget で記録
     if (isUUID(id)) {
-      const userId = sessionStorage.getItem('user_id')
+      const userId = localStorage.getItem('user_id')
       if (userId) deactivateTag(id, userId)
     }
   }

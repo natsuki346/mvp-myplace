@@ -2,7 +2,7 @@
 // 同一ブラウザで複数アカウントを試す場合でも、ユーザーが切り替わったら再度表示されるようにする。
 
 function roomOnboardingDoneKey(): string {
-  const userId = typeof window !== 'undefined' ? window.sessionStorage.getItem('user_id') : null
+  const userId = typeof window !== 'undefined' ? window.localStorage.getItem('user_id') : null
   return `canvas:roomOnboardingDone:${userId ?? 'anon'}`
 }
 
@@ -19,7 +19,7 @@ export function markRoomOnboardingDone(): void {
 // バブル詳細モーダルの案内ツールチップ（「保存した言葉」「メモ・ジャーナル」を指し示すもの）を
 // 既に見たかどうか。ユーザーごとに、初回表示の1回限りで案内する。
 function bubbleDetailTooltipSeenKey(): string {
-  const userId = typeof window !== 'undefined' ? window.sessionStorage.getItem('user_id') : null
+  const userId = typeof window !== 'undefined' ? window.localStorage.getItem('user_id') : null
   return `canvas:bubbleDetailTooltipSeen:${userId ?? 'anon'}`
 }
 
@@ -39,7 +39,7 @@ export function markBubbleDetailTooltipSeen(): void {
 // のテスト中に誤って既読化されてしまった既存ユーザーにも、直った状態でもう一度案内が
 // 出るようにするため。
 function saveTooltipSeenKey(): string {
-  const userId = typeof window !== 'undefined' ? window.sessionStorage.getItem('user_id') : null
+  const userId = typeof window !== 'undefined' ? window.localStorage.getItem('user_id') : null
   return `canvas:saveTooltipSeen:v4:${userId ?? 'anon'}`
 }
 

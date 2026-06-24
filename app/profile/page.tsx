@@ -121,7 +121,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     ;(async () => {
-      const uid = sessionStorage.getItem('user_id')
+      const uid = localStorage.getItem('user_id')
       setUserId(uid)
       if (!uid) {
         setLoading(false)
@@ -192,8 +192,8 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    sessionStorage.removeItem('user_id')
-    sessionStorage.removeItem('username')
+    localStorage.removeItem('user_id')
+    localStorage.removeItem('username')
     router.push('/welcome')
   }
 

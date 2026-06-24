@@ -33,7 +33,7 @@ export default function SeedQuoteModal({ tagId, onClose, zIndex = 400, fixedQuot
 
   // 保存済みコンテンツを取得（紐づけるタグがない場合はブックマーク機能自体を使わない）
   useEffect(() => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId || !tagId) { setVisible(true); return }
     ;(async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,7 +52,7 @@ export default function SeedQuoteModal({ tagId, onClose, zIndex = 400, fixedQuot
   }, [tagId])
 
   const handleToggleSave = useCallback(async (q: SeedQuote) => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId || !tagId) return
 
     const c = `${q.text} ― ${q.author}`

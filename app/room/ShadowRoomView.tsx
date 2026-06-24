@@ -99,7 +99,7 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
     let cancelled = false
 
     ;(async () => {
-      const userId = sessionStorage.getItem('user_id')
+      const userId = localStorage.getItem('user_id')
       if (!userId) { setLoading(false); return }
 
       const data = await fetchShadowTags(userId)
@@ -161,7 +161,7 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
   // Seedルーム訪問時に seed_weight を +1（1セッション1タグにつき1回のみ）
   useEffect(() => {
     if (!openTag) return
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
 
     const visitKey = `seed_visited_${openTag.id}`
@@ -233,7 +233,7 @@ export default function ShadowRoomView({ onSeedChatDone }: { onSeedChatDone?: ()
     // ポイント加算：チュートリアル完了後のみ
     if (step === 'completed' && tag) {
       if (depth) {
-        const userId = sessionStorage.getItem('user_id')
+        const userId = localStorage.getItem('user_id')
         if (userId) {
           commitSessionPoints(tag.id, depth, userId).then(({ newGrowthPoint, newStage, leveledUp }) => {
             if (leveledUp) {

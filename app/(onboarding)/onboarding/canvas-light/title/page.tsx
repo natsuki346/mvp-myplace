@@ -46,7 +46,7 @@ export default function CanvasLightTitlePage() {
     sessionStorage.setItem('light_title',          trimmed)
     sessionStorage.setItem('light_title_duration', String(duration))
 
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (userId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(supabase.from('users') as any)

@@ -319,7 +319,7 @@ export default function GardenDisplay() {
 
   // ── データフェッチ ──
   useEffect(() => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) { setLoading(false); return }
     ;(async () => {
       const [tagsRes, eventsRes] = await Promise.all([
@@ -356,7 +356,7 @@ export default function GardenDisplay() {
 
   // ── Friend バブルフェッチ ──
   useEffect(() => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
     ;(async () => {
       // accepted な繋がりを取得
@@ -419,7 +419,7 @@ export default function GardenDisplay() {
 
   // ── tagsテーブルのリアルタイム購読（seed_weight/growth_point変化を即時反映） ──
   useEffect(() => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -487,7 +487,7 @@ export default function GardenDisplay() {
   // Friendバブルは tags テーブルの行を持たないため対象外。
   useEffect(() => {
     if (tab === 'friend' || changedIndices.length === 0) return
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
     for (const i of changedIndices) {
       const tag = currentTags[i]

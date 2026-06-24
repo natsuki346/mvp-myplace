@@ -7,7 +7,8 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
-    router.push('/username')
+    const userId = localStorage.getItem('user_id')
+    router.push(userId ? '/home' : '/username')
   }, [router])
 
   return null

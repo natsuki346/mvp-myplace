@@ -53,7 +53,7 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
   // （seed_weight・visitイベントは記録しない）。ガーデン説明スライド③の
   // プレビューで使う実タグIDだけセットする。
   const handleSkipSeedVisit = async () => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (userId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: tag } = await (supabase.from('tags') as any)

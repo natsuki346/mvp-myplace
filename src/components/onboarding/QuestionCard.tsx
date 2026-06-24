@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/src/lib/supabase/client'
 
 // AI生成タグの呼び出し先（Supabase Edge Functions）。
 // Next.js API Routesは静的書き出し（output: 'export'）と相性が悪いため、
@@ -154,6 +155,9 @@ export function QuestionCard({
   const [error,          setError]          = useState<string | null>(null)
   const [showAll,        setShowAll]        = useState(false)
   const [suggestedTags,  setSuggestedTags]  = useState<Set<string>>(new Set())
+  // タグ文字列 → そのタグを既に登録しているユーザー数。取得中はcountsLoadingがtrueになる
+  const [tagCounts,      setTagCounts]      = useState<Record<string, number>>({})
+  const [countsLoading,  setCountsLoading]  = useState(false)
 
   const displayTags = generatedTags.length > 0 ? generatedTags : exampleTags
 
@@ -162,6 +166,33 @@ export function QuestionCard({
   const MAX_VISIBLE      = 10
   const MAX_SUGGEST_CHAIN = 3
   const isLight     = questionNumber <= 2   // Q1・Q2 = 地上、Q3・Q4 = 地下
+
+  // 画面に表示中のタグ（例タグ or 生成タグ）について、同じタグを持つ人数を
+  // 1回のRPC呼び出しで一括取得する
+  const displayTagsKey = displayTags.join(' ')
+  useEffect(() => {
+    if (displayTags.length === 0) {
+      setTagCounts({})
+      return
+    }
+    let cancelled = false
+    setCountsLoading(true)
+    ;(async () => {
+      const { data } = await supabase.rpc('get_tag_member_counts', {
+        tag_texts: displayTags,
+        tag_type: isLight ? 'light' : 'shadow',
+      })
+      if (cancelled) return
+      const next: Record<string, number> = {}
+      ;(data as { tag_text: string; member_count: number }[] | null)?.forEach(row => {
+        next[row.tag_text] = row.member_count
+      })
+      setTagCounts(next)
+      setCountsLoading(false)
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayTagsKey, isLight])
 
   // 質問グループ別カラーテーマ
   const c = {
@@ -401,12 +432,17 @@ export function QuestionCard({
                     className={`flex items-center justify-between px-4 py-3 rounded-2xl ${suggestedTags.has(tag) ? 'animate-fadeIn' : ''}`}
                     style={{ background: added ? c.candidateRowAdded : c.candidateRowNormal }}
                   >
-                    <span
-                      className="text-sm font-medium"
-                      style={{ color: added ? c.tagTextAdded : c.tagTextNormal }}
-                    >
-                      {tag}
-                    </span>
+                    <div className="flex flex-col">
+                      <span
+                        className="text-sm font-medium"
+                        style={{ color: added ? c.tagTextAdded : c.tagTextNormal }}
+                      >
+                        {tag}
+                      </span>
+                      <span className="text-xs mt-0.5" style={{ color: c.candidateLabel }}>
+                        {countsLoading ? ' ' : `${tagCounts[tag] ?? 0}人`}
+                      </span>
+                    </div>
                     <button
                       onClick={() => addTag(tag)}
                       disabled={added}

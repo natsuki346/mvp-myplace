@@ -235,7 +235,7 @@ export default function SubTagListSheet({
                     key={member.id}
                     onClick={() => {
                       setShowMembers(false)
-                      const myId = sessionStorage.getItem('user_id')
+                      const myId = localStorage.getItem('user_id')
                       if (member.id === myId) { router.push('/profile'); return }
                       router.push(`/profile/view?userId=${member.id}`)
                     }}

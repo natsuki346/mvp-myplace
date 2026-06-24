@@ -39,7 +39,7 @@ export default function FirstChatVisitWelcomeFlow() {
 
       {stage === 'welcome' && (
         <WelcomeModal
-          username={sessionStorage.getItem('username')}
+          username={localStorage.getItem('username')}
           onNext={() => setStage('arrow')}
         />
       )}

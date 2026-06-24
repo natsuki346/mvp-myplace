@@ -184,7 +184,7 @@ export default function RoomChat({
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [userId] = useState<string | null>(() =>
-    typeof window !== 'undefined' ? sessionStorage.getItem('user_id') : null
+    typeof window !== 'undefined' ? localStorage.getItem('user_id') : null
   )
   const [myProfile, setMyProfile] = useState<ChatMessageUser | null>(null)
   const [reactionsMap, setReactionsMap] = useState<ReactionsMap>({})

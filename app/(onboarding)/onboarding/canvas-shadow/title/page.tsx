@@ -46,7 +46,7 @@ export default function CanvasShadowTitlePage() {
     sessionStorage.setItem('shadow_title',          trimmed)
     sessionStorage.setItem('shadow_title_duration', String(duration))
 
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (userId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(supabase.from('users') as any)

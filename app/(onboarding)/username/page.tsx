@@ -105,8 +105,8 @@ export default function UsernamePage() {
         user = created
       }
 
-      sessionStorage.setItem('user_id',  user.id)
-      sessionStorage.setItem('username', user.username)
+      localStorage.setItem('user_id',  user.id)
+      localStorage.setItem('username', user.username)
       router.push('/welcome')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ログインに失敗しました。もう一度お試しください。')

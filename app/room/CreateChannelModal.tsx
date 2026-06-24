@@ -22,7 +22,7 @@ export default function CreateChannelModal({
 
   const handleCreate = async () => {
     if (!valid || submitting) return
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
 
     setSubmitting(true)

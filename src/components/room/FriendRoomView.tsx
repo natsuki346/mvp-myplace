@@ -24,7 +24,7 @@ export default function FriendRoomView() {
 
   useEffect(() => {
     ;(async () => {
-      const myUserId = sessionStorage.getItem('user_id')
+      const myUserId = localStorage.getItem('user_id')
       if (!myUserId) {
         setLoading(false)
         return

@@ -37,7 +37,7 @@ function RoomChatViewContent({ type }: { type: 'light' | 'shadow' }) {
     let cancelled = false
 
     ;(async () => {
-      const uid = sessionStorage.getItem('user_id')
+      const uid = localStorage.getItem('user_id')
       if (!uid || !tag) return
 
       // 自分のタグ行を取得（投稿・growth_point の対象）

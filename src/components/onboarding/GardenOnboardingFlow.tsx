@@ -53,9 +53,9 @@ export default function GardenOnboardingFlow({ onClose }: GardenOnboardingFlowPr
 
       {stage === 'welcome' && (
         <WelcomeModal
-          username={sessionStorage.getItem('username')}
+          username={localStorage.getItem('username')}
           title={(() => {
-            const u = sessionStorage.getItem('username')
+            const u = localStorage.getItem('username')
             return u ? <>{u}さんの農園を<br />広げよう！</> : <>農園を<br />広げよう！</>
           })()}
           subtitle="あなたは常に前に進んでる"

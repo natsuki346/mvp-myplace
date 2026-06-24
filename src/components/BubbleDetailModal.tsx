@@ -109,7 +109,7 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
   })
 
   const fetchJournals = useCallback(async () => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase.from('journals') as any)
@@ -121,7 +121,7 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
   }, [tagId])
 
   useEffect(() => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     ;(async () => {
       const [tagRes, eventsRes, savedRes, journalsRes] = await Promise.all([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,7 +169,7 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
   const handleSaveJournal = async () => {
     const text = journalText.trim()
     if (!text) return
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
 
     setSavingJournal(true)

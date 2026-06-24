@@ -31,7 +31,7 @@ export default function CanvasLightPage() {
   }
 
   const handleRemoveTag = (tagText: string) => {
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (!userId) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(supabase.from('tags') as any)

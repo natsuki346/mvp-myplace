@@ -43,7 +43,7 @@ function OtherProfileContent() {
         return
       }
 
-      const uid = sessionStorage.getItem('user_id')
+      const uid = localStorage.getItem('user_id')
       setMyUserId(uid)
 
       if (!uid || !targetUserId) {

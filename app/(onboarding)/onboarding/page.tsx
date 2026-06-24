@@ -70,7 +70,7 @@ export default function OnboardingPage() {
     sessionStorage.setItem('onboarding_tags', JSON.stringify({ lightTags, shadowTags }))
 
     // DB 保存は fire-and-forget（遷移をブロックしない）
-    const userId = sessionStorage.getItem('user_id')
+    const userId = localStorage.getItem('user_id')
     if (userId) {
       const allTags = [
         ...lightTags.map((text) => ({
