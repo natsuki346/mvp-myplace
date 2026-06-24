@@ -210,7 +210,7 @@ export default function HelpModal({ onClose }: HelpModalProps) {
       zIndex: 500, maxWidth: 390, margin: '0 auto',
       background: '#F5F0E8', overflowY: 'auto',
     }}>
-      <div style={{ padding: '52px 20px 40px' }}>
+      <div style={{ padding: 'calc(52px + env(safe-area-inset-top)) 20px 40px' }}>
 
         {/* 戻るボタン */}
         <button

@@ -147,11 +147,12 @@ export default function GardenSetupFlow({ lightTags, shadowTags, onComplete }: G
 
   return (
     <div
-      className="flex flex-col px-6 pt-12"
+      className="flex flex-col px-6"
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         background: '#F5F0E8', maxWidth: 390, margin: '0 auto',
         overflowY: 'auto', paddingBottom: 80,
+        paddingTop: 'calc(48px + env(safe-area-inset-top))',
       }}
     >
       {/* ヘッダー */}
@@ -214,13 +215,16 @@ export default function GardenSetupFlow({ lightTags, shadowTags, onComplete }: G
         ))}
       </div>
 
-      {/* 下部固定ボタン：本来のボトムナビ（高さ80px）と同じ範囲に収める */}
+      {/* 下部固定ボタン：本来のボトムナビ（高さ80px）と同じ範囲に収める。
+          セーフエリア分はheightとbottom paddingの両方に同じだけ加算し、
+          ボタン自体の見た目の高さ・位置はそのまま保つ。 */}
       <div
         style={{
           position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
           width: '100%', maxWidth: 390, zIndex: 100,
-          background: '#F5F0E8', padding: '12px 24px',
-          height: 80, boxSizing: 'border-box',
+          background: '#F5F0E8',
+          padding: '12px 24px calc(12px + env(safe-area-inset-bottom))',
+          height: 'calc(80px + env(safe-area-inset-bottom))', boxSizing: 'border-box',
           display: 'flex', alignItems: 'center',
         }}
       >

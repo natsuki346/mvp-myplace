@@ -29,7 +29,7 @@ export default function LightRoomVisitPage() {
       <div style={{
         position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
         width: '100%', maxWidth: 390,
-        padding: '16px 24px 32px',
+        padding: '16px 24px calc(32px + env(safe-area-inset-bottom))',
         background: 'linear-gradient(to bottom, transparent, #F5F0E8 40%)',
       }}>
         <button

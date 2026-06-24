@@ -194,13 +194,13 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
 
   return (
     <div style={{
-      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400,
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400,
       background: '#F5F0E8', overflowY: 'auto',
     }}>
       <div style={{ maxWidth: 390, margin: '0 auto', paddingBottom: 32 }}>
 
         {/* ヘッダー */}
-        <div style={{ padding: '52px 20px 12px' }}>
+        <div style={{ padding: 'calc(52px + env(safe-area-inset-top)) 20px 12px' }}>
           <div style={{ position: 'relative', display: 'inline-block', marginBottom: 16 }}>
             <button
               onClick={onClose}
@@ -384,7 +384,7 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
                     width: '100%', minHeight: 80,
                     border: 'none', outline: 'none', resize: 'none',
                     background: 'transparent',
-                    fontSize: 13, color: '#3B2F1E', lineHeight: 1.6,
+                    fontSize: 16, color: '#3B2F1E', lineHeight: 1.6,
                     fontFamily: 'inherit',
                     boxSizing: 'border-box',
                   }}

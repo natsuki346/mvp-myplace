@@ -493,6 +493,20 @@ export default function ProfilePage() {
         </button>
       </div>
 
+      {/* ⑥ 設定リンク */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+        <button
+          onClick={() => router.push('/privacy')}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: '#A09070', fontSize: 12, textDecoration: 'underline',
+            padding: 4,
+          }}
+        >
+          プライバシーポリシー
+        </button>
+      </div>
+
       <BottomNav />
     </div>
   )

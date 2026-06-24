@@ -333,7 +333,7 @@ function OtherProfileContent() {
               width: '100%', maxWidth: 390,
               background: '#F5F0E8', borderRadius: '20px 20px 0 0',
               borderTop: '1px solid #D4B896', zIndex: 101,
-              padding: '20px 20px 48px',
+              padding: '20px 20px calc(48px + env(safe-area-inset-bottom))',
             }}>
               <div style={{ width: 36, height: 4, background: 'rgba(139,105,20,.25)', borderRadius: 2, margin: '0 auto 16px' }} />
               <h3 style={{ fontSize: 14, color: '#8B6914', fontWeight: 700, margin: '0 0 16px' }}>

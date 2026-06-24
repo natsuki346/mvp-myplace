@@ -120,7 +120,7 @@ export default function SubTagListSheet({
       >
         {/* Header */}
         <div style={{
-          flexShrink: 0, padding: '16px 20px',
+          flexShrink: 0, padding: 'calc(16px + env(safe-area-inset-top)) 20px 16px',
           borderBottom: '1px solid rgba(0,0,0,0.06)',
           display: 'flex', alignItems: 'center', gap: 12,
           position: 'relative',
@@ -212,7 +212,7 @@ export default function SubTagListSheet({
             width: '100%', maxWidth: 390,
             background: '#F5F0E8', borderRadius: '20px 20px 0 0',
             borderTop: '1px solid #D4B896', zIndex: 51,
-            paddingBottom: 40,
+            paddingBottom: 'calc(40px + env(safe-area-inset-bottom))',
           }}>
             <div style={{ width: 36, height: 4, background: 'rgba(139,105,20,.25)', borderRadius: 2, margin: '10px auto 0' }} />
             <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

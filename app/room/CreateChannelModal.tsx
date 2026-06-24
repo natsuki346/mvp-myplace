@@ -53,7 +53,7 @@ export default function CreateChannelModal({
           style={{
             width: '100%', boxSizing: 'border-box', padding: 12, borderRadius: 12,
             border: '1px solid #D4B896', outline: 'none',
-            fontSize: 14, color: '#3B2F1E', marginBottom: 16,
+            fontSize: 16, color: '#3B2F1E', marginBottom: 16,
           }}
         />
         <button

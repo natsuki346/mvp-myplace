@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "mvp-myplace",
   description: "Canvas view",
+};
+
+// Capacitor(iOS)でコンテンツがステータスバー/ノッチの裏まで描画されるようにし、
+// env(safe-area-inset-*) を有効化する（これが無いとsafe-area-inset-*は常に0になる）。
+// maximumScale/userScalableは、フォントサイズ16px未満の入力欄にフォーカスした時に
+// iOS Safari/WebViewが自動でズームしてしまう挙動を抑止するため。
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

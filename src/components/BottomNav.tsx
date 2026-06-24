@@ -3,9 +3,9 @@
 import { useRouter, usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { icon: '🌿', label: 'ガーデン',     path: '/home' },
-  { icon: '🏠', label: 'ルーム',       path: '/room/light' },
-  { icon: '👤', label: 'プロフィール', path: '/profile' },
+  { id: 'garden',  icon: '🌿', label: 'ガーデン',     path: '/home' },
+  { id: 'room',    icon: '🏠', label: 'ルーム',       path: '/room/light' },
+  { id: 'profile', icon: '👤', label: 'プロフィール', path: '/profile' },
 ]
 
 type BottomNavProps = {
@@ -23,7 +23,7 @@ export function BottomNav({ onRoomClick, onGardenClick }: BottomNavProps = {}) {
       width: '100%', maxWidth: 390, zIndex: 100,
       display: 'flex', justifyContent: 'space-around', alignItems: 'center',
       background: '#F5F0E8', borderTop: '1px solid rgba(139,115,85,0.15)',
-      padding: '10px 0 18px',
+      padding: '10px 0 calc(18px + env(safe-area-inset-bottom))',
     }}>
       {NAV_ITEMS.map(item => {
         const active = item.path === '/room/light'
@@ -32,6 +32,7 @@ export function BottomNav({ onRoomClick, onGardenClick }: BottomNavProps = {}) {
         return (
           <button
             key={item.path}
+            data-nav-id={item.id}
             onClick={() => {
               if (item.path === '/room/light') onRoomClick?.()
               if (item.path === '/home') onGardenClick?.()

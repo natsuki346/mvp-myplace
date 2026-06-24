@@ -81,9 +81,14 @@
 }
 
 body {
-  background: var(--background);
+  /* アプリ全体で使っているクリーム色に統一。env(safe-area-inset-top)分の
+     余白がここに生まれるため、各ページの背景色と揃えて違和感を出さない */
+  background: #F5F0E8;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* iOS(Capacitor)のステータスバー/ノッチ裏にヘッダーが隠れないようにする。
+     viewport-fit=cover（layout.tsxのviewportエクスポート）と併用して初めて効く */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* モバイルでの慣性スクロール対応 */

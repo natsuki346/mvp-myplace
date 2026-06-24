@@ -216,7 +216,7 @@ function FriendChatContent() {
           style={{
             flex: 1, padding: '10px 14px', borderRadius: 20,
             border: '1.5px solid #D4B896', outline: 'none',
-            fontSize: 14, color: '#3B2F1E', background: '#FFFFFF',
+            fontSize: 16, color: '#3B2F1E', background: '#FFFFFF',
           }}
         />
         <button

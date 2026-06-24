@@ -6,6 +6,7 @@ import { supabase } from '@/src/lib/supabase/client'
 import BubbleDetailModal from '@/src/components/BubbleDetailModal'
 import HelpModal from '@/src/components/HelpModal'
 import DaisyBubble from '@/src/components/DaisyBubble'
+import AppLogo from '@/src/components/AppLogo'
 
 type LightTag  = { id: string; text: string; growth_point: number; position_x?: number | null; position_y?: number | null }
 type ShadowTag = { id: string; text: string; growth_point: number; seed_weight: string | null; stage: string | null; position_x?: number | null; position_y?: number | null }
@@ -93,6 +94,15 @@ function getConsecutiveDays(dates: string[]): number {
     else break
   }
   return count
+}
+
+// 連続日数に応じて🔥の大きさを4段階で変える。0日は表示しない（null）。
+function getStreakFireSize(days: number): number | null {
+  if (days <= 0) return null
+  if (days < 7) return 12
+  if (days < 14) return 17
+  if (days < 30) return 22
+  return 28
 }
 
 // position_x / position_y は「バブル中心座標」(cx, cy) として保存・解釈する。
@@ -272,7 +282,6 @@ export default function GardenDisplay() {
   const [lightTags, setLightTags]       = useState<LightTag[]>([])
   const [shadowTags, setShadowTags]     = useState<ShadowTag[]>([])
   const [friendBubbles, setFriendBubbles] = useState<FriendBubble[]>([])
-  const [eventCount, setEventCount]     = useState(0)
   const [consecutiveDays, setConsecutiveDays] = useState(0)
   const [loading, setLoading]           = useState(true)
   const [visible, setVisible]           = useState(false)
@@ -339,7 +348,6 @@ export default function GardenDisplay() {
         }
       }
       if (eventsRes.data) {
-        setEventCount(eventsRes.data.length)
         setConsecutiveDays(getConsecutiveDays(eventsRes.data.map((e: any) => e.created_at as string)))
       }
       setLoading(false)
@@ -455,6 +463,7 @@ export default function GardenDisplay() {
 
   const currentTags: AnyTag[] = tab === 'light' ? lightTags : tab === 'shadow' ? shadowTags : friendBubbles
   const totalTags = lightTags.length + shadowTags.length
+  const streakFireSize = getStreakFireSize(consecutiveDays)
 
   const bubbleSizes = useMemo(() => {
     if (tab === 'light')  return lightTags.map(t => getDaisySize(t.growth_point ?? 0))
@@ -547,18 +556,15 @@ export default function GardenDisplay() {
           コンポーネントのルート)の直下の兄弟である必要がある。背景色がないと
           最前面でもバブルが透けて見えるため、ページ背景色を明示的に敷く。 */}
       <div style={{ position: 'relative', zIndex: 50, background: '#F5F0E8', flexShrink: 0 }}>
-        {/* ── タイトル行 ── */}
+        {/* ── タイトル行（ロゴ中心） ── */}
         <div style={{
-          padding: '44px 20px 8px', flexShrink: 0,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          padding: '16px 20px 8px', flexShrink: 0,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: '#3B2F1E', margin: '0 0 2px' }}>
-              🌿 わたしのガーデン
-            </h1>
-            <p style={{ fontSize: 12, color: 'rgba(59,47,30,0.45)', margin: 0 }}>
-              タグをタップしてルームへ
-            </p>
+          {/* ヘルプボタンと同じ幅のダミーをロゴの逆側に置き、ロゴを画面中央に揃える */}
+          <div style={{ width: 32, flexShrink: 0 }} aria-hidden="true" />
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            <AppLogo size="sm" />
           </div>
           <button
             onClick={() => setShowHelp(true)}
@@ -568,7 +574,7 @@ export default function GardenDisplay() {
               background: '#FFFFFF', border: '1px solid rgba(139,105,20,0.2)',
               cursor: 'pointer', fontSize: 14, fontWeight: 700, color: '#8B6914',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, marginTop: 4,
+              flexShrink: 0,
             }}
           >
             ？
@@ -577,19 +583,22 @@ export default function GardenDisplay() {
 
         {/* ── ステータス行 ── */}
         <div style={{ display: 'flex', padding: '10px 20px 14px', flexShrink: 0 }}>
-          {[
-            { label: '向き合った回数', value: `${eventCount}回` },
-            { label: 'タグ数',         value: `${totalTags}個` },
-            { label: '連続日数',       value: `${consecutiveDays}日` },
-          ].map(({ label, value }, i) => (
-            <div key={label} style={{
-              flex: 1, textAlign: 'center',
-              borderLeft: i > 0 ? '1px solid rgba(59,47,30,0.1)' : 'none',
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <p style={{ fontSize: 18, fontWeight: 700, color: '#3B2F1E', margin: 0 }}>{totalTags}個</p>
+            <p style={{ fontSize: 10, color: 'rgba(59,47,30,0.5)', margin: 0 }}>タグ数</p>
+          </div>
+          <div style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(59,47,30,0.1)' }}>
+            <p style={{
+              fontSize: 18, fontWeight: 700, color: '#3B2F1E', margin: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}>
-              <p style={{ fontSize: 18, fontWeight: 700, color: '#3B2F1E', margin: 0 }}>{value}</p>
-              <p style={{ fontSize: 10, color: 'rgba(59,47,30,0.5)', margin: 0 }}>{label}</p>
-            </div>
-          ))}
+              {streakFireSize !== null && (
+                <span style={{ fontSize: streakFireSize, lineHeight: 1 }}>🔥</span>
+              )}
+              {consecutiveDays}日
+            </p>
+            <p style={{ fontSize: 10, color: 'rgba(59,47,30,0.5)', margin: 0 }}>連続日数</p>
+          </div>
         </div>
 
         {/* ── タブ ── */}
@@ -733,16 +742,19 @@ export default function GardenDisplay() {
                     </>
                   )
                 })() : tab === 'light' ? (
-                  /* Daisy バブル: SVG が背景ごと描画、テキストを下部に重ねる */
+                  /* Daisy バブル: SVG が背景ごと描画、花を上半分に縮小し下半分にテキストを重ねる */
                   <>
                     <DaisyBubble size={size} />
                     <span style={{
                       position: 'absolute',
-                      bottom: Math.max(Math.round(size * 0.1), 4),
+                      bottom: Math.max(Math.round(size * 0.06), 4),
                       left: 0, right: 0, textAlign: 'center',
-                      fontSize: clamp(Math.round(size * 0.13), 7, 11),
-                      fontWeight: 700, color: '#5A3800',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      fontSize: clamp(Math.round(size * 0.14), 8, 12),
+                      fontWeight: 700, color: '#5A3800', lineHeight: 1.15,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden', textOverflow: 'ellipsis', wordBreak: 'break-all',
                       paddingLeft: 6, paddingRight: 6,
                     }}>
                       #{tag.text.replace(/^#+/, '')}

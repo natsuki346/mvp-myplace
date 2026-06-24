@@ -43,7 +43,7 @@ export default function ShadowRoomVisitPage() {
         <div style={{
           position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
           width: '100%', maxWidth: 390,
-          padding: '16px 24px 32px',
+          padding: '16px 24px calc(32px + env(safe-area-inset-bottom))',
           background: 'linear-gradient(to bottom, transparent, #F5F0E8 40%)',
         }}>
           <button
@@ -83,6 +83,7 @@ export default function ShadowRoomVisitPage() {
           background: '#F5F0E8',
           display: 'flex', flexDirection: 'column',
           maxWidth: 390, margin: '0 auto',
+          paddingTop: 'env(safe-area-inset-top)',
         }}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <GardenDisplay />

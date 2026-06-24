@@ -72,7 +72,7 @@ export default function RoomChatSheet({
   const introMessages = subTagId ? [] : DUMMY_MESSAGES_COMMON
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', justifyContent: 'center' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', justifyContent: 'center', paddingTop: 'env(safe-area-inset-top)' }}>
       <div
         style={{
           position: 'relative', width: '100%', maxWidth: 390, height: '100%',

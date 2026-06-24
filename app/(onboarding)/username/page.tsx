@@ -7,12 +7,33 @@ import DaisyFlower from '@/src/components/DaisyFlower'
 
 type Stage = 'splash' | 'form'
 
+const EDGE_FUNCTIONS_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+const EDGE_FUNCTION_HEADERS = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+  'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+}
+
+const MIN_PASSWORD_LENGTH = 6
+
+// Instagram/X風のユーザー名ルール：半角英数字・_・.のみ、3〜20文字、
+// 先頭/末尾のピリオド禁止、ピリオドの連続禁止
+function getUsernameError(value: string): string | null {
+  if (value.length === 0) return null
+  if (/[^a-zA-Z0-9_.]/.test(value)) return '半角英数字と _ . のみ使用できます'
+  if (value.startsWith('.') || value.endsWith('.')) return 'ピリオドは先頭・末尾に使用できません'
+  if (value.includes('..')) return 'ピリオドを連続して使用することはできません'
+  if (value.length < 3 || value.length > 20) return '3〜20文字で入力してください'
+  return null
+}
+
 export default function UsernamePage() {
   const router = useRouter()
   const [stage, setStage] = useState<Stage>('splash')
   const [splashVisible, setSplashVisible] = useState(false)
   const [formVisible, setFormVisible] = useState(false)
   const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
 
@@ -29,7 +50,8 @@ export default function UsernamePage() {
     return () => clearTimeout(t)
   }, [stage])
 
-  const isValid = username.trim().length > 0
+  const usernameError = getUsernameError(username.trim())
+  const isValid = username.trim().length > 0 && !usernameError && password.length >= MIN_PASSWORD_LENGTH
 
   const handleSubmit = async () => {
     if (!isValid || loading) return
@@ -38,32 +60,28 @@ export default function UsernamePage() {
     try {
       const trimmed = username.trim()
 
-      // 既存ユーザーを検索
+      // 既存ユーザーかどうかを確認する（password_hashは列権限で保護されているため選択不可。
+      // id/usernameのみ取得し、新規作成か既存ログインかをここで判定する）
       const { data: existing } = await supabase
         .from('users')
         .select('id, username')
         .eq('username', trimmed)
-        .single() as { data: { id: string; username: string } | null; error: unknown }
+        .maybeSingle() as { data: { id: string; username: string } | null; error: unknown }
 
-      if (existing) {
-        // 既存ユーザー → そのまま使う
-        sessionStorage.setItem('user_id',  existing.id)
-        sessionStorage.setItem('username', existing.username)
-      } else {
-        // 新規作成
-        const { data: created, error: dbErr } = await supabase
-          .from('users')
-          .insert([{ username: trimmed }])
-          .select()
-          .single() as { data: { id: string; username: string } | null; error: unknown }
-        if (dbErr) throw dbErr
-        if (!created) throw new Error('no data')
-        sessionStorage.setItem('user_id',  created.id)
-        sessionStorage.setItem('username', created.username)
-      }
+      const endpoint = existing ? 'auth-verify' : 'auth-signup'
+      const res = await fetch(`${EDGE_FUNCTIONS_BASE}/${endpoint}`, {
+        method: 'POST',
+        headers: EDGE_FUNCTION_HEADERS,
+        body: JSON.stringify({ username: trimmed, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'エラーが発生しました')
+
+      sessionStorage.setItem('user_id',  data.user.id)
+      sessionStorage.setItem('username', data.user.username)
       router.push('/welcome')
-    } catch {
-      setError('ユーザー名の登録に失敗しました。別の名前を試してください。')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'ログインに失敗しました。もう一度お試しください。')
     } finally {
       setLoading(false)
     }
@@ -91,7 +109,7 @@ export default function UsernamePage() {
           </h1>
         </div>
 
-        <div className="mb-8">
+        <div className="mb-6">
           <input
             type="text"
             value={username}
@@ -108,6 +126,27 @@ export default function UsernamePage() {
           <p className="text-xs mt-2 text-right" style={{ color: '#A89880' }}>
             {username.length} / 20
           </p>
+          {usernameError && (
+            <p className="text-red-400 text-xs mt-1">{usernameError}</p>
+          )}
+        </div>
+
+        <div className="mb-8">
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            placeholder="パスワード（6文字以上）"
+            autoComplete="current-password"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="w-full bg-transparent border-b border-[#4A7C59]/35 text-lg py-3 outline-none placeholder-[#A89880] focus:border-[#4A7C59] transition-colors"
+            style={{ color: '#3B2F1E' }}
+          />
+          {password.length > 0 && password.length < MIN_PASSWORD_LENGTH && (
+            <p className="text-red-400 text-xs mt-1">パスワードは{MIN_PASSWORD_LENGTH}文字以上で入力してください</p>
+          )}
         </div>
 
         {error && (
@@ -124,7 +163,7 @@ export default function UsernamePage() {
             cursor:     isValid && !loading ? 'pointer' : 'default',
           }}
         >
-          {loading ? '登録中...' : '次へ'}
+          {loading ? '確認中...' : '次へ'}
         </button>
 
 

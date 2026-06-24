@@ -58,7 +58,7 @@ export default function ProcessOverviewScreen({ onUnderstand }: Props) {
       }}
     >
       {/* ヘッダー */}
-      <div style={{ paddingTop: 64, textAlign: 'center', marginBottom: 36, ...show(1) }}>
+      <div style={{ paddingTop: 'calc(64px + env(safe-area-inset-top))', textAlign: 'center', marginBottom: 36, ...show(1) }}>
         <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 16 }}>🌼</div>
         <h1
           style={{

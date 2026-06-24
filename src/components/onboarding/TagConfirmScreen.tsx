@@ -58,7 +58,7 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
         overflowY: 'auto',
       }}
     >
-      <div style={{ paddingTop: 60, flex: 1 }}>
+      <div style={{ paddingTop: 'calc(60px + env(safe-area-inset-top))', flex: 1 }}>
         <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.45)', textAlign: 'center', marginBottom: 36, letterSpacing: '0.04em' }}>
           登録されたタグ
         </p>

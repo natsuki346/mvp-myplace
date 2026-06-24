@@ -318,11 +318,13 @@ export function QuestionCard({
           }}
           placeholder="ここに書いてみてください..."
           rows={4}
-          className="w-full rounded-2xl text-sm p-4 outline-none resize-none mb-4 placeholder:text-black/25"
+          className="w-full rounded-2xl p-4 outline-none resize-none mb-4 placeholder:text-black/25"
           style={{
             background: c.textareaBg,
             border: `1px solid ${c.textareaBorder}`,
             color: c.questionText,
+            // iOSでフォーカス時に自動ズームしないよう16px以上を確保
+            fontSize: 16,
             transition: 'border-color 0.2s ease',
           }}
         />

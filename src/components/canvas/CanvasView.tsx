@@ -649,7 +649,7 @@ export function CanvasView({
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
           background: '#1a1a2e',
           borderTop: '1px solid rgba(167,139,250,0.18)',
-          padding: '12px 16px 32px',
+          padding: '12px 16px calc(32px + env(safe-area-inset-bottom))',
           boxShadow: '0 -8px 40px rgba(0,0,0,0.6)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -771,7 +771,7 @@ export function CanvasView({
                 style={{
                   width: '100%', padding: '8px 12px', borderRadius: '10px',
                   background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.90)',
-                  fontSize: 14, border: '1px solid rgba(255,255,255,0.12)',
+                  fontSize: 16, border: '1px solid rgba(255,255,255,0.12)',
                   outline: 'none', boxSizing: 'border-box',
                 }}
               />

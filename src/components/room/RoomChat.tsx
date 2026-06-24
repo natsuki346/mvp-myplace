@@ -729,7 +729,7 @@ export default function RoomChat({
               placeholder="メッセージを入力..."
               style={{
                 flex: 1, background: '#FFFFFF', border: '1px solid #D4B896',
-                borderRadius: 20, padding: '10px 16px', fontSize: 14,
+                borderRadius: 20, padding: '10px 16px', fontSize: 16,
                 color: '#3B2F1E', outline: 'none',
               }}
             />
