@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Capacitor } from '@capacitor/core'
 import { supabase } from '@/src/lib/supabase/client'
 import DaisyFlower from '@/src/components/DaisyFlower'
 
@@ -36,6 +37,13 @@ export default function UsernamePage() {
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState<string | null>(null)
+  // 初期値はWeb版（SSR/静的書き出し時と同じ見た目）にしておき、マウント後に
+  // ネイティブ判定で切り替える（ハイドレーション不一致を避けるため）
+  const [isNative, setIsNative] = useState(false)
+
+  useEffect(() => {
+    setIsNative(Capacitor.isNativePlatform())
+  }, [])
 
   // 起動時：デイジーの花が咲くスプラッシュを少し見せてから、入力フォームへ
   useEffect(() => {
@@ -51,7 +59,8 @@ export default function UsernamePage() {
   }, [stage])
 
   const usernameError = getUsernameError(username.trim())
-  const isValid = username.trim().length > 0 && !usernameError && password.length >= MIN_PASSWORD_LENGTH
+  // Web版はパスワード不要。ネイティブ版のみパスワード必須
+  const isValid = username.trim().length > 0 && !usernameError && (!isNative || password.length >= MIN_PASSWORD_LENGTH)
 
   const handleSubmit = async () => {
     if (!isValid || loading) return
@@ -68,17 +77,36 @@ export default function UsernamePage() {
         .eq('username', trimmed)
         .maybeSingle() as { data: { id: string; username: string } | null; error: unknown }
 
-      const endpoint = existing ? 'auth-verify' : 'auth-signup'
-      const res = await fetch(`${EDGE_FUNCTIONS_BASE}/${endpoint}`, {
-        method: 'POST',
-        headers: EDGE_FUNCTION_HEADERS,
-        body: JSON.stringify({ username: trimmed, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'エラーが発生しました')
+      let user: { id: string; username: string }
 
-      sessionStorage.setItem('user_id',  data.user.id)
-      sessionStorage.setItem('username', data.user.username)
+      if (isNative) {
+        // ネイティブアプリ（Capacitor）：パスワード認証（Edge Function経由）
+        const endpoint = existing ? 'auth-verify' : 'auth-signup'
+        const res = await fetch(`${EDGE_FUNCTIONS_BASE}/${endpoint}`, {
+          method: 'POST',
+          headers: EDGE_FUNCTION_HEADERS,
+          body: JSON.stringify({ username: trimmed, password }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'エラーが発生しました')
+        user = data.user
+      } else if (existing) {
+        // Web版・既存ユーザー：パスワードなしでそのまま使う
+        user = existing
+      } else {
+        // Web版・新規ユーザー：password_hashを扱わずusernameのみでinsert
+        const { data: created, error: dbErr } = await supabase
+          .from('users')
+          .insert([{ username: trimmed }])
+          .select('id, username')
+          .single() as { data: { id: string; username: string } | null; error: unknown }
+        if (dbErr) throw dbErr
+        if (!created) throw new Error('no data')
+        user = created
+      }
+
+      sessionStorage.setItem('user_id',  user.id)
+      sessionStorage.setItem('username', user.username)
       router.push('/welcome')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ログインに失敗しました。もう一度お試しください。')
@@ -109,7 +137,7 @@ export default function UsernamePage() {
           </h1>
         </div>
 
-        <div className="mb-6">
+        <div className={isNative ? 'mb-6' : 'mb-8'}>
           <input
             type="text"
             value={username}
@@ -131,23 +159,25 @@ export default function UsernamePage() {
           )}
         </div>
 
-        <div className="mb-8">
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            placeholder="パスワード（6文字以上）"
-            autoComplete="current-password"
-            autoCapitalize="none"
-            spellCheck={false}
-            className="w-full bg-transparent border-b border-[#4A7C59]/35 text-lg py-3 outline-none placeholder-[#A89880] focus:border-[#4A7C59] transition-colors"
-            style={{ color: '#3B2F1E' }}
-          />
-          {password.length > 0 && password.length < MIN_PASSWORD_LENGTH && (
-            <p className="text-red-400 text-xs mt-1">パスワードは{MIN_PASSWORD_LENGTH}文字以上で入力してください</p>
-          )}
-        </div>
+        {isNative && (
+          <div className="mb-8">
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              placeholder="パスワード（6文字以上）"
+              autoComplete="current-password"
+              autoCapitalize="none"
+              spellCheck={false}
+              className="w-full bg-transparent border-b border-[#4A7C59]/35 text-lg py-3 outline-none placeholder-[#A89880] focus:border-[#4A7C59] transition-colors"
+              style={{ color: '#3B2F1E' }}
+            />
+            {password.length > 0 && password.length < MIN_PASSWORD_LENGTH && (
+              <p className="text-red-400 text-xs mt-1">パスワードは{MIN_PASSWORD_LENGTH}文字以上で入力してください</p>
+            )}
+          </div>
+        )}
 
         {error && (
           <p className="text-red-400 text-xs mb-4">{error}</p>
