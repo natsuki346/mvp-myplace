@@ -561,8 +561,20 @@ export default function GardenDisplay() {
           padding: '16px 20px 8px', flexShrink: 0,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          {/* ヘルプボタンと同じ幅のダミーをロゴの逆側に置き、ロゴを画面中央に揃える */}
-          <div style={{ width: 32, flexShrink: 0 }} aria-hidden="true" />
+          {/* プロフィールボタン（ヘルプボタンと同幅でロゴを中央に保つ） */}
+          <button
+            onClick={() => router.push('/profile')}
+            aria-label="プロフィール"
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: '#FFFFFF', border: '1px solid rgba(139,105,20,0.2)',
+              cursor: 'pointer', fontSize: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            👤
+          </button>
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
             <AppLogo size="sm" />
           </div>

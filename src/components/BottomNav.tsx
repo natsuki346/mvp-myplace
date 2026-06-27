@@ -3,9 +3,9 @@
 import { useRouter, usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { id: 'garden',  icon: '🌿', label: 'ガーデン',     path: '/home' },
-  { id: 'room',    icon: '🏠', label: 'ルーム',       path: '/room/light' },
-  { id: 'profile', icon: '👤', label: 'プロフィール', path: '/profile' },
+  { id: 'garden',  icon: '🌿', label: 'ガーデン', path: '/home' },
+  { id: 'room',    icon: '🏠', label: 'ルーム',   path: '/room/light' },
+  { id: 'lottery', icon: '🔥', label: 'ロッタリー', path: '/lottery' },
 ]
 
 type BottomNavProps = {
@@ -28,7 +28,9 @@ export function BottomNav({ onRoomClick, onGardenClick }: BottomNavProps = {}) {
       {NAV_ITEMS.map(item => {
         const active = item.path === '/room/light'
           ? pathname.startsWith('/room')
-          : pathname === item.path
+          : item.path === '/lottery'
+            ? pathname.startsWith('/lottery')
+            : pathname === item.path
         return (
           <button
             key={item.path}
