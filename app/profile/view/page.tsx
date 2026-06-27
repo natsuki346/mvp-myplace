@@ -30,6 +30,7 @@ function OtherProfileContent() {
   const [daisyTags, setDaisyTags] = useState<Tag[]>([])
   const [seedTags, setSeedTags] = useState<Tag[]>([])
   const [commonTexts, setCommonTexts] = useState<Set<string>>(new Set())
+  const [myShadowTexts, setMyShadowTexts] = useState<Set<string>>(new Set())
   const [status, setStatus] = useState<ConnectionStatus>('none')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -94,7 +95,9 @@ function OtherProfileContent() {
 
       const myTags = (myTagsRes.data as { text: string; type: string }[]) ?? []
       const myTexts = new Set(myTags.map(t => t.text))
+      const shadowTexts = new Set(myTags.filter(t => t.type === 'shadow').map(t => t.text))
       setCommonTexts(myTexts)
+      setMyShadowTexts(shadowTexts)
       setDaisyTags((daisyRes.data as Tag[]) ?? [])
       setSeedTags((seedRes.data as Tag[]) ?? [])
 
@@ -174,7 +177,7 @@ function OtherProfileContent() {
   const buttonConfig = BUTTON_CONFIG[status]
 
   const commonDaisy = daisyTags.filter(t => commonTexts.has(t.text))
-  const commonSeed = seedTags.filter(t => commonTexts.has(t.text))
+  const commonSeed = seedTags.filter(t => myShadowTexts.has(t.text))
 
   return (
     <div
