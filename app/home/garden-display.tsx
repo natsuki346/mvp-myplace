@@ -7,6 +7,8 @@ import BubbleDetailModal from '@/src/components/BubbleDetailModal'
 import HelpModal from '@/src/components/HelpModal'
 import DaisyBubble from '@/src/components/DaisyBubble'
 import AppLogo from '@/src/components/AppLogo'
+import { ProfileDrawer } from '@/src/components/ProfileDrawer'
+import FriendBubble from '@/src/components/FriendBubble'
 
 type LightTag  = { id: string; text: string; growth_point: number; position_x?: number | null; position_y?: number | null }
 type ShadowTag = { id: string; text: string; growth_point: number; seed_weight: string | null; stage: string | null; position_x?: number | null; position_y?: number | null }
@@ -58,28 +60,25 @@ function getSeedBubble(stage: string | null, seedWeight: string | null): { emoji
   return { emoji: '🌱', bg: '#D4B896', text: '#6B4E1A' }
 }
 
-const BASE_SEED_SIZE  = 68
-const BASE_DAISY_SIZE = 52
-const MAX_BUBBLE_SIZE = 100
-// 通常タグの満開ライン（growthPoint.ts の LIGHT_THRESHOLDS 最大値）に合わせて
-// この点数でバブルが最大サイズに達するようにする
-const POINT_SIZE_CAP = 30
+const MIN_BUBBLE_SIZE     = 40
+const MAX_BUBBLE_SIZE     = 90
+const DEFAULT_BUBBLE_SIZE = 52
 
 function clamp(v: number, min: number, max: number) { return Math.min(Math.max(v, min), max) }
 
-// growth_point に応じてバブルサイズを base〜MAX_BUBBLE_SIZE の範囲で滑らかに大きくする。
-// ルームを訪れる（ポイントが入る）たびに少しずつ膨らんでいく。
-function sizeFromPoints(growthPoint: number, base: number): number {
-  const ratio = clamp(growthPoint, 0, POINT_SIZE_CAP) / POINT_SIZE_CAP
-  return Math.round(base + (MAX_BUBBLE_SIZE - base) * ratio)
-}
-
-function getSeedSize(growthPoint: number): number {
-  return sizeFromPoints(growthPoint, BASE_SEED_SIZE)
-}
-
-function getDaisySize(growthPoint: number): number {
-  return sizeFromPoints(growthPoint, BASE_DAISY_SIZE)
+// growth_point の分布を 0〜1 に正規化し、MIN〜MAX に線形マッピングする。
+// 全タグが同じ値（または全0）の場合はデフォルトサイズを返す。
+// 「高い growth_point = 大きいバブル = generatePositions でより中心に配置」
+// という連鎖が成立する。
+function relativeSizes(growthPoints: number[]): number[] {
+  if (growthPoints.length === 0) return []
+  const min = Math.min(...growthPoints)
+  const max = Math.max(...growthPoints)
+  if (max === min) return growthPoints.map(() => DEFAULT_BUBBLE_SIZE)
+  return growthPoints.map(gp => {
+    const t = clamp((gp - min) / (max - min), 0, 1)
+    return Math.round(MIN_BUBBLE_SIZE + t * (MAX_BUBBLE_SIZE - MIN_BUBBLE_SIZE))
+  })
 }
 
 function getConsecutiveDays(dates: string[]): number {
@@ -171,13 +170,12 @@ function generatePositions(
 
   // 配置エリアのY方向の上限は、未配置バブルの総面積から動的に算出する。
   // 「総面積 × 余裕係数 ÷ 幅」で必要分だけ確保する（最小300pxは保証）。
-  // 余裕係数1.7は実測調整値：これより小さいとリングサーチが配置エリア内で
-  // 空きを見つけられず最下部フォールバックに落ちる頻度が増え、密着配置が崩れる。
+  // 係数2.3はフォールバック不要な余裕を確保するための実測調整値。
   const needsGenArea = needsGen.reduce((sum, idx) => {
     const r = (sizes[idx] ?? 52) / 2
     return sum + Math.PI * r * r
   }, 0)
-  const AREA_FACTOR = 1.7
+  const AREA_FACTOR = 2.3
   const yCap = Math.max(300, topOffset + (needsGenArea * AREA_FACTOR) / w)
 
   // 配置エリアの中心（大きいバブルをここに最優先で寄せる）
@@ -190,8 +188,8 @@ function generatePositions(
 
   // 中心から配置エリアの隅までの最大距離（リングサーチの探索上限）
   const maxRadius = Math.hypot(w / 2, (yCap - topOffset) / 2) + 20
-  const RADIAL_STEP = 3 // リングの半径方向の刻み(px)：小さいほど密着できるが探索コストが増える
-  const ARC_RES = 4     // 各リング上での弧の刻み(px)：小さいほど精度が上がるが探索コストが増える
+  const RADIAL_STEP = 2 // リングの半径方向の刻み(px)：3→2で空き地発見率を上げる
+  const ARC_RES = 4     // 各リング上での弧の刻み(px)
 
   // 中心(cx0, cy0)から外側へリング状に候補点を走査し、最初に見つかった
   // 非重複・範囲内の地点を返す（＝中心に最も近い空き地）
@@ -209,22 +207,26 @@ function generatePositions(
     return null
   }
 
-  // シェルフ（行）パッキング・フォールバック：配置エリア内に空きが見つからない
-  // 極端なケースのみ、左→右に詰めて入らなくなったら次の行へ折り返す。
-  // 最初の行のベースラインは必ず yCap 以上にする（cx=w/2 固定で詰んでいくと
-  // 縦一列に並ぶ不具合があったため修正）。yCap はリングサーチが届く範囲
-  // （cy+r <= yCap-10）の上限でもあるため、これより下から開始すれば、処理順が
-  // 後になるリングサーチ済みバブルと時系列的に衝突することも構造的に無くなる。
-  let shelfActive = false
-  let shelfY = 0
-  let shelfNextX = 0
-  let shelfRowMaxR = 0
+  // ランダムリング配置フォールバック：シェルフ（行揃え）を廃止し、
+  // yCap下をランダム角度のリング走査で配置することでグリッド状整列を防ぐ。
   let fallbackCount = 0
 
-  const startNewShelfRow = (r: number, baseline: number) => {
-    shelfY = baseline + r + GAP + 10
-    shelfNextX = 10
-    shelfRowMaxR = r
+  const findFallbackSpot = (r: number): { cx: number; cy: number } => {
+    const bottomMost = placed.length > 0 ? Math.max(...placed.map(p => p.cy + p.r)) : yCap
+    const fbCy = Math.max(yCap, bottomMost) + r + GAP
+    const startAngle = Math.random() * 2 * Math.PI
+    for (let ring = 0; ring < 800; ring += 2) {
+      const n = ring === 0 ? 1 : Math.max(8, Math.ceil((2 * Math.PI * ring) / ARC_RES))
+      for (let s = 0; s < n; s++) {
+        const angle = ring === 0 ? 0 : startAngle + (2 * Math.PI * s) / n
+        const cx = ring === 0 ? cx0 : cx0 + ring * Math.cos(angle)
+        const cy = ring === 0 ? fbCy : fbCy + ring * Math.sin(angle)
+        if (cx - r >= 5 && cx + r <= w - 5 && noOverlap(cx, cy, r)) {
+          return { cx, cy }
+        }
+      }
+    }
+    return { cx: cx0, cy: fbCy }
   }
 
   for (const idx of order) {
@@ -233,17 +235,7 @@ function generatePositions(
 
     if (!spot) {
       fallbackCount++
-      if (!shelfActive) {
-        const placedBottomMax = placed.length > 0 ? Math.max(...placed.map(p => p.cy + p.r)) : topOffset
-        startNewShelfRow(r, Math.max(yCap, placedBottomMax))
-        shelfActive = true
-      } else if (shelfNextX + r * 2 > w - 10) {
-        startNewShelfRow(r, shelfY + shelfRowMaxR)
-      }
-      const cx = shelfNextX + r
-      spot = { cx, cy: shelfY }
-      shelfRowMaxR = Math.max(shelfRowMaxR, r)
-      shelfNextX += r * 2 + GAP
+      spot = findFallbackSpot(r)
     }
 
     placed.push({ cx: spot.cx, cy: spot.cy, r })
@@ -251,7 +243,7 @@ function generatePositions(
   }
 
   if (fallbackCount > 0) {
-    console.log(`[generatePositions] needsGen=${needsGen.length} fallback(shelf)=${fallbackCount} yCap=${yCap.toFixed(0)}`)
+    console.log(`[generatePositions] needsGen=${needsGen.length} fallback=${fallbackCount} yCap=${yCap.toFixed(0)}`)
   }
 
   return { positions: result, changedIndices: needsGen }
@@ -268,9 +260,7 @@ const SEED_LEGEND = [
   { emoji: '🌼', label: 'bloom' },
 ]
 const FRIEND_LEGEND = [
-  { emoji: '🤝', label: 'つながった' },
-  { emoji: '💛', label: 'なかよし' },
-  { emoji: '❤️', label: 'しんゆう' },
+  { emoji: '💬', label: 'メッセージが多いほど中心・大きく' },
 ]
 
 // canvasH は positions から動的に算出するため定数不要
@@ -278,10 +268,10 @@ const FRIEND_LEGEND = [
 export default function GardenDisplay() {
   const router = useRouter()
 
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [tab, setTab]                   = useState<TabType>('light')
   const [lightTags, setLightTags]       = useState<LightTag[]>([])
   const [shadowTags, setShadowTags]     = useState<ShadowTag[]>([])
-  const [friendBubbles, setFriendBubbles] = useState<FriendBubble[]>([])
   const [consecutiveDays, setConsecutiveDays] = useState(0)
   const [loading, setLoading]           = useState(true)
   const [visible, setVisible]           = useState(false)
@@ -354,68 +344,6 @@ export default function GardenDisplay() {
     })()
   }, [])
 
-  // ── Friend バブルフェッチ ──
-  useEffect(() => {
-    const userId = localStorage.getItem('user_id')
-    if (!userId) return
-    ;(async () => {
-      // accepted な繋がりを取得
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [connRes, msgRes] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('connections') as any)
-          .select('requester_id, receiver_id')
-          .eq('status', 'accepted')
-          .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('friend_messages') as any)
-          .select('sender_id, receiver_id')
-          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`),
-      ])
-
-      const connections: { requester_id: string; receiver_id: string }[] = connRes.data ?? []
-      const friendIds = connections.map(c =>
-        c.requester_id === userId ? c.receiver_id : c.requester_id,
-      )
-      if (friendIds.length === 0) return
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const usersRes = await (supabase.from('users') as any)
-        .select('id, username, avatar_url')
-        .in('id', friendIds)
-
-      const usersMap = new Map<string, { username: string; avatar_url: string | null }>(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ((usersRes.data ?? []) as any[]).map((u: any) => [u.id as string, u]),
-      )
-
-      // メッセージ数を friend ごとにカウント
-      const msgCounts = new Map<string, number>()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const msg of ((msgRes.data ?? []) as any[])) {
-        const fid: string = msg.sender_id === userId ? msg.receiver_id : msg.sender_id
-        msgCounts.set(fid, (msgCounts.get(fid) ?? 0) + 1)
-      }
-
-      const bubbles: FriendBubble[] = friendIds
-        .filter(fid => usersMap.has(fid))
-        .map(fid => {
-          const u     = usersMap.get(fid)!
-          const count = msgCounts.get(fid) ?? 0
-          const level: 1 | 2 | 3 = count >= 30 ? 3 : count >= 10 ? 2 : 1
-          return {
-            id: fid,
-            text: u.username ?? '?',
-            username: u.username ?? '?',
-            avatarUrl: u.avatar_url ?? null,
-            msgCount: count,
-            level,
-          }
-        })
-
-      setFriendBubbles(bubbles)
-    })()
-  }, [])
 
   // ── tagsテーブルのリアルタイム購読（seed_weight/growth_point変化を即時反映） ──
   useEffect(() => {
@@ -461,15 +389,15 @@ export default function GardenDisplay() {
     return () => clearTimeout(t)
   }, [tab])
 
-  const currentTags: AnyTag[] = tab === 'light' ? lightTags : tab === 'shadow' ? shadowTags : friendBubbles
+  const currentTags: AnyTag[] = tab === 'light' ? lightTags : tab === 'shadow' ? shadowTags : []
   const totalTags = lightTags.length + shadowTags.length
   const streakFireSize = getStreakFireSize(consecutiveDays)
 
   const bubbleSizes = useMemo(() => {
-    if (tab === 'light')  return lightTags.map(t => getDaisySize(t.growth_point ?? 0))
-    if (tab === 'shadow') return shadowTags.map(t => getSeedSize(t.growth_point ?? 0))
-    return friendBubbles.map(f => FRIEND_LEVEL_SIZES[f.level])
-  }, [tab, lightTags, shadowTags, friendBubbles])
+    if (tab === 'light')  return relativeSizes(lightTags.map(t => t.growth_point ?? 0))
+    if (tab === 'shadow') return relativeSizes(shadowTags.map(t => t.growth_point ?? 0))
+    return []
+  }, [tab, lightTags, shadowTags])
 
   const { positions, changedIndices } = useMemo(() => {
     if (containerW === 0) return { positions: [], changedIndices: [] }
@@ -563,7 +491,7 @@ export default function GardenDisplay() {
         }}>
           {/* プロフィールボタン（ヘルプボタンと同幅でロゴを中央に保つ） */}
           <button
-            onClick={() => router.push('/profile')}
+            onClick={() => setIsDrawerOpen(true)}
             aria-label="プロフィール"
             style={{
               width: 32, height: 32, borderRadius: '50%',
@@ -638,10 +566,16 @@ export default function GardenDisplay() {
         </div>
       </div>
 
-      {/* ── バブルエリア（ドラッグ可能） ── */}
-      {/* ヘッダーラッパー（zIndex:50）より確実に背面（zIndex:0）に固定する。
-          個々のバブル要素は明示的なzIndexを持たない（DOM順のautoスタッキングのみ）ため、
-          このコンテナのzIndexがそのままバブル全体の階層を決める。 */}
+      {/* ── バブルエリア ── */}
+      {tab === 'friend' ? (
+        <div style={{ flex: 1, margin: '0 20px', overflow: 'hidden' }}>
+          <FriendBubble />
+        </div>
+      ) : (
+      /* ── Daisy / Seed キャンバス（ドラッグ可能） ── */
+      /* ヘッダーラッパー（zIndex:50）より確実に背面（zIndex:0）に固定する。
+         個々のバブル要素は明示的なzIndexを持たない（DOM順のautoスタッキングのみ）ため、
+         このコンテナのzIndexがそのままバブル全体の階層を決める。 */
       <div
         ref={el => { if (el) setContainerW(el.clientWidth) }}
         style={{
@@ -672,8 +606,7 @@ export default function GardenDisplay() {
               </p>
             </div>
           ) : currentTags.map((tag, i) => {
-            const isFriend   = tab === 'friend'
-            const isPulsing  = !isFriend && pulseTagIds.has(tag.id)
+            const isPulsing  = pulseTagIds.has(tag.id)
             const baseSize   = bubbleSizes[i] ?? 60
             const size       = baseSize
             const pos        = positions[i] ?? { x: 0, y: 0 }
@@ -681,10 +614,7 @@ export default function GardenDisplay() {
             let bg: string
             let textColor: string
 
-            if (isFriend) {
-              const colors = FRIEND_LEVEL_COLORS[(tag as FriendBubble).level]
-              bg = colors.bg; textColor = colors.text
-            } else if (tab === 'light') {
+            if (tab === 'light') {
               bg = activeBg; textColor = activeText
             } else {
               const s = getSeedBubble((tag as ShadowTag).stage, (tag as ShadowTag).seed_weight)
@@ -696,11 +626,7 @@ export default function GardenDisplay() {
                 key={tag.id}
                 onClick={() => {
                   if (isDragging.current) return
-                  if (isFriend) {
-                    router.push(`/room/friend/chat?friendId=${tag.id}`)
-                  } else {
-                    setSelectedBubble({ tagId: tag.id, tagText: tag.text, tagType: tab as 'light' | 'shadow' })
-                  }
+                  setSelectedBubble({ tagId: tag.id, tagText: tag.text, tagType: tab as 'light' | 'shadow' })
                 }}
                 style={{
                   position: 'absolute',
@@ -724,36 +650,7 @@ export default function GardenDisplay() {
                   userSelect: 'none',
                 }}
               >
-                {isFriend ? (() => {
-                  const fb       = tag as FriendBubble
-                  const avatarSz = Math.round(size * 0.45)
-                  return (
-                    <>
-                      <div style={{
-                        width: avatarSz, height: avatarSz, borderRadius: '50%',
-                        overflow: 'hidden', flexShrink: 0,
-                        background: 'rgba(255,255,255,0.5)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: Math.round(avatarSz * 0.5), fontWeight: 700,
-                        color: textColor,
-                      }}>
-                        {fb.avatarUrl
-                          ? <img src={fb.avatarUrl} alt={fb.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          : fb.username[0]?.toUpperCase() ?? '?'
-                        }
-                      </div>
-                      <span style={{
-                        fontSize: clamp(Math.round(size * 0.13), 7, 10),
-                        fontWeight: 600, color: textColor,
-                        maxWidth: size - 8, overflow: 'hidden',
-                        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        marginTop: 2,
-                      }}>
-                        {fb.username}
-                      </span>
-                    </>
-                  )
-                })() : tab === 'light' ? (
+                {tab === 'light' ? (
                   /* Daisy バブル: SVG が背景ごと描画、花を上半分に縮小し下半分にテキストを重ねる */
                   <>
                     <DaisyBubble size={size} />
@@ -792,6 +689,7 @@ export default function GardenDisplay() {
           })}
         </div>
       </div>
+      )}
 
       {/* ── 凡例 ── */}
       <div style={{ padding: '10px 20px 16px', flexShrink: 0 }}>
@@ -816,6 +714,9 @@ export default function GardenDisplay() {
 
       {/* ── ヘルプモーダル ── */}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+
+      {/* ── プロフィールドロワー ── */}
+      <ProfileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
     </div>
   )
 }

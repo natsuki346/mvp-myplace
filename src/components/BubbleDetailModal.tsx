@@ -5,6 +5,12 @@ import { supabase } from '@/src/lib/supabase/client'
 import BubbleGrowthIndicator from '@/src/components/BubbleGrowthIndicator'
 import { isBubbleDetailTooltipSeen, markBubbleDetailTooltipSeen } from '@/src/lib/onboarding'
 
+const JOURNALS_EDGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/journals`
+const EDGE_AUTH_HEADERS = {
+  Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+  apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+}
+
 export interface BubbleDetailModalProps {
   tagId: string
   tagText: string
@@ -111,13 +117,13 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
   const fetchJournals = useCallback(async () => {
     const userId = localStorage.getItem('user_id')
     if (!userId) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase.from('journals') as any)
-      .select('id, content, created_at')
-      .eq('tag_id', tagId)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-    if (data) setJournals(data as Journal[])
+    const res = await fetch(`${JOURNALS_EDGE_URL}?tag_id=${encodeURIComponent(tagId)}`, {
+      headers: { ...EDGE_AUTH_HEADERS, 'x-user-id': userId },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setJournals(data as Journal[])
+    }
   }, [tagId])
 
   useEffect(() => {
@@ -145,12 +151,9 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
               .limit(5)
           : Promise.resolve({ data: [] }),
         userId
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ? (supabase.from('journals') as any)
-              .select('id, content, created_at')
-              .eq('tag_id', tagId)
-              .eq('user_id', userId)
-              .order('created_at', { ascending: false })
+          ? fetch(`${JOURNALS_EDGE_URL}?tag_id=${encodeURIComponent(tagId)}`, {
+              headers: { ...EDGE_AUTH_HEADERS, 'x-user-id': userId },
+            }).then(r => r.ok ? r.json().then(data => ({ data })) : { data: [] })
           : Promise.resolve({ data: [] }),
       ])
 
@@ -173,9 +176,11 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
     if (!userId) return
 
     setSavingJournal(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('journals') as any)
-      .insert([{ user_id: userId, tag_id: tagId, content: text }])
+    await fetch(JOURNALS_EDGE_URL, {
+      method: 'POST',
+      headers: { ...EDGE_AUTH_HEADERS, 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ tag_id: tagId, content: text }),
+    })
     setJournalText('')
     await fetchJournals()
     setSavingJournal(false)
@@ -184,8 +189,12 @@ export default function BubbleDetailModal({ tagId, tagText, tagType, onClose, pr
   const handleDeleteJournal = async (id: string) => {
     // 楽観的更新
     setJournals(prev => prev.filter(j => j.id !== id))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('journals') as any).delete().eq('id', id)
+    const userId = localStorage.getItem('user_id')
+    if (!userId) return
+    await fetch(`${JOURNALS_EDGE_URL}?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { ...EDGE_AUTH_HEADERS, 'x-user-id': userId },
+    })
   }
 
   const clean = tagText.replace(/^#+/, '')

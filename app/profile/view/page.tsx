@@ -30,7 +30,6 @@ function OtherProfileContent() {
   const [daisyTags, setDaisyTags] = useState<Tag[]>([])
   const [seedTags, setSeedTags] = useState<Tag[]>([])
   const [commonTexts, setCommonTexts] = useState<Set<string>>(new Set())
-  const [myShadowTexts, setMyShadowTexts] = useState<Set<string>>(new Set())
   const [status, setStatus] = useState<ConnectionStatus>('none')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -57,32 +56,29 @@ function OtherProfileContent() {
         return
       }
 
-      const [userRes, daisyRes, seedRes, myTagsRes, connRes] = await Promise.all([
+      const [userRes, tagsRes, myLightTagsRes, connRes] = await Promise.all([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('users') as any)
           .select('id, username, avatar_url')
           .eq('id', targetUserId)
           .single(),
+        // 相手のタグ（Daisy/Seedのフィルタ済み）をEdge Function経由で取得
+        fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/profile-tags?target_user_id=${encodeURIComponent(targetUserId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+              'x-user-id': uid,
+            },
+          },
+        ).then(r => r.ok ? r.json() : { daisyTags: [], seedTags: [] }),
+        // 自分のDaisyタグ（共通タグ表示のためだけに使用）
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('tags') as any)
-          .select('id, text')
-          .eq('user_id', targetUserId)
-          .eq('type', 'light')
-          .eq('is_active', true)
-          .order('created_at', { ascending: true }),
-        // Seedタグ（相手のもの）
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('tags') as any)
-          .select('id, text')
-          .eq('user_id', targetUserId)
-          .eq('type', 'shadow')
-          .eq('is_active', true)
-          .order('created_at', { ascending: true }),
-        // 自分のタグ（light + shadow両方）
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (supabase.from('tags') as any)
-          .select('text, type')
+          .select('text')
           .eq('user_id', uid)
+          .eq('type', 'light')
           .eq('is_active', true),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase.from('connections') as any)
@@ -93,13 +89,12 @@ function OtherProfileContent() {
 
       setUser((userRes.data as UserRow) ?? null)
 
-      const myTags = (myTagsRes.data as { text: string; type: string }[]) ?? []
-      const myTexts = new Set(myTags.map(t => t.text))
-      const shadowTexts = new Set(myTags.filter(t => t.type === 'shadow').map(t => t.text))
-      setCommonTexts(myTexts)
-      setMyShadowTexts(shadowTexts)
-      setDaisyTags((daisyRes.data as Tag[]) ?? [])
-      setSeedTags((seedRes.data as Tag[]) ?? [])
+      const myLightTexts = new Set(
+        ((myLightTagsRes.data as { text: string }[]) ?? []).map(t => t.text),
+      )
+      setCommonTexts(myLightTexts)
+      setDaisyTags((tagsRes.daisyTags as Tag[]) ?? [])
+      setSeedTags((tagsRes.seedTags as Tag[]) ?? [])
 
       const conn = connRes.data as { id: string; requester_id: string; receiver_id: string; status: string } | null
       if (!conn) {
@@ -177,7 +172,8 @@ function OtherProfileContent() {
   const buttonConfig = BUTTON_CONFIG[status]
 
   const commonDaisy = daisyTags.filter(t => commonTexts.has(t.text))
-  const commonSeed = seedTags.filter(t => myShadowTexts.has(t.text))
+  // seedTagsはサーバーサイドで自分のSeedと一致するものだけに絞られているため全件が共通タグ
+  const commonSeed = seedTags
 
   return (
     <div

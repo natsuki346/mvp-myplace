@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
+import { GoogleMap, useJsApiLoader, Marker, OverlayView } from '@react-google-maps/api'
 import { supabase } from '@/src/lib/supabase/client'
 import { getDistanceMeters } from '@/src/lib/geo'
 import { BottomNav } from '@/src/components/BottomNav'
+import { FireMarker } from '@/src/components/FireMarker'
+import { MatchModal } from '@/src/components/MatchModal'
 
 const RADIUS_METERS = 100
 const JITTER_METERS = 30
@@ -117,6 +119,7 @@ const MAP_OPTIONS: google.maps.MapOptions = {
   disableDefaultUI: true,
   zoomControl: true,
   gestureHandling: 'greedy',
+  keyboardShortcuts: false,
 }
 
 // 親コンテナが高さを持つので 100% で追従させる
@@ -143,84 +146,50 @@ function LotteryMap({ myPos, matches, onTagClick }: MapProps) {
   }
 
   return (
-    <GoogleMap
-      mapContainerStyle={MAP_CONTAINER_STYLE}
-      center={myPos}
-      zoom={17}
-      options={MAP_OPTIONS}
-      onClick={onMapClick}
-    >
-      {/* 自分の位置：青いマーカー */}
-      <Marker
-        position={myPos}
-        title="現在地"
-        icon={{
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#4285F4',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2,
-        }}
-      />
-
-      {/* マッチしたユーザー：🔥絵文字マーカー（jitter済み位置） */}
-      {matches.map((match, i) => (
+    <>
+      <GoogleMap
+        mapContainerStyle={MAP_CONTAINER_STYLE}
+        center={myPos}
+        zoom={17}
+        options={MAP_OPTIONS}
+        onClick={onMapClick}
+      >
+        {/* 自分の位置：青いマーカー */}
         <Marker
-          key={i}
-          position={match.jitteredPos}
-          title={`マッチ ${i + 1}`}
-          label={{ text: '🔥', fontSize: '22px' }}
+          position={myPos}
+          title="現在地"
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
-            scale: 0,
-            fillOpacity: 0,
-            strokeOpacity: 0,
+            scale: 10,
+            fillColor: '#4285F4',
+            fillOpacity: 1,
+            strokeColor: '#FFFFFF',
+            strokeWeight: 2,
           }}
-          onClick={() => setActiveIndex(i === activeIndex ? null : i)}
         />
-      ))}
 
-      {/* InfoWindow */}
-      {activeIndex !== null && matches[activeIndex] && (
-        <InfoWindow
-          position={matches[activeIndex].jitteredPos}
-          onCloseClick={() => setActiveIndex(null)}
-        >
-          <div style={{ fontFamily: 'sans-serif', fontSize: 13, minWidth: 160, maxWidth: 200 }}>
-            <p style={{ margin: '0 0 8px', fontWeight: 700, color: '#3B2F1E' }}>
-              🤝 共通タグ
-            </p>
-            {matches[activeIndex].commonTags.map(tag => (
-              <div key={tag} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                gap: 6, marginBottom: 6,
-              }}>
-                <span style={{
-                  background: '#F5D78E', borderRadius: 12, padding: '2px 8px',
-                  fontSize: 11, color: '#7A5C00', fontWeight: 600, flexShrink: 0,
-                }}>
-                  #{normalizeTag(tag)}
-                </span>
-                <button
-                  onClick={() => onTagClick(tag)}
-                  style={{
-                    background: '#4A7C59', color: '#F5F0E8',
-                    border: 'none', borderRadius: 10, padding: '3px 8px',
-                    fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0,
-                  }}
-                >
-                  チャット ›
-                </button>
-              </div>
-            ))}
-            <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(59,47,30,0.5)' }}>
-              約{matches[activeIndex].distanceMeters}m
-            </p>
-          </div>
-        </InfoWindow>
-      )}
-    </GoogleMap>
+        {/* マッチしたユーザー：SVG炎アニメーションマーカー（jitter済み位置） */}
+        {matches.map((match, i) => (
+          <OverlayView
+            key={i}
+            position={match.jitteredPos}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+            getPixelPositionOffset={(w, h) => ({ x: -w / 2, y: -h })}
+          >
+            <FireMarker
+              size={64}
+              onClick={() => setActiveIndex(i === activeIndex ? null : i)}
+            />
+          </OverlayView>
+        ))}
+      </GoogleMap>
+
+      <MatchModal
+        match={activeIndex !== null ? matches[activeIndex] : null}
+        onClose={() => setActiveIndex(null)}
+        onTagClick={onTagClick}
+      />
+    </>
   )
 }
 
