@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GoogleMap, useJsApiLoader, Marker, OverlayView } from '@react-google-maps/api'
 import { supabase } from '@/src/lib/supabase/client'
@@ -107,6 +107,53 @@ async function findNearbyMatches(
   return matches.sort((a, b) => a.distanceMeters - b.distanceMeters)
 }
 
+// ── 通知ヘルパー ──────────────────────────────────────────────────────────────
+
+async function requestNotificationPermission() {
+  try {
+    const { Capacitor } = await import('@capacitor/core')
+    if (Capacitor.isNativePlatform()) {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      await LocalNotifications.requestPermissions()
+    } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission()
+    }
+  } catch {
+    // 通知が使えない環境は無視
+  }
+}
+
+async function fireMatchNotification() {
+  try {
+    const { Capacitor } = await import('@capacitor/core')
+    if (Capacitor.isNativePlatform()) {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      await LocalNotifications.schedule({
+        notifications: [{
+          title: 'マッチしました🔥',
+          body: '近くに共通タグを持つ人がいます。チャットしてみましょう！',
+          id: 1,
+        }],
+      })
+    } else if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification('マッチしました🔥', {
+          body: '近くに共通タグを持つ人がいます。チャットしてみましょう！',
+        })
+      } else if (Notification.permission !== 'denied') {
+        const perm = await Notification.requestPermission()
+        if (perm === 'granted') {
+          new Notification('マッチしました🔥', {
+            body: '近くに共通タグを持つ人がいます。チャットしてみましょう！',
+          })
+        }
+      }
+    }
+  } catch {
+    // 通知が使えない環境は無視
+  }
+}
+
 // ── 地図コンポーネント ────────────────────────────────────────────────────────
 
 type MapProps = {
@@ -198,6 +245,12 @@ function LotteryMap({ myPos, matches, onTagClick }: MapProps) {
 export default function LotteryPage() {
   const router = useRouter()
   const [state, setState] = useState<PageState>({ status: 'idle' })
+  const prevMatchCountRef = useRef(0)
+
+  // 通知許可リクエスト（マウント時1回）
+  useEffect(() => {
+    requestNotificationPermission()
+  }, [])
 
   useEffect(() => {
     const userId = localStorage.getItem('user_id')
@@ -231,6 +284,12 @@ export default function LotteryPage() {
         setState({ status: 'searching', lat, lng })
         const matches = await findNearbyMatches(userId, lat, lng)
         setState({ status: 'done', lat, lng, matches })
+
+        // 0→1以上に増えた瞬間だけ通知
+        if (prevMatchCountRef.current === 0 && matches.length > 0) {
+          fireMatchNotification().catch(() => {})
+        }
+        prevMatchCountRef.current = matches.length
       },
       (err) => {
         let message = '位置情報を取得できませんでした'
