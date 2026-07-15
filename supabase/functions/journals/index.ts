@@ -46,16 +46,24 @@ Deno.serve(async (req: Request) => {
 
   try {
     // GET: journals一覧
+    // ?q= を渡すと「tag_id一致 OR 本文にqを含む」の広い検索になる（省略時は従来通りtag_id一致のみ）
     if (req.method === 'GET') {
       const tagId = url.searchParams.get('tag_id')
       if (!tagId) return json({ error: 'tag_id is required' }, 400)
 
-      const { data, error } = await supabase
+      // PostgRESTの.or()構文を壊す文字とLIKEワイルドカードを除去
+      const q = (url.searchParams.get('q') ?? '').replace(/[,()%_]/g, '').trim()
+
+      let query = supabase
         .from('journals')
         .select('id, content, created_at')
         .eq('user_id', userId)
-        .eq('tag_id', tagId)
-        .order('created_at', { ascending: false })
+
+      query = q
+        ? query.or(`tag_id.eq.${tagId},content.ilike.*${q}*`)
+        : query.eq('tag_id', tagId)
+
+      const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
       return json(data)

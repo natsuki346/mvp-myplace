@@ -6,10 +6,10 @@ import LightRoomView from './LightRoomView'
 import ShadowRoomView from './ShadowRoomView'
 import FriendRoomView from '@/src/components/room/FriendRoomView'
 import HelpModal from '@/src/components/HelpModal'
+import PCRightSidebar, { type RightSidebarState } from '@/src/components/PCRightSidebar'
 import { BottomNav } from '@/src/components/BottomNav'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
 import RoomIntroSlidesModal from '@/src/components/tutorial/RoomIntroSlidesModal'
-import FirstChatVisitWelcomeFlow from '@/src/components/onboarding/FirstChatVisitWelcomeFlow'
 import { useGrowthStage } from '@/src/components/tree/useGrowthStage'
 import { DaisyIcon } from '@/src/components/icons/DaisyIcon'
 import { supabase } from '@/src/lib/supabase/client'
@@ -21,7 +21,7 @@ const TAB_ORDER: RoomType[] = ['light', 'shadow', 'friend']
 const TAB_CONFIG: Record<RoomType, { label: string; icon: string }> = {
   light:  { label: 'Daisy', icon: '🌼' },
   shadow: { label: 'Seed', icon: '🌱' },
-  friend: { label: 'Friend', icon: '👥' },
+  friend: { label: 'Private', icon: '💬' },
 }
 
 const ACTIVE_BG     = '#4A7C59'
@@ -37,6 +37,25 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
   const { setGrowthStage } = useGrowthStage()
   const [showGrowthHelp, setShowGrowthHelp] = useState(false)
   const [showRoomIntro, setShowRoomIntro] = useState(false)
+
+  // 右サイドバー（PCのみ）の動的表示。初期は非表示。
+  //  - Daisy/Seed のバブルをタップ（daime-pc-tag-select）→ チャンネル一覧
+  //  - Private タブ → フレンド一覧
+  //  - Daisy/Seed タブに切り替え → いったん閉じる（バブルタップで再度開く）
+  const [rightSidebar, setRightSidebar] = useState<RightSidebarState>({ type: null })
+
+  useEffect(() => {
+    setRightSidebar(type === 'friend' ? { type: 'friends' } : { type: null })
+  }, [type])
+
+  useEffect(() => {
+    const onSelect = (e: Event) => {
+      const d = (e as CustomEvent).detail as { type: 'light' | 'shadow'; tagId: string; tagText: string }
+      setRightSidebar({ type: 'channels', tag: { id: d.tagId, text: d.tagText }, roomType: d.type })
+    }
+    window.addEventListener('daime-pc-tag-select', onSelect)
+    return () => window.removeEventListener('daime-pc-tag-select', onSelect)
+  }, [])
 
   // 初回訪問時にルーム案内ポップアップを自動表示
   useEffect(() => {
@@ -88,14 +107,19 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
   }
 
   return (
+    // 右サイドバー（PCRightSidebar）はメインを圧縮しない overlay（fixed）表示。
+    // メインコンテンツは常に画面全体（100vw）の中央に置く：左サイドバー240pxの
+    // 半分だけ左へオフセット（md:-translate-x-[120px]）。mx-auto で main 内中央
+    // ＝ vw/2+120 → -120 で vw/2（画面中央）に一致する。スマホは単一カラムのまま。
+    <>
     <div
-      className="flex flex-col px-6 pt-16"
+      className="flex flex-col px-6 pt-16 md:pt-8 md:items-center md:mx-auto md:max-w-2xl! md:h-[calc(100svh-56px)]! md:min-h-[calc(100svh-56px)]! md:-translate-x-[120px]"
       style={{
         background: '#F5F0E8', maxWidth: 390, margin: '0 auto',
         minHeight: '100svh', paddingBottom: 0,
       }}
     >
-      <div className="mb-6" style={{ flexShrink: 0, position: 'relative' }}>
+      <div className="mb-6 w-full" style={{ flexShrink: 0, position: 'relative' }}>
         <div className="flex items-center justify-center gap-2">
           {type === 'light'
             ? <DaisyIcon size={22} stage={4} active />
@@ -119,7 +143,7 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
       </div>
 
       {/* タブ */}
-      <div className="flex gap-2 mb-6" style={{ flexShrink: 0 }}>
+      <div className="flex gap-2 mb-6 w-full" style={{ flexShrink: 0 }}>
         {TAB_ORDER.map(t => {
           const active = t === type
           return (
@@ -143,12 +167,37 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
         })}
       </div>
 
-      {type === 'light' ? <LightRoomView /> : type === 'shadow' ? <ShadowRoomView onSeedChatDone={() => advanceStep('room_grow_animation')} /> : <FriendRoomView />}
+      {type === 'light' ? (
+        <div className="w-full flex-1 flex flex-col min-h-0">
+          <LightRoomView />
+        </div>
+      ) : type === 'shadow' ? (
+        <div className="w-full flex-1 flex flex-col min-h-0">
+          <ShadowRoomView onSeedChatDone={() => advanceStep('room_grow_animation')} />
+        </div>
+      ) : (
+        <>
+          {/* スマホ：従来どおりPrivateチャットのリストをメインUIに表示 */}
+          <div className="md:hidden w-full">
+            <FriendRoomView />
+          </div>
+          {/* PC：リストは左サイドバーに移動。メインはタイトルのみ＋プレースホルダ */}
+          <div className="hidden md:flex flex-1 w-full items-center justify-center">
+            <p className="text-sm text-center m-0" style={{ color: 'rgba(59,47,30,0.4)' }}>
+              左のリストから相手を選んでください
+            </p>
+          </div>
+        </>
+      )}
 
       <BottomNav
         onGardenClick={() => { if (step === 'room_grow_animation') advanceStep('garden_onboarding') }}
       />
 
+    </div>
+
+      {/* モーダル類は overlay（fixed）。オフセット対象の div の外に出し、
+          画面中央基準のままにする（内側に置くと translate の影響を受けるため）。 */}
       {(showRoomIntro || phase === 'room_intro') && (
         <RoomIntroSlidesModal onNext={() => {
           setShowRoomIntro(false)
@@ -156,17 +205,11 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
         }} />
       )}
 
-      {/* 初回チャット訪問後：プロセスモーダル → ゲーテの名言 → ようこそモーダル → ガーデンへ矢印で誘導
-          矢印表示中はstepを'room_grow_animation'のまま保ち、実際にガーデンタブをタップした
-          瞬間（BottomNavのonGardenClick）にのみ'garden_onboarding'へ進める。ここでstepを
-          進めてしまうと表示条件が直ちにfalseになり矢印が一瞬で消えてしまうため注意。 */}
-      {step === 'room_grow_animation' && (
-        <FirstChatVisitWelcomeFlow />
-      )}
-
       {showGrowthHelp && (
         <HelpModal onClose={() => setShowGrowthHelp(false)} />
       )}
-    </div>
+
+      <PCRightSidebar state={rightSidebar} />
+    </>
   )
 }

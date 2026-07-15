@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  // 開発モードの左下インジケーター（「N」ロゴ）を非表示にする（PCナビ右上のアバターに統合済み）
+  devIndicators: false,
 };
 
 export default nextConfig;

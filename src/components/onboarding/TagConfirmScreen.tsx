@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import WhyModal from '@/src/components/onboarding/WhyModal'
-import SeedQuoteModal from '@/src/components/room/SeedQuoteModal'
 import GrowthWelcomeMessage from '@/src/components/tutorial/GrowthWelcomeMessage'
 
 type Props = {
@@ -13,8 +11,6 @@ type Props = {
 
 export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
   const router = useRouter()
-  const [showWhyModal, setShowWhyModal] = useState(false)
-  const [showQuotePopup, setShowQuotePopup] = useState(false)
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false)
   const total = lightTags.length + shadowTags.length
   const [visibleCount, setVisibleCount] = useState(0)
@@ -91,7 +87,7 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
       </div>
 
       <button
-        onClick={() => setShowWhyModal(true)}
+        onClick={() => setShowWelcomeMessage(true)}
         style={{
           width: '100%', padding: '14px',
           borderRadius: 24, border: 'none',
@@ -104,31 +100,13 @@ export default function TagConfirmScreen({ lightTags, shadowTags }: Props) {
       </button>
     </div>
 
-    {showWhyModal && (
-      <WhyModal
-        currentStep={2}
-        completedStep={1}
-        onCompletedCheckDone={() => setShowQuotePopup(true)}
-        onStart={() => { setShowWhyModal(false); router.push('/home') }}
-      />
-    )}
-
-    {/* ①完了の✓アニメーション後に表示する名言＋褒め言葉のポップアップ（ルーム訪問後と同じ仕組み）
-        名言・褒め言葉ともにここでは固定（アリストテレス／「さあ、ここからが始まり」） */}
-    {showQuotePopup && (
-      <SeedQuoteModal
-        onClose={() => { setShowQuotePopup(false); setShowWelcomeMessage(true) }}
-        zIndex={600}
-        fixedQuote={{ text: '自分を知ることが、\nすべての知恵の始まりだ。', author: 'アリストテレス' }}
-        fixedPraise="さあ、ここからが始まり"
-      />
-    )}
-
-    {/* 初期設定フローの最後（4ステップ目）：ガーデンへ進む前のウェルカムメッセージ */}
+    {/* 初期設定フローの最後：ホームへ進む前のウェルカムメッセージ。
+        「始める」→ ホーム画面が一瞬出た後、左上アイコンのプロフィール案内アニメ＋
+        モード紹介モーダルが順に表示される（ホーム初回訪問時の演出）。 */}
     {showWelcomeMessage && (
       <GrowthWelcomeMessage
         zIndex={700}
-        onNext={() => router.push('/home')}
+        onNext={() => router.push('/home/feed')}
       />
     )}
 

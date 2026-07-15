@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@capacitor/ios": "^8.4.1",
     "@capacitor/local-notifications": "^8.2.0",
+    "@daily-co/daily-js": "^0.91.0",
     "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.107.0",
     "d3-force": "^3.0.0",

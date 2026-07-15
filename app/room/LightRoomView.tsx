@@ -34,22 +34,28 @@ export default function LightRoomView() {
   const [channel, setChannel]       = useState<SelectedChannel | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // プロフィール閲覧から戻ってきた場合にチャットを復元する
+  // プロフィール閲覧から戻ってきた場合や、PCサイドバーでチャンネルが
+  // 選択された場合（daime-chat-restore イベント）にチャットを復元する
   useEffect(() => {
-    const stored = sessionStorage.getItem('daime_chat_return')
-    if (!stored) return
-    try {
-      const state = JSON.parse(stored) as {
-        type: string; tagId: string; tagText: string
-        subTagId: string | null; subTagName: string | null
+    const restore = () => {
+      const stored = sessionStorage.getItem('daime_chat_return')
+      if (!stored) return
+      try {
+        const state = JSON.parse(stored) as {
+          type: string; tagId: string; tagText: string
+          subTagId: string | null; subTagName: string | null
+        }
+        if (state.type !== 'light') return
+        sessionStorage.removeItem('daime_chat_return')
+        setOpenTag({ id: state.tagId, text: state.tagText, growth_point: 0 })
+        setChannel({ subTagId: state.subTagId, name: state.subTagName ?? state.tagText })
+      } catch {
+        sessionStorage.removeItem('daime_chat_return')
       }
-      if (state.type !== 'light') return
-      sessionStorage.removeItem('daime_chat_return')
-      setOpenTag({ id: state.tagId, text: state.tagText, growth_point: 0 })
-      setChannel({ subTagId: state.subTagId, name: state.subTagName ?? state.tagText })
-    } catch {
-      sessionStorage.removeItem('daime_chat_return')
     }
+    restore()
+    window.addEventListener('daime-chat-restore', restore)
+    return () => window.removeEventListener('daime-chat-restore', restore)
   }, [])
 
   useEffect(() => {
@@ -95,8 +101,30 @@ export default function LightRoomView() {
 
   // タップして部屋に入る → セッションの最深アクションを「ルームを開く」で開始
   const openRoom = (tag: Tag) => {
+    // PC時はモーダルを開かず、第2サイドバーにチャンネル一覧を出す
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      window.dispatchEvent(new CustomEvent('daime-pc-tag-select', {
+        detail: { type: 'light', tagId: tag.id, tagText: tag.text },
+      }))
+      return
+    }
     sessionDepthRef.current = 'room_open'
     setOpenTag(tag)
+  }
+
+  // バブルをタップした時の共通処理。
+  //  PC（md以上）：中央でも端でも、タップしたバブルのチャンネル一覧を右サイドバーに出す
+  //               （中央でないバブルは goTo で中央へ寄せてから表示）。
+  //  スマホ：従来どおり（中央のバブル＝モーダル、端のバブル＝中央へ寄せる）。
+  const handleBubbleTap = (tag: Tag, i: number, active: boolean) => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      if (!active) goTo(i)
+      window.dispatchEvent(new CustomEvent('daime-pc-tag-select', {
+        detail: { type: 'light', tagId: tag.id, tagText: tag.text },
+      }))
+      return
+    }
+    active ? openRoom(tag) : goTo(i)
   }
 
   // チャンネル（ALL/サブタグ）を選ぶ → セッションの最深アクションを更新
@@ -142,7 +170,7 @@ export default function LightRoomView() {
         スワイプして選び、タップして部屋に入る
       </p>
 
-      {/* 土壌断面 + バブルカルーセル */}
+      {/* 土壌断面 + バブルカルーセル（PC/スマホとも下端いっぱいまで地下エリアを伸ばす） */}
       <div style={{
         position: 'relative',
         marginLeft: -24, marginRight: -24,
@@ -188,7 +216,7 @@ export default function LightRoomView() {
             return (
               <button
                 key={tag.id}
-                onClick={() => active ? openRoom(tag) : goTo(i)}
+                onClick={() => handleBubbleTap(tag, i, active)}
                 style={{
                   scrollSnapAlign: 'center', flexShrink: 0,
                   position: 'relative', width: ITEM_WIDTH, height: '100%',
@@ -221,7 +249,7 @@ export default function LightRoomView() {
                     ? '0 4px 16px rgba(0,0,0,0.18)'
                     : '0 2px 8px rgba(0,0,0,0.12)',
                 }}>
-                  <DaisyBubble size={BUBBLE_SIZE} />
+                  <DaisyBubble size={BUBBLE_SIZE} centered />
                 </div>
               </button>
             )
@@ -237,6 +265,7 @@ export default function LightRoomView() {
           tag={openTag}
           onClose={handleSubTagListClose}
           onSelect={handleSelectChannel}
+          className="md:hidden!"
         />
       )}
 

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import PCNav from "@/src/components/PCNav";
+import PCAppShell from "@/src/components/PCAppShell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,7 +45,12 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="m-0 p-0">{children}</body>
+      <body className="m-0 p-0 md:bg-[#F5F0E8]">
+        {/* PC（md以上）のみ上部ナビ。スマホは各ページの BottomNav（md:hidden）を使う */}
+        <PCNav />
+        {/* 主要画面（ホーム/チャット/記録）はPCで左右サイドバー付き3カラム、それ以外は全幅 */}
+        <PCAppShell>{children}</PCAppShell>
+      </body>
     </html>
   );
 }

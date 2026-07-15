@@ -1,17 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import BubbleDetailModal from '@/src/components/BubbleDetailModal'
+import TagWordsModal from '@/src/components/TagWordsModal'
 import HelpModal from '@/src/components/HelpModal'
 import DaisyBubble from '@/src/components/DaisyBubble'
 import AppLogo from '@/src/components/AppLogo'
 import { ProfileDrawer } from '@/src/components/ProfileDrawer'
 import FriendBubble from '@/src/components/FriendBubble'
 
-type LightTag  = { id: string; text: string; growth_point: number; position_x?: number | null; position_y?: number | null }
-type ShadowTag = { id: string; text: string; growth_point: number; seed_weight: string | null; stage: string | null; position_x?: number | null; position_y?: number | null }
+type LightTag  = { id: string; text: string; growth_point: number; color?: string | null; position_x?: number | null; position_y?: number | null }
+type ShadowTag = { id: string; text: string; growth_point: number; color?: string | null; seed_weight: string | null; stage: string | null; position_x?: number | null; position_y?: number | null }
 type FriendBubble = {
   id: string              // friend の user ID
   text: string            // username（表示・key用）
@@ -60,9 +61,9 @@ function getSeedBubble(stage: string | null, seedWeight: string | null): { emoji
   return { emoji: '🌱', bg: '#D4B896', text: '#6B4E1A' }
 }
 
-const MIN_BUBBLE_SIZE     = 40
-const MAX_BUBBLE_SIZE     = 90
-const DEFAULT_BUBBLE_SIZE = 52
+const MIN_BUBBLE_SIZE     = 48
+const MAX_BUBBLE_SIZE     = 108
+const DEFAULT_BUBBLE_SIZE = 62
 
 function clamp(v: number, min: number, max: number) { return Math.min(Math.max(v, min), max) }
 
@@ -114,7 +115,8 @@ type StoredPos = { x?: number | null; y?: number | null }
 // 無く、バブルのboxShadow(最大10pxにじみ)と合わさってタブに重なって見えるため確保する。
 // ※ バブルエリア自体は既にタブの下（通常のflowの後続要素）に配置されているので、
 //   ヘッダー全体の高さを足す必要はなく、エリア内の小さな安全マージンで十分。
-const BUBBLE_TOP_OFFSET = 24
+// バブルの上にハッシュタグラベルを出すため、ラベル高さ分の余白を上端に確保する
+const BUBBLE_TOP_OFFSET = 46
 
 // ── 配置アルゴリズム ──
 // 重なりを最優先で排除しつつ、隙間なく密着させ、サイズが大きいバブルほど
@@ -265,7 +267,10 @@ const FRIEND_LEGEND = [
 
 // canvasH は positions から動的に算出するため定数不要
 
-export default function GardenDisplay() {
+// embedded: ProfileDrawer 内に埋め込むモード。タイトル行（プロフィール・ヘルプボタン）と
+// 内部の ProfileDrawer を描画しない（ProfileDrawer → GardenDisplay → ProfileDrawer の
+// 無限再帰を防ぐため必須）。統計・タブ・バブル表示はそのまま。
+export default function GardenDisplay({ embedded = false }: { embedded?: boolean } = {}) {
   const router = useRouter()
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -278,7 +283,7 @@ export default function GardenDisplay() {
   const [containerW, setContainerW]     = useState(330)
   const [pan, setPan]                   = useState({ x: 0, y: 0 })
 
-  const [selectedBubble, setSelectedBubble] = useState<{ tagId: string; tagText: string; tagType: 'light' | 'shadow' } | null>(null)
+  const [selectedBubble, setSelectedBubble] = useState<{ tagId: string; tagText: string; tagType: 'light' | 'shadow'; tagColor: string | null } | null>(null)
 
   const [pulseTagIds, setPulseTagIds]               = useState<Set<string>>(new Set())
   const [showHelp, setShowHelp]                             = useState(false)
@@ -314,7 +319,7 @@ export default function GardenDisplay() {
     ;(async () => {
       const [tagsRes, eventsRes] = await Promise.all([
         (supabase.from('tags') as any)
-          .select('id, text, type, growth_point, seed_weight, stage, position_x, position_y')
+          .select('id, text, type, growth_point, color, seed_weight, stage, position_x, position_y')
           .eq('user_id', userId).eq('is_active', true),
         (supabase.from('tag_events') as any)
           .select('created_at').eq('user_id', userId),
@@ -399,16 +404,28 @@ export default function GardenDisplay() {
     return []
   }, [tab, lightTags, shadowTags])
 
+  // ラベル（バブル上のハッシュタグ）が隣のバブルと重ならないよう、
+  // 当たり判定はラベル込みの大きさで見積もる（描画はバブル本体のサイズのまま）。
+  // labelW: ラベルピルの概算幅（全角約11px/字＋左右余白）、+26: 上のラベル帯の高さ。
+  const collisionSizes = useMemo(
+    () => currentTags.map((t, i) => {
+      const bs = bubbleSizes[i] ?? DEFAULT_BUBBLE_SIZE
+      const labelW = t.text.replace(/^#+/, '').length * 11 + 22
+      return Math.max(labelW, bs + 26)
+    }),
+    [currentTags, bubbleSizes],
+  )
+
   const { positions, changedIndices } = useMemo(() => {
     if (containerW === 0) return { positions: [], changedIndices: [] }
     return generatePositions(
       currentTags.length,
       containerW,
-      bubbleSizes,
+      collisionSizes,
       currentTags.map(t => ({ x: t.position_x, y: t.position_y })),
       BUBBLE_TOP_OFFSET,
     )
-  }, [tab, containerW, bubbleSizes, currentTags])
+  }, [tab, containerW, collisionSizes, currentTags])
 
   // 衝突解消で座標が変わった（≒保存値と異なる）タグはDBへ書き戻す。
   // 次回読み込み時にも同じ重ならない配置がそのまま再現されるようにする。
@@ -421,21 +438,21 @@ export default function GardenDisplay() {
       const tag = currentTags[i]
       const pos = positions[i]
       if (!tag || !pos) continue
-      const r = (bubbleSizes[i] ?? 52) / 2
+      const r = (collisionSizes[i] ?? 52) / 2
       // result は左上座標なので、DB保存用の中心座標に変換し直す
       ;(supabase.from('tags') as any)
         .update({ position_x: pos.x + r, position_y: pos.y + r })
         .eq('id', tag.id)
         .eq('user_id', userId)
     }
-  }, [changedIndices, positions, currentTags, bubbleSizes, tab])
+  }, [changedIndices, positions, currentTags, collisionSizes, tab])
 
   // 最も下のバブルの底辺 + 余白
   const canvasH = useMemo(() => {
     if (positions.length === 0) return 460
-    const maxBottom = Math.max(...positions.map((p, i) => p.y + (bubbleSizes[i] ?? 52)))
+    const maxBottom = Math.max(...positions.map((p, i) => p.y + (collisionSizes[i] ?? 52)))
     return maxBottom + 40
-  }, [positions, bubbleSizes])
+  }, [positions, collisionSizes])
 
   // ── ドラッグハンドラ ──
   // setPointerCapture はドラッグ開始時にのみ呼ぶ。
@@ -470,7 +487,6 @@ export default function GardenDisplay() {
   }
 
   const activeBg   = tab === 'light' ? '#F5D78E' : tab === 'shadow' ? '#D4B896' : '#B8D4E8'
-  const activeText = tab === 'light' ? '#7A5C00' : tab === 'shadow' ? '#6B4E1A' : '#2C5F7A'
   const legend     = tab === 'light' ? DAISY_LEGEND : tab === 'shadow' ? SEED_LEGEND : FRIEND_LEGEND
 
   return (
@@ -484,7 +500,8 @@ export default function GardenDisplay() {
           コンポーネントのルート)の直下の兄弟である必要がある。背景色がないと
           最前面でもバブルが透けて見えるため、ページ背景色を明示的に敷く。 */}
       <div style={{ position: 'relative', zIndex: 50, background: '#F5F0E8', flexShrink: 0 }}>
-        {/* ── タイトル行（ロゴ中心） ── */}
+        {/* ── タイトル行（ロゴ中心・埋め込み時は非表示） ── */}
+        {!embedded && (
         <div style={{
           padding: '16px 20px 8px', flexShrink: 0,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -520,6 +537,7 @@ export default function GardenDisplay() {
             ？
           </button>
         </div>
+        )}
 
         {/* ── ステータス行 ── */}
         <div style={{ display: 'flex', padding: '10px 20px 14px', flexShrink: 0 }}>
@@ -607,84 +625,79 @@ export default function GardenDisplay() {
             </div>
           ) : currentTags.map((tag, i) => {
             const isPulsing  = pulseTagIds.has(tag.id)
-            const baseSize   = bubbleSizes[i] ?? 60
-            const size       = baseSize
+            const size       = bubbleSizes[i] ?? 60
+            const cSize      = collisionSizes[i] ?? size
             const pos        = positions[i] ?? { x: 0, y: 0 }
+            // 当たり判定（collision）中心にバブル本体を合わせ、ラベルはその上に置く
+            const cR         = cSize / 2
+            const centerX    = pos.x + cR
+            const centerY    = pos.y + cR
+            const leftX      = centerX - size / 2
+            const topY       = centerY - size / 2
 
-            let bg: string
-            let textColor: string
-
-            if (tab === 'light') {
-              bg = activeBg; textColor = activeText
-            } else {
-              const s = getSeedBubble((tag as ShadowTag).stage, (tag as ShadowTag).seed_weight)
-              bg = s.bg; textColor = s.text
-            }
+            const bg = tab === 'light'
+              ? activeBg
+              : getSeedBubble((tag as ShadowTag).stage, (tag as ShadowTag).seed_weight).bg
+            const clean = tag.text.replace(/^#+/, '')
 
             return (
-              <button
-                key={tag.id}
-                onClick={() => {
-                  if (isDragging.current) return
-                  setSelectedBubble({ tagId: tag.id, tagText: tag.text, tagType: tab as 'light' | 'shadow' })
-                }}
-                style={{
+              <Fragment key={tag.id}>
+                {/* ハッシュタグラベル（バブルの上・チャット画面と同じ配色） */}
+                <span style={{
                   position: 'absolute',
-                  left: pos.x, top: pos.y,
-                  width: size, height: size,
-                  minWidth: size, minHeight: size,
-                  borderRadius: '50%',
-                  background: tab === 'light' ? 'none' : bg,
-                  border: 'none', cursor: 'pointer', padding: 0,
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', justifyContent: 'center', gap: 2,
-                  overflow: 'hidden',
-                  boxShadow: isPulsing
-                    ? '0 0 20px rgba(74,124,89,0.55), 0 3px 10px rgba(0,0,0,0.1)'
-                    : '0 3px 10px rgba(0,0,0,0.1)',
+                  left: centerX, top: topY - 6,
+                  transform: 'translate(-50%, -100%)',
+                  fontSize: 11, fontWeight: 700,
+                  color: '#8B6914', background: '#F5D78E',
+                  borderRadius: 999, padding: '2px 9px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                  pointerEvents: 'none', zIndex: 5,
                   opacity: visible ? 1 : 0,
-                  transform: visible ? 'scale(1)' : 'scale(0.75)',
-                  animation: isPulsing ? 'bubble-pulse 0.7s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
-                  transition: `opacity 0.4s ease ${i * 0.12}s, transform 0.4s ease ${i * 0.12}s, width 0.5s ease, height 0.5s ease, background 0.5s ease`,
-                  pointerEvents: 'auto',
-                  userSelect: 'none',
-                }}
-              >
-                {tab === 'light' ? (
-                  /* Daisy バブル: SVG が背景ごと描画、花を上半分に縮小し下半分にテキストを重ねる */
-                  <>
-                    <DaisyBubble size={size} />
-                    <span style={{
-                      position: 'absolute',
-                      bottom: Math.max(Math.round(size * 0.06), 4),
-                      left: 0, right: 0, textAlign: 'center',
-                      fontSize: clamp(Math.round(size * 0.14), 8, 12),
-                      fontWeight: 700, color: '#5A3800', lineHeight: 1.15,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden', textOverflow: 'ellipsis', wordBreak: 'break-all',
-                      paddingLeft: 6, paddingRight: 6,
-                    }}>
-                      #{tag.text.replace(/^#+/, '')}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: clamp(Math.round(size * 0.28), 16, 28) }}>
+                  transition: `opacity 0.4s ease ${i * 0.12}s`,
+                }}>
+                  #{clean}
+                </span>
+
+                <button
+                  onClick={() => {
+                    if (isDragging.current) return
+                    setSelectedBubble({
+                      tagId: tag.id, tagText: tag.text,
+                      tagType: tab as 'light' | 'shadow',
+                      tagColor: (tag as LightTag | ShadowTag).color ?? null,
+                    })
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: leftX, top: topY,
+                    width: size, height: size,
+                    minWidth: size, minHeight: size,
+                    borderRadius: '50%',
+                    background: tab === 'light' ? 'none' : bg,
+                    border: 'none', cursor: 'pointer', padding: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden',
+                    boxShadow: isPulsing
+                      ? '0 0 20px rgba(74,124,89,0.55), 0 3px 10px rgba(0,0,0,0.1)'
+                      : '0 3px 10px rgba(0,0,0,0.1)',
+                    opacity: visible ? 1 : 0,
+                    transform: visible ? 'scale(1)' : 'scale(0.75)',
+                    animation: isPulsing ? 'bubble-pulse 0.7s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
+                    transition: `opacity 0.4s ease ${i * 0.12}s, transform 0.4s ease ${i * 0.12}s, width 0.5s ease, height 0.5s ease, background 0.5s ease`,
+                    pointerEvents: 'auto',
+                    userSelect: 'none',
+                  }}
+                >
+                  {tab === 'light' ? (
+                    <DaisyBubble size={size} centered />
+                  ) : (
+                    <span style={{ fontSize: clamp(Math.round(size * 0.42), 20, 44), lineHeight: 1 }}>
                       {getSeedBubble((tag as ShadowTag).stage, (tag as ShadowTag).seed_weight).emoji}
                     </span>
-                    <span style={{
-                      fontSize: clamp(Math.round(size * 0.14), 8, 11),
-                      fontWeight: 600, color: textColor,
-                      maxWidth: size - 10, overflow: 'hidden',
-                      textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      #{tag.text.replace(/^#+/, '')}
-                    </span>
-                  </>
-                )}
-              </button>
+                  )}
+                </button>
+              </Fragment>
             )
           })}
         </div>
@@ -703,20 +716,31 @@ export default function GardenDisplay() {
       </div>
 
       {/* ── バブル詳細モーダル ── */}
+      {/* 埋め込み（プロフィール内）ではタグの言葉・日記一覧のシート、
+          通常のガーデン画面では従来のフルスクリーン詳細（成長表示・日記書き込み付き） */}
       {selectedBubble && (
-        <BubbleDetailModal
-          tagId={selectedBubble.tagId}
-          tagText={selectedBubble.tagText}
-          tagType={selectedBubble.tagType}
-          onClose={() => setSelectedBubble(null)}
-        />
+        embedded ? (
+          <TagWordsModal
+            tagId={selectedBubble.tagId}
+            tagText={selectedBubble.tagText}
+            tagColor={selectedBubble.tagColor}
+            onClose={() => setSelectedBubble(null)}
+          />
+        ) : (
+          <BubbleDetailModal
+            tagId={selectedBubble.tagId}
+            tagText={selectedBubble.tagText}
+            tagType={selectedBubble.tagType}
+            onClose={() => setSelectedBubble(null)}
+          />
+        )
       )}
 
       {/* ── ヘルプモーダル ── */}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
 
-      {/* ── プロフィールドロワー ── */}
-      <ProfileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />
+      {/* ── プロフィールドロワー（埋め込み時は描画しない：無限再帰防止） ── */}
+      {!embedded && <ProfileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} />}
     </div>
   )
 }

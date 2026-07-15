@@ -2,16 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import WhyModal from '@/src/components/onboarding/WhyModal'
-import ProcessOverviewScreen from '@/src/components/onboarding/ProcessOverviewScreen'
 import DaisyFlower from '@/src/components/DaisyFlower'
 
 export default function WelcomePage() {
   const router    = useRouter()
   const [loaded,           setLoaded]           = useState(false)
   const [isLeaving,        setIsLeaving]        = useState(false)
-  const [showProcessOverview, setShowProcessOverview] = useState(false)
-  const [showWhyModal,     setShowWhyModal]     = useState(false)
   const [showStartPopup,   setShowStartPopup]   = useState(false)
 
   useEffect(() => {
@@ -19,17 +15,8 @@ export default function WelcomePage() {
     return () => clearTimeout(t)
   }, [])
 
-  const handleStart = () => setShowProcessOverview(true)
-
-  const handleProcessUnderstand = () => {
-    setShowProcessOverview(false)
-    setShowWhyModal(true)
-  }
-
-  const handleWhyStart = () => {
-    setShowWhyModal(false)
-    setShowStartPopup(true)
-  }
+  // 「はじめる」→ そのまま「4つの質問」ポップアップへ（途中の説明モーダルは廃止）
+  const handleStart = () => setShowStartPopup(true)
 
   const handleStartPopup = () => {
     setShowStartPopup(false)
@@ -109,8 +96,6 @@ export default function WelcomePage() {
         </p>
       </div>
     </div>
-    {showProcessOverview && <ProcessOverviewScreen onUnderstand={handleProcessUnderstand} />}
-    {showWhyModal && <WhyModal onStart={handleWhyStart} currentStep={1} />}
     {showStartPopup && (
       <div style={{
         position: 'fixed', inset: 0, zIndex: 500,

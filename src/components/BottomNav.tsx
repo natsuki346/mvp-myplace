@@ -3,9 +3,9 @@
 import { useRouter, usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { id: 'garden',  icon: '🌿', label: 'ガーデン', path: '/home' },
-  { id: 'room',    icon: '🏠', label: 'ルーム',   path: '/room/light' },
-  { id: 'lottery', icon: '🔥', label: 'ロッタリー', path: '/lottery' },
+  { id: 'feed',   icon: '🏠', label: 'ホーム',   path: '/home/feed' },
+  { id: 'room',   icon: '💬', label: 'チャット', path: '/room/light' },
+  { id: 'record', icon: '🕐', label: '記録',     path: '/record' },
 ]
 
 type BottomNavProps = {
@@ -18,19 +18,18 @@ export function BottomNav({ onRoomClick, onGardenClick }: BottomNavProps = {}) {
   const pathname = usePathname()
 
   return (
-    <div style={{
-      position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-      width: '100%', maxWidth: 390, zIndex: 100,
-      display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-      background: '#F5F0E8', borderTop: '1px solid rgba(139,115,85,0.15)',
-      padding: '10px 0 calc(18px + env(safe-area-inset-bottom))',
-    }}>
+    <div
+      className="flex justify-around items-center md:hidden"
+      style={{
+        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: 390, zIndex: 100,
+        background: '#F5F0E8', borderTop: '1px solid rgba(139,115,85,0.15)',
+        padding: '10px 0 calc(18px + env(safe-area-inset-bottom))',
+      }}>
       {NAV_ITEMS.map(item => {
         const active = item.path === '/room/light'
           ? pathname.startsWith('/room')
-          : item.path === '/lottery'
-            ? pathname.startsWith('/lottery')
-            : pathname === item.path
+          : pathname === item.path
         return (
           <button
             key={item.path}

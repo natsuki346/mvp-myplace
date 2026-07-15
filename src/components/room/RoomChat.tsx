@@ -713,7 +713,10 @@ export default function RoomChat({
               </div>
             )
           })()}
-          <div style={{
+          {/* 入力バー：PC時は少し大きめに（md:〜! でインラインstyleを上書き） */}
+          <div
+            className="md:py-4! md:px-4!"
+            style={{
             background: '#F5F0E8', borderTop: '1px solid #D4B896',
             padding: '10px 12px 28px', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0,
           }}>
@@ -727,6 +730,7 @@ export default function RoomChat({
               }}
               onKeyDown={e => { if (e.key === 'Enter') handleSend() }}
               placeholder="メッセージを入力..."
+              className="md:py-3! md:text-base!"
               style={{
                 flex: 1, background: '#FFFFFF', border: '1px solid #D4B896',
                 borderRadius: 20, padding: '10px 16px', fontSize: 16,
@@ -735,6 +739,7 @@ export default function RoomChat({
             />
             <button
               onClick={handleSend}
+              className="md:w-11! md:h-11! md:text-xl!"
               style={{
                 width: 36, height: 36, borderRadius: '50%', border: 'none',
                 background: input.trim() ? '#4A7C59' : 'rgba(0,0,0,0.10)',

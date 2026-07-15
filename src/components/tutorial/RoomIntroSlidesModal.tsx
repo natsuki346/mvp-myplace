@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import RoomChat from '@/src/components/room/RoomChat'
-import SeedQuoteModal from '@/src/components/room/SeedQuoteModal'
 import DaisyBubble from '@/src/components/DaisyBubble'
 
 type RoomIntroSlidesModalProps = {
@@ -38,34 +37,10 @@ const PREVIEW_WIDTH   = BASE_WIDTH * SCALE
 const PREVIEW_HEIGHT  = BASE_HEIGHT * SCALE
 
 // 既存の本物のチャット画面（RoomChat）をそのまま縮小・非操作で埋め込むデモ
-function MiniRoomPreview({ type, onFirstPlaybackDone }: { type: 'light' | 'shadow'; onFirstPlaybackDone?: () => void }) {
+function MiniRoomPreview({ type }: { type: 'light' | 'shadow' }) {
   const info = type === 'light'
     ? { title: 'Daisyの部屋', subtitle: '🌼 Daisy' }
     : { title: 'Seedの部屋',  subtitle: '🌱 Seed' }
-
-  // Seedルームでは「訪問時に名言が表示される」演出をループ実演する
-  const [showQuoteDemo, setShowQuoteDemo] = useState(false)
-
-  useEffect(() => {
-    if (type !== 'shadow') return
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    let firstCycleDone = false
-    const cycle = (show: boolean) => {
-      timer = setTimeout(() => {
-        if (cancelled) return
-        setShowQuoteDemo(show)
-        if (!show && !firstCycleDone) {
-          firstCycleDone = true
-          onFirstPlaybackDone?.()
-        }
-        cycle(!show)
-      }, show ? 1200 : 4000)
-    }
-    cycle(true)
-    return () => { cancelled = true; clearTimeout(timer) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type])
 
   return (
     <div
@@ -99,9 +74,6 @@ function MiniRoomPreview({ type, onFirstPlaybackDone }: { type: 'light' | 'shado
           readOnly
           channelKey={`demo-${type}-intro`}
         />
-        {type === 'shadow' && showQuoteDemo && (
-          <SeedQuoteModal onClose={() => {}} position="absolute" />
-        )}
       </div>
     </div>
   )
@@ -110,8 +82,8 @@ function MiniRoomPreview({ type, onFirstPlaybackDone }: { type: 'light' | 'shado
 const SLIDE_COUNT = 3
 
 // プレビューの再生（ループ実演）があるスライドのインデックス。
-// このスライドでは、1回目の再生が終わるまで「次へ」を押せないようにする。
-const PLAYBACK_SLIDES = new Set([2])
+// 現在は待機が必要な実演はないため空（すべてのスライドで即「次へ」可）。
+const PLAYBACK_SLIDES = new Set<number>()
 
 export default function RoomIntroSlidesModal({ onNext }: RoomIntroSlidesModalProps) {
   const [visible, setVisible] = useState(false)
@@ -213,9 +185,9 @@ export default function RoomIntroSlidesModal({ onNext }: RoomIntroSlidesModalPro
                 Seed（影）は、あなたが抱える悩みや弱さ。<br />そこに向き合うことは、それ自体がすごいことです。
               </p>
               <p style={{ fontSize: 13, color: '#4A7C59', fontWeight: 600, lineHeight: 1.7, margin: '0 0 20px' }}>
-                訪れるたびに、励ましの言葉が届きます🌱
+                同じ悩みを持つ仲間と、<br />弱さや本音を打ち明け合える場所です🌱
               </p>
-              <MiniRoomPreview type="shadow" onFirstPlaybackDone={() => setPreviewReady(true)} />
+              <MiniRoomPreview type="shadow" />
             </>
           )}
         </div>

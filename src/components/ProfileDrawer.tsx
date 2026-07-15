@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/src/lib/supabase/client'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { UserAvatar } from '@/src/components/UserAvatar'
@@ -19,11 +20,13 @@ type Connection = {
 }
 
 type Props = {
-  isOpen: boolean
-  onClose: () => void
+  isOpen?: boolean
+  onClose?: () => void
+  // PC（md以上）では、モーダルではなく左サイドバーとして inline 常時表示する。
+  isInline?: boolean
 }
 
-export function ProfileDrawer({ isOpen, onClose }: Props) {
+export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = false }: Props) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -84,12 +87,12 @@ export function ProfileDrawer({ isOpen, onClose }: Props) {
   }
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isInline && !isOpen) return
     const uid = localStorage.getItem('user_id')
     setUserId(uid)
     if (uid) loadProfile(uid)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+  }, [isOpen, isInline])
 
   const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -125,58 +128,40 @@ export function ProfileDrawer({ isOpen, onClose }: Props) {
     router.push('/welcome')
   }
 
-  return (
-    <>
-      {/* オーバーレイ */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 200,
-          background: 'rgba(0,0,0,0.45)',
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? 'auto' : 'none',
-          transition: 'opacity 0.25s ease',
-        }}
-      />
+  // 利用モードの切り替え → モード選択画面を再表示する
+  const openModeSelect = () => {
+    onClose()
+    router.push('/mode')
+  }
 
-      {/* ドロワーパネル */}
-      <div
+  // 閉じるボタン（PCサイドバー = inline 時は表示しない）
+  const closeButton = (
+    <div style={{
+      display: 'flex', justifyContent: 'flex-end',
+      padding: '16px 16px 8px', flexShrink: 0,
+    }}>
+      <button
+        onClick={onClose}
+        aria-label="閉じる"
         style={{
-          position: 'fixed', top: 0, left: 0, zIndex: 201,
-          width: '80%', maxWidth: 310, height: '100svh',
-          background: '#F5F0E8',
-          boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
-          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
-          display: 'flex', flexDirection: 'column',
-          overflowY: 'auto',
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 22, color: 'rgba(59,47,30,0.4)', lineHeight: 1, padding: 4,
         }}
       >
-        {/* 閉じるボタン */}
-        <div style={{
-          display: 'flex', justifyContent: 'flex-end',
-          padding: '16px 16px 8px', flexShrink: 0,
-        }}>
-          <button
-            onClick={onClose}
-            aria-label="閉じる"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 22, color: 'rgba(59,47,30,0.4)', lineHeight: 1, padding: 4,
-            }}
-          >
-            ✕
-          </button>
-        </div>
+        ✕
+      </button>
+    </div>
+  )
 
-        {loading ? (
-          <p style={{ textAlign: 'center', color: '#A09070', fontSize: 13, paddingTop: 40 }}>
-            読み込み中...
-          </p>
-        ) : (
-          <div style={{ padding: '0 16px 40px' }}>
+  const body = loading ? (
+    <p style={{ textAlign: 'center', color: '#A09070', fontSize: 13, paddingTop: 40 }}>
+      読み込み中...
+    </p>
+  ) : (
+    <div style={{ padding: isInline ? '16px 16px 40px' : '0 16px 40px' }}>
 
-            {/* ── ① プロフィール情報 ── */}
+            {/* ── ① プロフィール情報（inline時は下部アバターチップに集約するため非表示） ── */}
+            {!isInline && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <UserAvatar username={user?.username} avatarUrl={user?.avatar_url} size={64} />
@@ -212,6 +197,7 @@ export function ProfileDrawer({ isOpen, onClose }: Props) {
                 </p>
               </div>
             </div>
+            )}
 
             {/* ── ② タグ一覧 ── */}
             <p style={{ fontSize: 12, fontWeight: 700, color: '#8B6914', margin: '0 0 8px' }}>
@@ -435,7 +421,34 @@ export function ProfileDrawer({ isOpen, onClose }: Props) {
               </div>
             </div>
 
-            {/* ── ⑤ ログアウト ── */}
+            {/* ── ⑤ MyGarden（他のアコーディオンボックスと同じ見た目・タップで全画面遷移） ── */}
+            <Link href="/garden" onClick={onClose} style={{ textDecoration: 'none', display: 'block' }}>
+              <div style={{ border: '1px solid #D4B896', borderRadius: 12, padding: '0 12px', marginBottom: 20 }}>
+                <div style={{
+                  padding: '10px 0', display: 'flex', justifyContent: 'space-between',
+                  alignItems: 'center', cursor: 'pointer',
+                }}>
+                  <span style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>
+                    🌿 MyGarden
+                  </span>
+                  <span style={{ fontSize: 11, color: '#8B6914' }}>全画面で見る ›</span>
+                </div>
+              </div>
+            </Link>
+
+            {/* ── ⑥ モードを切り替える（モード選択画面を再表示） ── */}
+            <button
+              onClick={openModeSelect}
+              style={{
+                width: '100%', padding: '12px 0', borderRadius: 20, marginBottom: 12,
+                border: '1px solid #C9A84C', background: '#FBEFC6', color: '#8B6914',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              🔄 モードを切り替える
+            </button>
+
+            {/* ── ⑦ ログアウト ── */}
             <button
               onClick={handleLogout}
               style={{
@@ -447,7 +460,68 @@ export function ProfileDrawer({ isOpen, onClose }: Props) {
               ログアウト
             </button>
           </div>
-        )}
+  )
+
+  // PC（md以上）：モーダルではなく左サイドバーとして inline 常時表示。
+  // ×閉じるボタン・オーバーレイ・スライドアニメーションは無し。スマホでは非表示。
+  if (isInline) {
+    return (
+      <aside
+        className="hidden md:flex flex-col w-[240px] shrink-0 sticky top-14 h-[calc(100svh-56px)] border-r border-[rgba(139,115,85,0.2)]"
+        style={{ background: '#F5F0E8' }}
+      >
+        {/* 既存のサイドバー内容（スクロール領域） */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {body}
+        </div>
+
+        {/* 下部固定：アバター＋ユーザー名（クリックで自分のプロフィールへ） */}
+        <button
+          onClick={() => router.push('/profile')}
+          className="flex items-center gap-3 w-full shrink-0 bg-transparent hover:bg-[rgba(139,115,85,0.08)] transition-colors cursor-pointer"
+          style={{ padding: '12px 16px', border: 'none', borderTop: '1px solid rgba(139,115,85,0.2)', textAlign: 'left' }}
+        >
+          <UserAvatar username={user?.username} avatarUrl={user?.avatar_url} size={36} />
+          <span
+            className="min-w-0 truncate"
+            style={{ fontSize: 14, fontWeight: 600, color: '#3B2F1E' }}
+          >
+            {user?.username ?? ''}
+          </span>
+        </button>
+      </aside>
+    )
+  }
+
+  return (
+    <>
+      {/* オーバーレイ */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.45)',
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? 'auto' : 'none',
+          transition: 'opacity 0.25s ease',
+        }}
+      />
+
+      {/* ドロワーパネル */}
+      <div
+        style={{
+          position: 'fixed', top: 0, left: 0, zIndex: 201,
+          width: '80%', maxWidth: 310, height: '100svh',
+          background: '#F5F0E8',
+          boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
+          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+          display: 'flex', flexDirection: 'column',
+          overflowY: 'auto',
+        }}
+      >
+        {closeButton}
+        {body}
       </div>
     </>
   )

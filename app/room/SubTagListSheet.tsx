@@ -23,11 +23,14 @@ export default function SubTagListSheet({
   tag,
   onClose,
   onSelect,
+  className = '',
 }: {
   type: RoomType
   tag: { id: string; text: string }
   onClose: () => void
   onSelect: (channel: SelectedChannel) => void
+  // PC時にチャット表示中は隠す等、親からの表示制御用（例: 'md:hidden!'）
+  className?: string
 }) {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
@@ -96,7 +99,7 @@ export default function SubTagListSheet({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 290, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+    <div className={className} style={{ position: 'fixed', inset: 0, zIndex: 290, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       {/* 背景オーバーレイ */}
       <div
         onClick={close}
