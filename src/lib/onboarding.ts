@@ -52,3 +52,22 @@ export function markSaveTooltipSeen(): void {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(saveTooltipSeenKey(), 'true')
 }
+
+// 部屋（ライト／シャドウ）メインチャンネルの、DBメッセージ0件時に出す
+// サンプル会話（DEFAULT_MESSAGES）を既に見たかどうか。ユーザーごと・部屋タイプごとに、
+// 初回（＝初期登録時のオンボーディングで部屋を訪れた1回）だけ案内する。
+// 以降は毎回チャットを開いてもサンプルは出さない。
+function chatIntroSeenKey(tagType: 'light' | 'shadow'): string {
+  const userId = typeof window !== 'undefined' ? window.localStorage.getItem('user_id') : null
+  return `canvas:chatIntroSeen:${tagType}:${userId ?? 'anon'}`
+}
+
+export function isChatIntroSeen(tagType: 'light' | 'shadow'): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(chatIntroSeenKey(tagType)) === 'true'
+}
+
+export function markChatIntroSeen(tagType: 'light' | 'shadow'): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(chatIntroSeenKey(tagType), 'true')
+}

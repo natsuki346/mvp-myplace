@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import LightRoomView from './LightRoomView'
 import ShadowRoomView from './ShadowRoomView'
 import FriendRoomView from '@/src/components/room/FriendRoomView'
-import HelpModal from '@/src/components/HelpModal'
 import PCRightSidebar, { type RightSidebarState } from '@/src/components/PCRightSidebar'
 import { BottomNav } from '@/src/components/BottomNav'
 import { useTutorialStep } from '@/src/components/tutorial/useTutorialStep'
@@ -35,7 +34,6 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
   const router = useRouter()
   const { step, advanceStep } = useTutorialStep()
   const { setGrowthStage } = useGrowthStage()
-  const [showGrowthHelp, setShowGrowthHelp] = useState(false)
   const [showRoomIntro, setShowRoomIntro] = useState(false)
 
   // 右サイドバー（PCのみ）の動的表示。初期は非表示。
@@ -119,27 +117,13 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
         minHeight: '100svh', paddingBottom: 0,
       }}
     >
-      <div className="mb-6 w-full" style={{ flexShrink: 0, position: 'relative' }}>
+      <div className="mb-6 w-full" style={{ flexShrink: 0 }}>
         <div className="flex items-center justify-center gap-2">
           {type === 'light'
             ? <DaisyIcon size={22} stage={4} active />
             : <span style={{ fontSize: 22 }}>{TAB_CONFIG[type].icon}</span>}
           <h1 className="text-xl font-bold" style={{ color: '#3B2F1E' }}>ありのままで繋がる場所</h1>
         </div>
-
-        {/* 成長のしかたヘルプ */}
-        <button
-          onClick={() => setShowGrowthHelp(true)}
-          aria-label="成長のしかた"
-          style={{
-            position: 'absolute', top: '50%', right: 0, transform: 'translateY(-50%)',
-            width: 32, height: 32, borderRadius: '50%',
-            border: 'none', background: '#FFFFFF', color: '#4A7C59',
-            fontSize: 15, fontWeight: 700, lineHeight: 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-          }}
-        >？</button>
       </div>
 
       {/* タブ */}
@@ -203,10 +187,6 @@ export default function RoomTabsPage({ type }: { type: RoomType }) {
           setShowRoomIntro(false)
           advanceStep('room_chat_mi')
         }} />
-      )}
-
-      {showGrowthHelp && (
-        <HelpModal onClose={() => setShowGrowthHelp(false)} />
       )}
 
       <PCRightSidebar state={rightSidebar} />

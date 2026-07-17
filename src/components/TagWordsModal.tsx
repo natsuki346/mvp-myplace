@@ -91,7 +91,7 @@ export default function TagWordsModal({ tagId, tagText, tagColor, onClose }: Pro
       <div style={{
         position: 'fixed', bottom: 0, left: '50%', zIndex: 401,
         width: '100%', maxWidth: 390,
-        maxHeight: '75svh',
+        height: '92svh', maxHeight: '92svh',
         background: '#F5F0E8',
         borderRadius: '20px 20px 0 0',
         borderTop: `3px solid ${accent}`,

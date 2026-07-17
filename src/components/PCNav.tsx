@@ -6,11 +6,11 @@ import DaisyFlower from '@/src/components/DaisyFlower'
 // PC（md以上）専用の上部ナビバー。スマホでは BottomNav（md:hidden）を使う。
 // app/layout.tsx から全ページ共通で表示される。
 // アカウントへの導線は左サイドバー下部のアバター（ProfileDrawer inline）に集約。
-
+// 「記録」はプロフィール／サイドバー（ProfileDrawer）へ移設したため、
+// ボトムナビと同じく「ホーム」「チャット」の2つのみ。
 const NAV_ITEMS = [
   { id: 'feed',   label: 'ホーム',   path: '/home/feed' },
   { id: 'room',   label: 'チャット', path: '/room/light' },
-  { id: 'record', label: '記録',     path: '/record' },
 ]
 
 export default function PCNav() {

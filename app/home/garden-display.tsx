@@ -506,7 +506,9 @@ export default function GardenDisplay({ embedded = false }: { embedded?: boolean
           padding: '16px 20px 8px', flexShrink: 0,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          {/* プロフィールボタン（ヘルプボタンと同幅でロゴを中央に保つ） */}
+          {/* プロフィールボタン（ヘルプボタンと同幅でロゴを中央に保つ）。
+              押すとまずサイドバー（ProfileDrawer）がスライドインする。プロフィール全画面へは
+              サイドバー内のアバター/ユーザー名から遷移する。 */}
           <button
             onClick={() => setIsDrawerOpen(true)}
             aria-label="プロフィール"

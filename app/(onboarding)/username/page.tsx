@@ -81,12 +81,28 @@ export default function UsernamePage() {
 
       if (isNative) {
         // ネイティブアプリ（Capacitor）：パスワード認証（Edge Function経由）
+        // 15秒タイムアウト: ネットワーク不通や Edge Function 無応答で fetch が
+        // ハングしたまま loading=true になり続けるのを防ぐ
         const endpoint = existing ? 'auth-verify' : 'auth-signup'
-        const res = await fetch(`${EDGE_FUNCTIONS_BASE}/${endpoint}`, {
-          method: 'POST',
-          headers: EDGE_FUNCTION_HEADERS,
-          body: JSON.stringify({ username: trimmed, password }),
-        })
+        const ctrl = new AbortController()
+        const tid = setTimeout(() => ctrl.abort(), 15000)
+        let res: Response
+        try {
+          res = await fetch(`${EDGE_FUNCTIONS_BASE}/${endpoint}`, {
+            method: 'POST',
+            headers: EDGE_FUNCTION_HEADERS,
+            body: JSON.stringify({ username: trimmed, password }),
+            signal: ctrl.signal,
+          })
+        } catch (e) {
+          throw new Error(
+            (e instanceof Error && e.name === 'AbortError')
+              ? 'タイムアウトしました。通信環境を確認してもう一度お試しください。'
+              : 'ネットワークエラーが発生しました。'
+          )
+        } finally {
+          clearTimeout(tid)
+        }
         const data = await res.json()
         if (!res.ok) throw new Error(data.error ?? 'エラーが発生しました')
         user = data.user

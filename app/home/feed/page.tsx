@@ -10,6 +10,7 @@ import RequestModal from '@/src/components/RequestModal'
 import AppLogo from '@/src/components/AppLogo'
 import HomeIntroModal from '@/src/components/tutorial/HomeIntroModal'
 import ProfilePeekModal from '@/src/components/tutorial/ProfilePeekModal'
+import { hasTodayFeeling } from '@/src/components/record/recordShared'
 
 type WantKey = 'call' | 'meet'
 // userId: プライベートチャット（friend_messages）で使う実ユーザーID
@@ -64,6 +65,10 @@ export default function HomePage() {
   // 初回訪問時の案内（①3ページ説明モーダル → ②左上アイコンのプロフィール案内）
   const [showIntro, setShowIntro] = useState(false)
   const [showPeek, setShowPeek] = useState(false)
+  // 今日のデイリー記録がまだなら、上部にリマインダーバナーを出す（デフォルトは非表示で、
+  // マウント後に localStorage を読んで判定）
+  const [dailyDone, setDailyDone] = useState(true)
+  useEffect(() => { setDailyDone(hasTodayFeeling()) }, [])
 
   // モードを読み込む（user→HELP画面 / host→Rescue画面をそのまま表示）
   useEffect(() => {
@@ -85,6 +90,14 @@ export default function HomePage() {
       window.removeEventListener('daime-mode-changed', readMode)
       if (t) clearTimeout(t)
     }
+  }, [])
+
+  // 上方向の引っ張り（オーバースクロール）防止はホーム画面だけに適用する。
+  // 他ページ（プロフィール等）では body のオーバースクロールを制限せず、素直に
+  // 下までスクロールできるようにするため、マウント時のみ設定し離脱時に戻す。
+  useEffect(() => {
+    document.body.style.overscrollBehavior = 'none'
+    return () => { document.body.style.overscrollBehavior = '' }
   }, [])
 
   useEffect(() => {
@@ -138,14 +151,21 @@ export default function HomePage() {
       // PC時：コンテナを広げ、上部ナビ（56px）分だけ高さを縮める。translateで画面全体（サイドバー240px無視）の中央に。スマホは inline style のまま
       className="md:max-w-3xl! md:h-[calc(100svh-56px)]! md:-translate-x-[120px]"
       style={{
+        // body に padding-top:env(safe-area-inset-top) が入るため、
+        // その分を差し引いてビューポートちょうどに収める。
+        // これで document がビューポートを超えず、上方向へのスクロール余白が出ない。
+        // 外枠は overflow:hidden で固定し、スクロールは内側の overflow-y:auto 領域に任せる
+        // （iOS の入れ子スクロールはこの「枠=hidden／中身=auto」の組み合わせが安定）。
         background: '#F5F0E8', maxWidth: 390, margin: '0 auto',
-        height: '100svh', overflow: 'hidden', position: 'relative',
+        height: 'calc(100svh - env(safe-area-inset-top))', overflow: 'hidden', position: 'relative',
         display: 'flex', flexDirection: 'column',
       }}>
 
       {/* ── ヘッダー（左にアイコン・中央にロゴ）。PC時はPCNavに統合済みのため非表示 ── */}
+      {/* safe-area-inset-top は body の padding-top で既に確保済みなので、
+          ここで二重に足さない（足すとヘッダーが下にずれて余白が出る） */}
       <div className="flex items-center justify-between md:hidden" style={{
-        padding: 'calc(12px + env(safe-area-inset-top)) 16px 10px', flexShrink: 0,
+        padding: '12px 16px 10px', flexShrink: 0,
       }}>
         <UserAvatar
           username={me?.username}
@@ -185,7 +205,36 @@ export default function HomePage() {
       </div>
 
       {/* ── 本体（自分のモードのタブだけ実データ／もう一方はモード外案内） ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column' }}>
+      {/* minHeight:0 が無いと flex アイテムが min-height:auto（内容ぶんの高さ）で
+          伸びてしまい overflow-y:auto が発火せず、下スクロール不可になる（iOSで顕著）。
+          overscroll-behavior-y:none で上方向のバウンスだけ抑える。 */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehaviorY: 'none', WebkitOverflowScrolling: 'touch', padding: '24px 20px calc(100px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column' }}>
+
+        {/* デイリー未記録リマインダー（今日まだ記録していない日だけ・タップでデイリー記録へ） */}
+        {!dailyDone && (
+          <button
+            onClick={() => router.push('/record?view=daily')}
+            className="md:max-w-md md:w-full md:mx-auto"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+              flexShrink: 0, marginBottom: 18, padding: '12px 14px', borderRadius: 14,
+              border: '1px solid #E0D5BE', cursor: 'pointer', textAlign: 'left',
+              background: 'linear-gradient(135deg, #FFFDF7 0%, #F6EFDD 100%)',
+              boxShadow: '0 2px 8px rgba(201,168,76,0.14)',
+            }}
+          >
+            <span style={{ fontSize: 22, flexShrink: 0 }}>🌱</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#3B2F1E' }}>
+                今日の気分、まだ記録してないよ
+              </span>
+              <span style={{ display: 'block', fontSize: 11, color: 'rgba(59,47,30,0.55)', marginTop: 2 }}>
+                ひとことだけ、今の気持ちを残しておきましょう
+              </span>
+            </span>
+            <span style={{ fontSize: 18, color: '#8B6914', flexShrink: 0 }}>›</span>
+          </button>
+        )}
 
         {/* カウント（自分のモードのタブのときだけ・HELP＝話せる人数 / Rescue＝届いたリクエスト件数） */}
         {isMyTab && (
@@ -223,12 +272,14 @@ export default function HomePage() {
             </button>
           </div>
         ) : isHelp ? (
-          /* HELPタブ：2ボタンを画面いっぱいに（押すと全画面で一覧へ）。PC時は幅を抑えて中央寄せ */
-          <div className="md:max-w-md md:w-full md:mx-auto" style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 16 }}>
+          /* HELPタブ：2ボタンを縦に並べて中央寄せ。flex:1 で引き伸ばすと縦長画面で
+             巨大化し、下のSOSが固定ナビに潜って途切れて見えるため、高さは固定寄りにして
+             コンテナ側で上下中央に寄せる。PC時は幅を抑えて中央寄せ */
+          <div className="md:max-w-md md:w-full md:mx-auto" style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'center', gap: 18, maxHeight: 456 }}>
             <button
               onClick={() => router.push('/help')}
               style={{
-                flex: 1, width: '100%', minHeight: 140,
+                flex: 1, width: '100%', minHeight: 144, maxHeight: 216,
                 border: 'none', borderRadius: 24, cursor: 'pointer',
                 background: 'linear-gradient(135deg, #F6D06B 0%, #E0A020 100%)',
                 boxShadow: '0 6px 18px rgba(224,160,32,0.35)',
@@ -236,7 +287,7 @@ export default function HomePage() {
                 alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              <span style={{ fontSize: 36, fontWeight: 800, color: '#FFFFFF', letterSpacing: 1 }}>HELP</span>
+              <span style={{ fontSize: 38, fontWeight: 800, color: '#FFFFFF', letterSpacing: 1 }}>HELP</span>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
                 話したい・聞いてほしい
               </span>
@@ -244,7 +295,7 @@ export default function HomePage() {
             <button
               onClick={() => router.push('/sos')}
               style={{
-                flex: 1, width: '100%', minHeight: 140,
+                flex: 1, width: '100%', minHeight: 144, maxHeight: 216,
                 border: 'none', borderRadius: 24, cursor: 'pointer',
                 background: 'linear-gradient(135deg, #E8654F 0%, #C0392B 100%)',
                 boxShadow: '0 6px 18px rgba(192,57,43,0.35)',
@@ -252,7 +303,7 @@ export default function HomePage() {
                 alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              <span style={{ fontSize: 36, fontWeight: 800, color: '#FFFFFF', letterSpacing: 1 }}>SOS</span>
+              <span style={{ fontSize: 38, fontWeight: 800, color: '#FFFFFF', letterSpacing: 1 }}>SOS</span>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
                 今すぐ助けが必要
               </span>
@@ -262,7 +313,7 @@ export default function HomePage() {
           /* Rescueタブ：ボタンなし・助けを求めている人の一覧 */
           <>
             {/* 希望する手段フィルター */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 2 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', paddingBottom: 2, flexShrink: 0 }}>
               {WANT_FILTERS.map(f => {
                 const on = wantFilter === f.key
                 return (
@@ -283,8 +334,9 @@ export default function HomePage() {
               })}
             </div>
 
-            {/* スマホ：縦1列 ／ PC：カードをグリッド表示 */}
-            <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2 lg:grid-cols-3 md:items-start">
+            {/* スマホ：縦1列 ／ PC：カードをグリッド表示。
+                shrink-0 で flex 縮小によるリストの潰れ（「すべて」で項目が消える現象）を防ぐ。 */}
+            <div className="flex flex-col gap-2.5 shrink-0 md:grid md:grid-cols-2 lg:grid-cols-3 md:items-start">
               {RESCUE_SEEKERS.filter(s => wantFilter === 'all' || s.want === wantFilter).map(item => {
                 const done = responded.has(item.name)
                 const wm = WANT_META[item.want]

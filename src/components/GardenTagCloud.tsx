@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import TagWordsModal from '@/src/components/TagWordsModal'
@@ -39,7 +39,10 @@ const TAB_META: Record<Tab, { label: string; bg: string; text: string }> = {
   friend: { label: '🤝 Friend', bg: '#B8D4E8', text: '#2C5F7A' },
 }
 
-export default function GardenTagCloud() {
+// embedded: プロフィールなどスクロールするページ内に埋め込むモード。
+// 内部で overflowY:auto を持たず、コンテンツの高さぶんだけ伸びる（＝親ページと
+// 一緒に縦スクロールする）。全画面 /garden では embedded=false で内部スクロールする。
+export default function GardenTagCloud({ embedded = false }: { embedded?: boolean } = {}) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('light')
   const [lightTags, setLightTags]   = useState<CloudItem[]>([])
@@ -47,6 +50,54 @@ export default function GardenTagCloud() {
   const [friends, setFriends]       = useState<CloudItem[]>([])
   const [loading, setLoading]       = useState(true)
   const [selected, setSelected]     = useState<CloudItem | null>(null)
+
+  // ── ドラッグ／ピンチで動かせるキャンバス（全画面 /garden のみ。埋め込みはページスクロール） ──
+  const [offset, setOffset]   = useState({ x: 0, y: 0 })
+  const [scale, setScale]     = useState(1)
+  const [dragging, setDragging] = useState(false)
+  const dragStart  = useRef({ x: 0, y: 0 })
+  const pinchStart = useRef<{ dist: number; scale: number } | null>(null)
+  const movedRef   = useRef(false)   // ドラッグ直後の誤タップ抑制用
+
+  const clampScale = (s: number) => Math.min(2, Math.max(0.5, s))
+  const touchDist = (a: React.Touch, b: React.Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    setDragging(true); movedRef.current = false
+    dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y }
+  }
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging) return
+    const nx = e.clientX - dragStart.current.x
+    const ny = e.clientY - dragStart.current.y
+    if (Math.abs(nx - offset.x) + Math.abs(ny - offset.y) > 3) movedRef.current = true
+    setOffset({ x: nx, y: ny })
+  }
+  const endDrag = () => setDragging(false)
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      pinchStart.current = { dist: touchDist(e.touches[0], e.touches[1]), scale }
+    } else if (e.touches.length === 1) {
+      setDragging(true); movedRef.current = false
+      dragStart.current = { x: e.touches[0].clientX - offset.x, y: e.touches[0].clientY - offset.y }
+    }
+  }
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStart.current) {
+      const d = touchDist(e.touches[0], e.touches[1])
+      setScale(clampScale(pinchStart.current.scale * (d / pinchStart.current.dist)))
+      movedRef.current = true
+    } else if (dragging && e.touches.length === 1) {
+      const nx = e.touches[0].clientX - dragStart.current.x
+      const ny = e.touches[0].clientY - dragStart.current.y
+      if (Math.abs(nx - offset.x) + Math.abs(ny - offset.y) > 3) movedRef.current = true
+      setOffset({ x: nx, y: ny })
+    }
+  }
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length === 0) { setDragging(false); pinchStart.current = null }
+  }
 
   // ── タグ（Daisy/Seed）フェッチ ──
   useEffect(() => {
@@ -123,6 +174,7 @@ export default function GardenTagCloud() {
   const items = tab === 'light' ? lightTags : tab === 'shadow' ? shadowTags : friends
 
   const handleTap = (item: CloudItem) => {
+    if (movedRef.current) return   // ドラッグ／ピンチ直後のタップは開かない
     if (item.isFriend) {
       router.push(`/profile/view?userId=${item.id}`)
       return
@@ -131,9 +183,11 @@ export default function GardenTagCloud() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <div style={embedded
+      ? { display: 'flex', flexDirection: 'column' }
+      : { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* ── タブ ── */}
-      <div style={{ display: 'flex', gap: 8, padding: '0 20px', marginBottom: 16, flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 8, padding: embedded ? '0 4px' : '0 20px', marginBottom: 16, flexShrink: 0 }}>
         {(['light', 'shadow', 'friend'] as Tab[]).map(t => {
           const meta = TAB_META[t]
           const active = tab === t
@@ -155,11 +209,26 @@ export default function GardenTagCloud() {
         })}
       </div>
 
-      {/* ── タグクラウド（縦スクロールのみ） ── */}
-      <div style={{
-        flex: 1, overflowY: 'auto', overflowX: 'hidden',
-        padding: '12px 20px calc(32px + env(safe-area-inset-bottom))',
-      }}>
+      {/* ── タグクラウド ──
+          ・全画面（!embedded）: overflow:hidden の中でドラッグ／ピンチで自由に動かせるキャンバス
+          ・埋め込み（embedded）: 高さを区切らずページと一緒に流れる（＝ページスクロールで全部見える） */}
+      <div
+        style={embedded ? {
+          padding: '10px 8px',
+          background: '#FBF7EF',
+          border: '1px solid rgba(212,184,150,0.6)',
+          borderRadius: 16,
+        } : {
+          flex: 1, position: 'relative', overflow: 'hidden',
+          touchAction: 'none',
+          userSelect: 'none', WebkitUserSelect: 'none',
+          cursor: dragging ? 'grabbing' : 'grab',
+        }}
+        {...(!embedded ? {
+          onMouseDown, onMouseMove, onMouseUp: endDrag, onMouseLeave: endDrag,
+          onTouchStart, onTouchMove, onTouchEnd,
+        } : {})}
+      >
         {loading ? (
           <p style={{ textAlign: 'center', paddingTop: 40, fontSize: 13, color: 'rgba(59,47,30,0.4)' }}>
             読み込み中...
@@ -174,11 +243,12 @@ export default function GardenTagCloud() {
             const scores = items.map(it => it.score ?? 0)
             const minS = Math.min(...scores)
             const maxS = Math.max(...scores)
-            return (
+            const cloud = (
               <div style={{
                 display: 'flex', flexWrap: 'wrap', gap: 10,
-                justifyContent: 'center', alignItems: 'center', alignContent: 'center',
-                minHeight: '100%',
+                justifyContent: 'center', alignItems: 'center',
+                alignContent: embedded ? 'flex-start' : 'center',
+                padding: embedded ? 0 : '0 20px',
               }}>
                 {/* 高ポイントほど中央・大きく、低いものは外側・小さく */}
                 {centerHeavy([...items].sort((a, b) => (b.score ?? -1) - (a.score ?? -1))).map(item => {
@@ -207,6 +277,18 @@ export default function GardenTagCloud() {
                     </span>
                   )
                 })}
+              </div>
+            )
+            // 埋め込みはそのまま流す。全画面はドラッグ移動用に transform ラッパーで包む
+            return embedded ? cloud : (
+              <div style={{
+                width: '100%', height: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                transformOrigin: 'center center',
+                transition: dragging ? 'none' : 'transform 0.12s ease',
+              }}>
+                {cloud}
               </div>
             )
           })()

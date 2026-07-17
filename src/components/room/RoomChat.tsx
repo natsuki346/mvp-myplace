@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
 import type { DummyMessage } from '@/app/room/dummy-messages'
 import { DEFAULT_MESSAGES } from '@/src/lib/defaultMessages'
-import { isSaveTooltipSeen, markSaveTooltipSeen } from '@/src/lib/onboarding'
+import { isSaveTooltipSeen, markSaveTooltipSeen, isChatIntroSeen, markChatIntroSeen } from '@/src/lib/onboarding'
 
 // ============================================================
 // 型定義
@@ -213,6 +213,15 @@ export default function RoomChat({
     setShowSaveTooltip(false)
   }
 
+  // サンプル会話（DEFAULT_MESSAGES）は「初期登録時のオンボーディングで部屋を訪れた1回」
+  // だけ出す。以降は毎回チャットを開いても出さない。メインチャンネル（subTagIdなし）
+  // かつ type 指定がある部屋でのみ対象。マウント時点の既読状態で表示可否を確定させ、
+  // 既読フラグはこのマウント中に一度だけ立てる（この表示自体は最後まで残す）。
+  const [showChatIntro] = useState(() => !!tagType && !subTagId && !isChatIntroSeen(tagType))
+  useEffect(() => {
+    if (showChatIntro && tagType) markChatIntroSeen(tagType)
+  }, [showChatIntro, tagType])
+
   // matchTagIds を ref に同期
   useEffect(() => {
     matchingIdsRef.current = new Set(matchTagIds)
@@ -291,7 +300,7 @@ export default function RoomChat({
   useEffect(() => {
     ;(async () => {
       if (!userId) { setSavedIds(new Set()); return }
-      const fallback = messages.length === 0 && !subTagId && tagType ? DEFAULT_MESSAGES[tagType] : []
+      const fallback = showChatIntro && messages.length === 0 && !subTagId && tagType ? DEFAULT_MESSAGES[tagType] : []
       const ids = [...introMessages, ...fallback, ...messages].map(m => m.id)
       if (ids.length === 0) { setSavedIds(new Set()); return }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -526,7 +535,7 @@ export default function RoomChat({
   // レンダリング
   // ============================================================
   // DB が 0 件かつメインチャンネル（subTagId なし）の場合、type 別デフォルトをフォールバック表示
-  const fallbackMessages = messages.length === 0 && !subTagId && tagType
+  const fallbackMessages = showChatIntro && messages.length === 0 && !subTagId && tagType
     ? DEFAULT_MESSAGES[tagType]
     : []
   const effectiveIntro = [...introMessages, ...fallbackMessages]

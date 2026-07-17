@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/src/lib/supabase/client'
@@ -26,9 +26,62 @@ type Props = {
   isInline?: boolean
 }
 
+// ── トップレベルのアコーディオンセクション（あなたの言葉／つながり／記録／設定） ──
+// タイトルは text-base（16px）ではっきり見せ、下部に太めの divider を敷く。
+function Section({ title, open, onToggle, children }: {
+  title: string; open: boolean; onToggle: () => void; children: ReactNode
+}) {
+  return (
+    <div style={{ borderBottom: '1px solid #C9B48A', marginBottom: 4 }}>
+      <button
+        onClick={onToggle}
+        style={{
+          width: '100%', background: 'transparent', border: 'none', cursor: 'pointer',
+          padding: '16px 2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}
+      >
+        <span style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E' }}>{title}</span>
+        <span style={{ fontSize: 14, color: '#8B6914' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      <div style={{
+        maxHeight: open ? 2000 : 0, opacity: open ? 1 : 0,
+        overflow: 'hidden', transition: 'max-height 0.35s ease, opacity 0.3s ease',
+      }}>
+        <div style={{ padding: '2px 2px 16px' }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── セクション内のサブアコーディオン（Daisy／Seed／つながり／通知設定） ──
+function SubAccordion({ label, open, onToggle, children }: {
+  label: ReactNode; open: boolean; onToggle: () => void; children: ReactNode
+}) {
+  return (
+    <div style={{ border: '1px solid #D4B896', borderRadius: 12, padding: '0 14px', marginBottom: 10 }}>
+      <div
+        onClick={onToggle}
+        style={{
+          padding: '14px 0', display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', cursor: 'pointer',
+          borderBottom: open ? '1px solid #D4B896' : 'none',
+        }}
+      >
+        <span style={{ fontSize: 14, color: '#8B6914', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 12, color: '#8B6914' }}>{open ? '▲' : '▼'}</span>
+      </div>
+      <div style={{
+        maxHeight: open ? 600 : 0, opacity: open ? 1 : 0,
+        overflow: 'hidden', transition: 'max-height 0.3s ease, opacity 0.3s ease',
+      }}>
+        <div style={{ padding: '12px 0' }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
 export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = false }: Props) {
   const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [userId, setUserId] = useState<string | null>(null)
   const [user, setUser] = useState<UserRow | null>(null)
@@ -37,7 +90,10 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
   const [connections, setConnections] = useState<Connection[]>([])
   const [pending, setPending] = useState<Connection[]>([])
   const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  // トップレベルは一度に一つだけ開く（あなたの言葉 / つながり / 記録 / 設定）。
+  const [open, setOpen] = useState<string | null>(null)
+  const toggle = (id: string) => setOpen(o => (o === id ? null : id))
+  // セクション内のサブアコーディオン。
   const [daisyOpen, setDaisyOpen] = useState(false)
   const [seedOpen, setSeedOpen] = useState(false)
   const [connectionsOpen, setConnectionsOpen] = useState(false)
@@ -94,21 +150,6 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, isInline])
 
-  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !userId) return
-    setUploading(true)
-    const ext = file.name.split('.').pop() ?? 'jpg'
-    const path = `${userId}/${Date.now()}.${ext}`
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-    if (uploadError) { setUploading(false); return }
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('users') as any).update({ avatar_url: urlData.publicUrl }).eq('id', userId)
-    setUser(prev => (prev ? { ...prev, avatar_url: urlData.publicUrl } : prev))
-    setUploading(false)
-  }
-
   const handleAccept = async (connId: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from('connections') as any).update({ status: 'accepted' }).eq('id', connId)
@@ -120,6 +161,8 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
     await (supabase.from('connections') as any).delete().eq('id', connId)
     if (userId) loadProfile(userId)
   }
+
+  const goProfile = () => { onClose(); router.push('/profile') }
 
   const handleLogout = () => {
     localStorage.removeItem('user_id')
@@ -138,7 +181,9 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
   const closeButton = (
     <div style={{
       display: 'flex', justifyContent: 'flex-end',
-      padding: '16px 16px 8px', flexShrink: 0,
+      // ドロワーは position:fixed top:0 のため body の safe-area padding が効かない。
+      // ノッチ/ステータスバーに×が潜り込まないよう、ここで safe-area 分下げる。
+      padding: 'calc(16px + env(safe-area-inset-top)) 16px 8px', flexShrink: 0,
     }}>
       <button
         onClick={onClose}
@@ -160,238 +205,217 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
   ) : (
     <div style={{ padding: isInline ? '16px 16px 40px' : '0 16px 40px' }}>
 
-            {/* ── ① プロフィール情報（inline時は下部アバターチップに集約するため非表示） ── */}
+            {/* ── ① プロフィール情報（アバター＋ユーザー名。inline時は下部チップに集約するため非表示） ── */}
             {!isInline && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <UserAvatar username={user?.username} avatarUrl={user?.avatar_url} size={64} />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  aria-label="アイコンを変更"
-                  style={{
-                    position: 'absolute', bottom: -2, right: -2,
-                    width: 24, height: 24, borderRadius: '50%',
-                    border: '1px solid #D4B896', background: '#FFFFFF',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, cursor: uploading ? 'default' : 'pointer',
-                    opacity: uploading ? 0.5 : 1,
-                  }}
-                >
-                  📷
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  style={{ display: 'none' }}
-                />
-              </div>
-              <div>
-                <p style={{ fontSize: 17, fontWeight: 700, color: '#3B2F1E', margin: 0 }}>
-                  {user?.username ?? ''}
-                </p>
-                <p style={{ fontSize: 12, color: '#8B6914', margin: '3px 0 0' }}>
-                  @{user?.username ?? ''}
-                </p>
-              </div>
-            </div>
-            )}
-
-            {/* ── ② タグ一覧 ── */}
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#8B6914', margin: '0 0 8px' }}>
-              あなたの言葉
-            </p>
-
-            {/* Daisy アコーディオン */}
-            <div style={{ border: '1px solid #D4B896', borderRadius: 12, padding: '0 12px', marginBottom: 10 }}>
-              <div
-                onClick={() => setDaisyOpen(o => !o)}
+              <button
+                onClick={goProfile}
                 style={{
-                  padding: '10px 0', display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', cursor: 'pointer',
-                  borderBottom: daisyOpen ? '1px solid #D4B896' : 'none',
+                  display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18,
+                  width: '100%', background: 'transparent', border: 'none',
+                  padding: 0, cursor: 'pointer', textAlign: 'left',
                 }}
               >
-                <span style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>
-                  🌼 Daisy（{lightTags.length}）
-                </span>
-                <span style={{ fontSize: 11, color: '#8B6914' }}>{daisyOpen ? '∧' : '∨'}</span>
-              </div>
-              <div style={{
-                maxHeight: daisyOpen ? 400 : 0, opacity: daisyOpen ? 1 : 0,
-                overflow: 'hidden', transition: 'max-height 0.3s ease, opacity 0.3s ease',
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' }}>
+                <UserAvatar username={user?.username} avatarUrl={user?.avatar_url} size={64} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 17, fontWeight: 700, color: '#3B2F1E', margin: 0 }}>
+                    {user?.username ?? ''}
+                  </p>
+                  <p style={{ fontSize: 12, color: '#8B6914', margin: '3px 0 0' }}>
+                    @{user?.username ?? ''}
+                  </p>
+                </div>
+              </button>
+            )}
+
+            {/* ── ② プロフィールを見る（目立つ緑ボタン。あなたの言葉の直上） ── */}
+            <button
+              onClick={goProfile}
+              style={{
+                width: '100%', background: '#3B6D11', color: 'white',
+                borderRadius: 8, padding: 10, border: 'none', cursor: 'pointer',
+                fontSize: 15, fontWeight: 700, marginBottom: 18,
+              }}
+            >
+              プロフィールを見る
+            </button>
+
+            {/* ── ③ あなたの言葉（Daisy / Seed） ── */}
+            <Section title="あなたの言葉" open={open === 'words'} onToggle={() => toggle('words')}>
+              {/* Daisy サブアコーディオン */}
+              <SubAccordion
+                label={`🌼 Daisy（${lightTags.length}）`}
+                open={daisyOpen}
+                onToggle={() => setDaisyOpen(o => !o)}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {lightTags.length === 0
-                    ? <p style={{ fontSize: 12, color: '#A09070', margin: 0 }}>まだありません</p>
+                    ? <p style={{ fontSize: 13, color: '#A09070', margin: 0 }}>まだありません</p>
                     : lightTags.map(tag => (
                       <span key={tag.id} style={{
-                        background: '#F5D78E', borderRadius: 12, padding: '6px 10px',
-                        fontSize: 12, color: '#8B6914',
+                        background: '#F5D78E', borderRadius: 12, padding: '8px 12px',
+                        fontSize: 13, color: '#8B6914',
                       }}>
                         {formatHashtag(tag.text)}
                       </span>
                     ))
                   }
                 </div>
-              </div>
-            </div>
+              </SubAccordion>
 
-            {/* Seed アコーディオン */}
-            <div style={{ border: '1px solid #D4B896', borderRadius: 12, padding: '0 12px', marginBottom: 20 }}>
-              <div
-                onClick={() => setSeedOpen(o => !o)}
-                style={{
-                  padding: '10px 0', display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', cursor: 'pointer',
-                  borderBottom: seedOpen ? '1px solid #D4B896' : 'none',
-                }}
+              {/* Seed サブアコーディオン */}
+              <SubAccordion
+                label={`🌱 Seed（${shadowTags.length}）`}
+                open={seedOpen}
+                onToggle={() => setSeedOpen(o => !o)}
               >
-                <span style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>
-                  🌱 Seed（{shadowTags.length}）
-                </span>
-                <span style={{ fontSize: 11, color: '#8B6914' }}>{seedOpen ? '∧' : '∨'}</span>
-              </div>
-              <div style={{
-                maxHeight: seedOpen ? 400 : 0, opacity: seedOpen ? 1 : 0,
-                overflow: 'hidden', transition: 'max-height 0.3s ease, opacity 0.3s ease',
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {shadowTags.length === 0
-                    ? <p style={{ fontSize: 12, color: '#A09070', margin: 0 }}>まだありません</p>
+                    ? <p style={{ fontSize: 13, color: '#A09070', margin: 0 }}>まだありません</p>
                     : shadowTags.map(tag => (
                       <span key={tag.id} style={{
-                        background: '#D4B896', borderRadius: 12, padding: '6px 10px',
-                        fontSize: 12, color: '#5C3A1E',
+                        background: '#D4B896', borderRadius: 12, padding: '8px 12px',
+                        fontSize: 13, color: '#5C3A1E',
                       }}>
                         {formatHashtag(tag.text)}
                       </span>
                     ))
                   }
                 </div>
-              </div>
-            </div>
+              </SubAccordion>
 
-            {/* ── ③ つながり ── */}
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#8B6914', margin: '0 0 8px' }}>
-              つながり
-            </p>
-            <div style={{ border: '1px solid #D4B896', borderRadius: 12, padding: '0 12px', marginBottom: 10 }}>
-              <div
-                onClick={() => setConnectionsOpen(o => !o)}
-                style={{
-                  padding: '10px 0', display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', cursor: 'pointer',
-                  borderBottom: connectionsOpen ? '1px solid #D4B896' : 'none',
-                }}
+              {/* MyGarden（タップで全画面遷移） */}
+              <Link href="/garden" onClick={onClose} style={{ textDecoration: 'none', display: 'block' }}>
+                <div style={{
+                  border: '1px solid #D4B896', borderRadius: 12, padding: '14px 14px',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer',
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#3B2F1E' }}>🌿 MyGarden</span>
+                  <span style={{ fontSize: 12, color: '#8B6914' }}>全画面で見る ›</span>
+                </div>
+              </Link>
+            </Section>
+
+            {/* ── ④ つながり（つながり一覧） ── */}
+            <Section title="つながり" open={open === 'connections'} onToggle={() => toggle('connections')}>
+              {/* つながり一覧 */}
+              <SubAccordion
+                label={`つながり（${connections.length}）`}
+                open={connectionsOpen}
+                onToggle={() => setConnectionsOpen(o => !o)}
               >
-                <span style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>
-                  つながり（{connections.length}）
-                </span>
-                <span style={{ fontSize: 11, color: '#8B6914' }}>{connectionsOpen ? '∧' : '∨'}</span>
-              </div>
-              <div style={{
-                maxHeight: connectionsOpen ? 600 : 0, opacity: connectionsOpen ? 1 : 0,
-                overflow: 'hidden', transition: 'max-height 0.3s ease, opacity 0.3s ease',
-              }}>
-                <div style={{ padding: '10px 0' }}>
-                  {connections.length === 0 ? (
-                    <p style={{ fontSize: 12, color: '#A09070', margin: 0 }}>まだつながりがありません</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {connections.map(conn => {
-                        const other = conn.requester_id === userId ? conn.receiver : conn.requester
-                        return (
-                          <div
-                            key={conn.id}
-                            onClick={() => other && router.push(`/profile/view?userId=${other.id}`)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                {connections.length === 0 ? (
+                  <p style={{ fontSize: 13, color: '#A09070', margin: 0 }}>まだつながりがありません</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {connections.map(conn => {
+                      const other = conn.requester_id === userId ? conn.receiver : conn.requester
+                      return (
+                        <div
+                          key={conn.id}
+                          onClick={() => other && router.push(`/profile/view?userId=${other.id}`)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                        >
+                          <UserAvatar username={other?.username} avatarUrl={other?.avatar_url} size={36} />
+                          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#3B2F1E' }}>
+                            {other?.username}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </SubAccordion>
+
+              {/* つながり申請 */}
+              {pending.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#8B6914', margin: '0 0 8px' }}>
+                    つながり申請（{pending.length}）
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {pending.map(req => (
+                      <div key={req.id} style={{
+                        background: '#FFFFFF', borderRadius: 12, padding: 12,
+                        border: '1px solid rgba(212,184,150,0.5)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                          <UserAvatar username={req.requester?.username} avatarUrl={req.requester?.avatar_url} size={32} />
+                          <p style={{ margin: 0, fontSize: 13, color: '#3B2F1E' }}>
+                            {req.requester?.username}さんから申請
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button
+                            onClick={() => handleAccept(req.id)}
+                            style={{
+                              flex: 1, padding: '8px 0', borderRadius: 20, border: 'none',
+                              background: '#4A7C59', color: '#F5F0E8',
+                              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                            }}
                           >
-                            <UserAvatar username={other?.username} avatarUrl={other?.avatar_url} size={36} />
-                            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#3B2F1E' }}>
-                              {other?.username}
-                            </p>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* つながり申請 */}
-            {pending.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#8B6914', margin: '0 0 8px' }}>
-                  つながり申請（{pending.length}）
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {pending.map(req => (
-                    <div key={req.id} style={{
-                      background: '#FFFFFF', borderRadius: 12, padding: 12,
-                      border: '1px solid rgba(212,184,150,0.5)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                        <UserAvatar username={req.requester?.username} avatarUrl={req.requester?.avatar_url} size={32} />
-                        <p style={{ margin: 0, fontSize: 12, color: '#3B2F1E' }}>
-                          {req.requester?.username}さんから申請
-                        </p>
+                            承認する
+                          </button>
+                          <button
+                            onClick={() => handleReject(req.id)}
+                            style={{
+                              flex: 1, padding: '8px 0', borderRadius: 20,
+                              border: '1px solid #8B6914', background: 'transparent', color: '#8B6914',
+                              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                            }}
+                          >
+                            断る
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          onClick={() => handleAccept(req.id)}
-                          style={{
-                            flex: 1, padding: '6px 0', borderRadius: 20, border: 'none',
-                            background: '#4A7C59', color: '#F5F0E8',
-                            fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          }}
-                        >
-                          承認する
-                        </button>
-                        <button
-                          onClick={() => handleReject(req.id)}
-                          style={{
-                            flex: 1, padding: '6px 0', borderRadius: 20,
-                            border: '1px solid #8B6914', background: 'transparent', color: '#8B6914',
-                            fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          }}
-                        >
-                          断る
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </Section>
 
-            {/* ── ④ 通知設定 ── */}
-            <div style={{ border: '1px solid #D4B896', borderRadius: 12, padding: '0 12px', marginBottom: 20, marginTop: 10 }}>
-              <div
-                onClick={() => setNotifOpen(o => !o)}
-                style={{
-                  padding: '10px 0', display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', cursor: 'pointer',
-                  borderBottom: notifOpen ? '1px solid #D4B896' : 'none',
-                }}
+            {/* ── ⑤ 記録（デイリー / 予定 / カレンダー / 履歴） ── */}
+            <Section title="記録" open={open === 'record'} onToggle={() => toggle('record')}>
+              {([
+                { icon: '📝', label: 'デイリー',   desc: '今日の気分・AIレポート',   view: 'daily' },
+                { icon: '📅', label: '予定',       desc: 'これから話す約束',         view: 'schedule' },
+                { icon: '🗓', label: 'カレンダー', desc: '記録・通話・予定の一覧',   view: 'calendar' },
+                { icon: '🎥', label: '履歴',       desc: '過去に話した相手・通話',   view: 'history' },
+              ] as const).map(item => (
+                <button
+                  key={item.view}
+                  onClick={() => { onClose(); router.push(`/record?view=${item.view}`) }}
+                  style={{
+                    width: '100%', textAlign: 'left', cursor: 'pointer',
+                    border: '1px solid #D4B896', borderRadius: 12, background: 'transparent',
+                    padding: '14px 14px', marginBottom: 10,
+                    display: 'flex', alignItems: 'center', gap: 12,
+                  }}
+                >
+                  <span style={{ fontSize: 19, flexShrink: 0 }}>{item.icon}</span>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#3B2F1E' }}>{item.label}</span>
+                    <span style={{ display: 'block', fontSize: 11, color: 'rgba(59,47,30,0.5)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.desc}</span>
+                  </span>
+                  <span style={{ fontSize: 14, color: '#8B6914', flexShrink: 0 }}>›</span>
+                </button>
+              ))}
+            </Section>
+
+            {/* ── ⑥ 設定（通知設定） ── */}
+            <Section title="設定" open={open === 'settings'} onToggle={() => toggle('settings')}>
+              {/* 通知設定 サブアコーディオン */}
+              <SubAccordion
+                label="🔔 通知設定"
+                open={notifOpen}
+                onToggle={() => setNotifOpen(o => !o)}
               >
-                <span style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>🔔 通知設定</span>
-                <span style={{ fontSize: 11, color: '#8B6914' }}>{notifOpen ? '∧' : '∨'}</span>
-              </div>
-              <div style={{
-                maxHeight: notifOpen ? 200 : 0, opacity: notifOpen ? 1 : 0,
-                overflow: 'hidden', transition: 'max-height 0.3s ease, opacity 0.3s ease',
-              }}>
-                <div style={{ padding: '12px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {[
                     { label: 'マッチ通知', value: notifMatch, setter: setNotifMatch },
                     { label: 'メッセージ通知', value: notifMessage, setter: setNotifMessage },
                   ].map(({ label, value, setter }) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 13, color: '#3B2F1E' }}>{label}</span>
+                      <span style={{ fontSize: 14, color: '#3B2F1E' }}>{label}</span>
                       <button
                         role="switch"
                         aria-checked={value}
@@ -414,47 +438,30 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
                       </button>
                     </div>
                   ))}
-                  <p style={{ margin: 0, fontSize: 10, color: 'rgba(59,47,30,0.4)' }}>
+                  <p style={{ margin: 0, fontSize: 11, color: 'rgba(59,47,30,0.4)' }}>
                     ※ 通知機能は現在準備中です
                   </p>
                 </div>
-              </div>
-            </div>
+              </SubAccordion>
+            </Section>
 
-            {/* ── ⑤ MyGarden（他のアコーディオンボックスと同じ見た目・タップで全画面遷移） ── */}
-            <Link href="/garden" onClick={onClose} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{ border: '1px solid #D4B896', borderRadius: 12, padding: '0 12px', marginBottom: 20 }}>
-                <div style={{
-                  padding: '10px 0', display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'center', cursor: 'pointer',
-                }}>
-                  <span style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>
-                    🌿 MyGarden
-                  </span>
-                  <span style={{ fontSize: 11, color: '#8B6914' }}>全画面で見る ›</span>
-                </div>
-              </div>
-            </Link>
-
-            {/* ── ⑥ モードを切り替える（モード選択画面を再表示） ── */}
+            {/* ── ⑦ モード切替・ログアウト（トグルではなく従来通り常時表示） ── */}
             <button
               onClick={openModeSelect}
               style={{
-                width: '100%', padding: '12px 0', borderRadius: 20, marginBottom: 12,
+                width: '100%', padding: '14px 0', borderRadius: 20, marginTop: 16, marginBottom: 12,
                 border: '1px solid #C9A84C', background: '#FBEFC6', color: '#8B6914',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontSize: 14, fontWeight: 700, cursor: 'pointer',
               }}
             >
               🔄 モードを切り替える
             </button>
-
-            {/* ── ⑦ ログアウト ── */}
             <button
               onClick={handleLogout}
               style={{
-                width: '100%', padding: '12px 0', borderRadius: 20,
+                width: '100%', padding: '14px 0', borderRadius: 20,
                 border: '1px solid #8B6914', background: 'transparent', color: '#8B6914',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                fontSize: 14, fontWeight: 600, cursor: 'pointer',
               }}
             >
               ログアウト

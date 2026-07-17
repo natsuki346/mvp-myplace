@@ -25,40 +25,45 @@ export default function ModePage() {
   }
 
   return (
-    // PC時はPCNav(56px)の分だけ高さを縮め、ボタンまでスクロールなしで収める
-    <div className="md:h-[calc(100svh-56px)]! md:py-6!" style={{
+    // 全コンテンツをスクロールなしで画面中央に収める。
+    // body の padding-top:env(safe-area-inset-top) を差し引いてビューポートちょうどに収め、
+    // 下端（始めるボタン）が画面外にはみ出さないようにする。
+    // justify-center で2択ボタンを中心に、チェックボックス・始めるボタンはその下に並ぶ。
+    // padding-top で safe-area を二重に足さない（body 側で確保済み）。
+    // PC時は PCNav(56px) 分だけ縮める。
+    <div className="md:h-[calc(100svh-56px)]!" style={{
       background: '#F5F0E8', maxWidth: 390, margin: '0 auto',
-      height: '100svh', display: 'flex', flexDirection: 'column',
-      padding: 'calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom))',
+      height: 'calc(100svh - env(safe-area-inset-top))', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      padding: '16px 20px calc(16px + env(safe-area-inset-bottom))',
+      gap: 12,
     }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <p style={{ fontSize: 20, fontWeight: 700, color: '#3B2F1E', textAlign: 'center', margin: '0 0 28px' }}>
-          今日はどちらで使いますか？
-        </p>
+      <p style={{ fontSize: 18, fontWeight: 700, color: '#3B2F1E', textAlign: 'center', margin: 0 }}>
+        今日はどちらで使いますか？
+      </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {OPTIONS.map(o => {
-            const on = mode === o.key
-            return (
-              <button
-                key={o.key}
-                onClick={() => setMode(o.key)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 16, width: '100%',
-                  background: on ? '#FBEFC6' : '#FFFFFF',
-                  border: on ? '2px solid #C9A84C' : '1px solid rgba(139,115,85,0.2)',
-                  borderRadius: 16, padding: '20px 18px', cursor: 'pointer', textAlign: 'left',
-                }}
-              >
-                <span style={{ fontSize: 32, lineHeight: 1, flexShrink: 0 }}>{o.emoji}</span>
-                <span>
-                  <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: '#3B2F1E' }}>{o.title}</span>
-                  <span style={{ display: 'block', fontSize: 12, color: 'rgba(59,47,30,0.5)', marginTop: 3 }}>{o.sub}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {OPTIONS.map(o => {
+          const on = mode === o.key
+          return (
+            <button
+              key={o.key}
+              onClick={() => setMode(o.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+                background: on ? '#FBEFC6' : '#FFFFFF',
+                border: on ? '2px solid #C9A84C' : '1px solid rgba(139,115,85,0.2)',
+                borderRadius: 14, padding: '14px 16px', cursor: 'pointer', textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 28, lineHeight: 1, flexShrink: 0 }}>{o.emoji}</span>
+              <span>
+                <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: '#3B2F1E' }}>{o.title}</span>
+                <span style={{ display: 'block', fontSize: 12, color: 'rgba(59,47,30,0.5)', marginTop: 2 }}>{o.sub}</span>
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* 今日はこれ以降表示しない */}
@@ -67,7 +72,7 @@ export default function ModePage() {
         style={{
           display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'center',
           background: 'none', border: 'none', cursor: 'pointer',
-          padding: '8px 0', marginBottom: 12, flexShrink: 0,
+          padding: '4px 0',
         }}
       >
         <span style={{
@@ -86,10 +91,10 @@ export default function ModePage() {
         onClick={start}
         disabled={!mode}
         style={{
-          width: '100%', padding: '15px 0', borderRadius: 24, border: 'none',
+          width: '100%', padding: '13px 0', borderRadius: 24, border: 'none',
           background: mode ? '#4A7C59' : 'rgba(74,124,89,0.4)',
           color: '#F5F0E8', fontSize: 15, fontWeight: 700,
-          cursor: mode ? 'pointer' : 'default', flexShrink: 0,
+          cursor: mode ? 'pointer' : 'default',
         }}
       >
         このモードではじめる

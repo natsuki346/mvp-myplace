@@ -80,6 +80,15 @@
   }
 }
 
+/* iOS のバウンス（引っ張りスクロール）だけを overscroll-behavior:none で防ぐ。
+   overflow:hidden はかけない —— これを付けると iOS(WKWebView) で内側の
+   overflow-y:auto 領域がタッチスクロールを受け取れなくなるため。
+   各ページは自身のコンテナを height:100svh 等でビューポートに収め、
+   その内側の overflow-y:auto でスクロールさせる。 */
+html {
+  overscroll-behavior: none;
+}
+
 body {
   /* アプリ全体で使っているクリーム色に統一。env(safe-area-inset-top)分の
      余白がここに生まれるため、各ページの背景色と揃えて違和感を出さない */
@@ -89,6 +98,7 @@ body {
   /* iOS(Capacitor)のステータスバー/ノッチ裏にヘッダーが隠れないようにする。
      viewport-fit=cover（layout.tsxのviewportエクスポート）と併用して初めて効く */
   padding-top: env(safe-area-inset-top);
+  overscroll-behavior: none;
 }
 
 /* モバイルでの慣性スクロール対応 */
