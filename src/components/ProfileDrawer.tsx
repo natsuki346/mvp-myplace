@@ -165,6 +165,19 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
   const goProfile = () => { onClose(); router.push('/profile') }
 
   const handleLogout = () => {
+    // ログアウト時はオンライン状態を解除（失敗しても続行）
+    const uid = localStorage.getItem('user_id')
+    if (uid) {
+      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/set-availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+        },
+        body: JSON.stringify({ user_id: uid, is_online: false }),
+      }).catch(() => {})
+    }
     localStorage.removeItem('user_id')
     localStorage.removeItem('username')
     onClose()
@@ -373,33 +386,7 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
               )}
             </Section>
 
-            {/* ── ⑤ 記録（デイリー / 予定 / カレンダー / 履歴） ── */}
-            <Section title="記録" open={open === 'record'} onToggle={() => toggle('record')}>
-              {([
-                { icon: '📝', label: 'デイリー',   desc: '今日の気分・AIレポート',   view: 'daily' },
-                { icon: '📅', label: '予定',       desc: 'これから話す約束',         view: 'schedule' },
-                { icon: '🗓', label: 'カレンダー', desc: '記録・通話・予定の一覧',   view: 'calendar' },
-                { icon: '🎥', label: '履歴',       desc: '過去に話した相手・通話',   view: 'history' },
-              ] as const).map(item => (
-                <button
-                  key={item.view}
-                  onClick={() => { onClose(); router.push(`/record?view=${item.view}`) }}
-                  style={{
-                    width: '100%', textAlign: 'left', cursor: 'pointer',
-                    border: '1px solid #D4B896', borderRadius: 12, background: 'transparent',
-                    padding: '14px 14px', marginBottom: 10,
-                    display: 'flex', alignItems: 'center', gap: 12,
-                  }}
-                >
-                  <span style={{ fontSize: 19, flexShrink: 0 }}>{item.icon}</span>
-                  <span style={{ minWidth: 0, flex: 1 }}>
-                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#3B2F1E' }}>{item.label}</span>
-                    <span style={{ display: 'block', fontSize: 11, color: 'rgba(59,47,30,0.5)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.desc}</span>
-                  </span>
-                  <span style={{ fontSize: 14, color: '#8B6914', flexShrink: 0 }}>›</span>
-                </button>
-              ))}
-            </Section>
+            {/* ── ⑤ 記録セクションは非表示（MVPでは記録機能を出さない） ── */}
 
             {/* ── ⑥ 設定（通知設定） ── */}
             <Section title="設定" open={open === 'settings'} onToggle={() => toggle('settings')}>

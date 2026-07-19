@@ -11,6 +11,27 @@ import { CARD_BG, CARD_BORDER } from '@/src/components/record/recordShared'
 import DailyCheckinCard from '@/src/components/record/DailyCheckinCard'
 import InsightModal from '@/src/components/record/InsightModal'
 
+// AIタグ生成の呼び先（Supabase Edge Functions）。オンボーディングの QuestionCard と同じ。
+const EDGE_FUNCTIONS_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+const EDGE_FUNCTION_HEADERS = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+  'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+}
+
+// 編集時に「質問を選んで書き殴る→AI生成」するための質問。オンボーディングと同じ内容。
+// light（Daisy）＝Q1・Q2 / shadow（Seed）＝Q3・Q4
+const EDIT_QUESTIONS: Record<'light' | 'shadow', string[]> = {
+  light: [
+    '自分の好きなところ、思う存分出してみよう',
+    '自分がテンション上がる瞬間って、どんな時？',
+  ],
+  shadow: [
+    '自分ではわかってるけど、あまり人に言わないこと、何かある？',
+    'よく一人で悩んじゃうけど、誰にも吐き出してないもの、思うがままに出してみない？',
+  ],
+}
+
 type UserRow = {
   id: string
   username: string
@@ -58,12 +79,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
 
-  // 編集モード（アイコン変更・言葉の追加/削除）
-  const [editing, setEditing] = useState(false)
-  const [newDaisy, setNewDaisy] = useState('')
-  const [newSeed, setNewSeed] = useState('')
+  // 編集専用シート（アイコン変更・AI生成/手動での言葉の追加・削除を1枚に集約）
+  const [editOpen, setEditOpen] = useState(false)
+  const [editType, setEditType] = useState<'light' | 'shadow'>('light')
 
-  // 開いているボトムアップシート
+  // 開いているボトムアップシート（閲覧用：つながり / Daisy一覧 / Seed一覧）
   const [sheet, setSheet] = useState<SheetKey>(null)
 
   // ── マイガーデン下の「記録エリア」（予定/カレンダー/履歴/デイリー を埋め込み） ──
@@ -148,20 +168,25 @@ export default function ProfilePage() {
     setUploading(false)
   }
 
-  // 言葉の追加（Daisy=light / Seed=shadow）
-  const addTag = async (type: 'light' | 'shadow', raw: string) => {
+  // 言葉の追加（Daisy=light / Seed=shadow）。成否をbooleanで返し、
+  // 呼び出し側（入力欄クリア・生成チップの✓表示）で使う。
+  const addTag = async (type: 'light' | 'shadow', raw: string): Promise<boolean> => {
     const text = raw.trim().replace(/^#+/, '')
-    if (!text || !userId) return
+    if (!text || !userId) return false
+    // すでに同じ言葉があれば二重登録しない（AI生成の再追加対策）
+    const current = type === 'light' ? lightTags : shadowTags
+    if (current.some(t => t.text === text)) return true
     const color = type === 'light' ? '#F5D78E' : '#D4B896'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from('tags') as any)
       .insert({ user_id: userId, text, type, color, is_active: true })
       .select('id, text')
       .single()
-    if (error) { console.error('tag add error:', error.message); return }
+    if (error) { console.error('tag add error:', error.message); return false }
     const row = data as Tag
-    if (type === 'light') { setLightTags(prev => [...prev, row]); setNewDaisy('') }
-    else { setShadowTags(prev => [...prev, row]); setNewSeed('') }
+    if (type === 'light') setLightTags(prev => [...prev, row])
+    else setShadowTags(prev => [...prev, row])
+    return true
   }
 
   // 言葉の削除（is_active=false のソフト削除。ガーデン等の履歴を壊さない）
@@ -185,6 +210,19 @@ export default function ProfilePage() {
   }
 
   const handleLogout = async () => {
+    // ログアウト時はオンライン状態を解除（失敗しても続行）
+    const uid = localStorage.getItem('user_id')
+    if (uid) {
+      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/set-availability`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+        },
+        body: JSON.stringify({ user_id: uid, is_online: false }),
+      }).catch(() => {})
+    }
     await supabase.auth.signOut()
     localStorage.removeItem('user_id')
     localStorage.removeItem('username')
@@ -221,33 +259,15 @@ export default function ProfilePage() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
         <div style={{ position: 'relative', width: 96, height: 96 }}>
           <UserAvatar username={user?.username} avatarUrl={user?.avatar_url} size={96} />
-          {editing && (
-            <>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                aria-label="アイコンを変更"
-                style={{
-                  position: 'absolute', bottom: 0, right: 0,
-                  width: 30, height: 30, borderRadius: '50%',
-                  border: '1px solid #D4B896', background: '#FFFFFF',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, cursor: uploading ? 'default' : 'pointer',
-                  opacity: uploading ? 0.5 : 1,
-                }}
-              >
-                📷
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                style={{ display: 'none' }}
-              />
-            </>
-          )}
         </div>
+        {/* アイコン変更用の隠しinput（編集シートの「アイコンを変更」から発火） */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleAvatarChange}
+          style={{ display: 'none' }}
+        />
 
         <p style={{ fontSize: 20, fontWeight: 'bold', color: '#3B2F1E', margin: '6px 0 0' }}>
           {user?.username ?? ''}
@@ -257,17 +277,17 @@ export default function ProfilePage() {
         </p>
 
         <button
-          onClick={() => setEditing(v => !v)}
+          onClick={() => { setEditType('light'); setEditOpen(true) }}
           style={{
             marginTop: 6,
-            background: editing ? '#4A7C59' : 'transparent',
-            border: editing ? 'none' : '1px solid #C9A84C',
-            color: editing ? '#F5F0E8' : '#8B6914',
-            borderRadius: 20, padding: '7px 20px',
+            background: '#4A7C59',
+            border: 'none',
+            color: '#F5F0E8',
+            borderRadius: 20, padding: '9px 22px',
             fontSize: 13, fontWeight: 700, cursor: 'pointer',
           }}
         >
-          {editing ? '完了' : '✎ プロフィールを編集'}
+          ✎ プロフィールを編集
         </button>
       </div>
 
@@ -492,30 +512,85 @@ export default function ProfilePage() {
 
       {sheet === 'light' && (
         <BottomSheet title="🌼 Daisy の言葉" accent="#C9A84C" onClose={() => setSheet(null)}>
-          <WordSheetBody
+          <TagListView
             tags={lightTags}
             chipBg="#F5D78E"
             chipColor="#8B6914"
-            editing={editing}
-            onRemove={id => removeTag('light', id)}
-            newValue={newDaisy}
-            onNewChange={setNewDaisy}
-            onAdd={() => addTag('light', newDaisy)}
+            onEdit={() => { setSheet(null); setEditType('light'); setEditOpen(true) }}
           />
         </BottomSheet>
       )}
 
       {sheet === 'shadow' && (
         <BottomSheet title="🌱 Seed の言葉" accent="#8B6914" onClose={() => setSheet(null)}>
-          <WordSheetBody
+          <TagListView
             tags={shadowTags}
             chipBg="#D4B896"
             chipColor="#5C3A1E"
-            editing={editing}
-            onRemove={id => removeTag('shadow', id)}
-            newValue={newSeed}
-            onNewChange={setNewSeed}
-            onAdd={() => addTag('shadow', newSeed)}
+            onEdit={() => { setSheet(null); setEditType('shadow'); setEditOpen(true) }}
+          />
+        </BottomSheet>
+      )}
+
+      {/* ── 編集専用シート（「✎ プロフィールを編集」から開く。AI生成を主役に据える） ── */}
+      {editOpen && (
+        <BottomSheet title="✎ プロフィールを編集" accent="#4A7C59" onClose={() => setEditOpen(false)}>
+          {/* アイコン変更 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+            <UserAvatar username={user?.username} avatarUrl={user?.avatar_url} size={52} />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              style={{
+                border: '1px solid #D4B896', background: '#FFFFFF', borderRadius: 20,
+                padding: '8px 16px', fontSize: 13, fontWeight: 700, color: '#8B6914',
+                cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.5 : 1,
+              }}
+            >
+              {uploading ? 'アップロード中...' : '📷 アイコンを変更'}
+            </button>
+          </div>
+
+          {/* Daisy / Seed 切替 */}
+          <div
+            style={{
+              display: 'flex', background: '#FFFFFF', border: '1px solid #D4B896',
+              borderRadius: 12, overflow: 'hidden', marginBottom: 18,
+            }}
+          >
+            {([
+              { key: 'light' as const, label: '🌼 Daisy' },
+              { key: 'shadow' as const, label: '🌱 Seed' },
+            ]).map(({ key, label }) => {
+              const on = editType === key
+              return (
+                <button
+                  key={key}
+                  onClick={() => setEditType(key)}
+                  style={{
+                    flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 700,
+                    background: on ? '#4A7C59' : 'transparent',
+                    color: on ? '#F5F0E8' : '#A0906F',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* 選択中の種別の 言葉一覧 + AI生成 + 手動追加（keyで種別切替時にAI状態をリセット） */}
+          <WordSheetBody
+            key={editType}
+            tags={editType === 'light' ? lightTags : shadowTags}
+            chipBg={editType === 'light' ? '#F5D78E' : '#D4B896'}
+            chipColor={editType === 'light' ? '#8B6914' : '#5C3A1E'}
+            editing={true}
+            onRemove={id => removeTag(editType, id)}
+            type={editType}
+            questions={EDIT_QUESTIONS[editType]}
+            onAdd={text => addTag(editType, text)}
           />
         </BottomSheet>
       )}
@@ -652,19 +727,101 @@ function BottomSheet({
   )
 }
 
-// ── 言葉シートの中身（チップ一覧 + 編集時の追加/削除） ──
+// ── 言葉の閲覧用シート（一覧表示 + 「編集する」で編集シートへ） ──
+function TagListView({
+  tags, chipBg, chipColor, onEdit,
+}: {
+  tags: Tag[]
+  chipBg: string
+  chipColor: string
+  onEdit: () => void
+}) {
+  return (
+    <>
+      <button
+        onClick={onEdit}
+        style={{
+          width: '100%', border: 'none', borderRadius: 20, background: '#4A7C59',
+          color: '#F5F0E8', fontSize: 13, fontWeight: 700, padding: '10px 0',
+          cursor: 'pointer', marginBottom: 16,
+        }}
+      >
+        ✎ 編集する
+      </button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {tags.length === 0 ? (
+          <p style={{ fontSize: 13, color: '#A09070', margin: 0 }}>まだありません</p>
+        ) : (
+          tags.map(tag => (
+            <span
+              key={tag.id}
+              style={{
+                background: chipBg, borderRadius: 12, padding: '8px 12px',
+                fontSize: 13, color: chipColor,
+              }}
+            >
+              {formatHashtag(tag.text)}
+            </span>
+          ))
+        )}
+      </div>
+    </>
+  )
+}
+
+// ── 編集シートの中身（チップ一覧 + AI生成／手動の追加・削除） ──
 function WordSheetBody({
-  tags, chipBg, chipColor, editing, onRemove, newValue, onNewChange, onAdd,
+  tags, chipBg, chipColor, editing, onRemove, type, questions, onAdd,
 }: {
   tags: Tag[]
   chipBg: string
   chipColor: string
   editing: boolean
   onRemove: (id: string) => void
-  newValue: string
-  onNewChange: (v: string) => void
-  onAdd: () => void
+  type: 'light' | 'shadow'
+  questions: string[]
+  onAdd: (text: string) => Promise<boolean>
 }) {
+  const accent = type === 'light' ? '#4A7C59' : '#6B4F12'
+
+  // AI生成フロー用の状態（このシート内で完結）
+  const [selectedQ, setSelectedQ] = useState(0)
+  const [draft, setDraft] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState<string | null>(null)
+  const [generated, setGenerated] = useState<string[]>([])
+  const [manual, setManual] = useState('')
+
+  // 登録済み判定（保存時は#を外しているので、比較も#を外して行う）
+  const existing = new Set(tags.map(t => t.text))
+  const isAdded = (raw: string) => existing.has(raw.trim().replace(/^#+/, ''))
+
+  const handleGenerate = async () => {
+    if (!draft.trim() || generating) return
+    setGenerating(true)
+    setGenError(null)
+    try {
+      const res = await fetch(`${EDGE_FUNCTIONS_BASE}/generate-tags`, {
+        method: 'POST',
+        headers: EDGE_FUNCTION_HEADERS,
+        body: JSON.stringify({ text: draft }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'エラーが発生しました')
+      const newTags: string[] = data.tags ?? []
+      setGenerated(prev => [...prev, ...newTags.filter(t => !prev.includes(t))])
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : 'エラーが発生しました')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleAddManual = async () => {
+    const ok = await onAdd(manual)
+    if (ok) setManual('')
+  }
+
   return (
     <>
       {!editing && (
@@ -672,6 +829,8 @@ function WordSheetBody({
           ※「✎ プロフィールを編集」で追加・削除できます
         </p>
       )}
+
+      {/* 登録済みチップ一覧 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {tags.length === 0 ? (
           <p style={{ fontSize: 13, color: '#A09070', margin: 0 }}>まだありません</p>
@@ -704,27 +863,126 @@ function WordSheetBody({
       </div>
 
       {editing && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <input
-            value={newValue}
-            onChange={e => onNewChange(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') onAdd() }}
-            placeholder="言葉を追加"
-            style={{
-              flex: 1, minWidth: 0, border: '1px solid #D4B896', borderRadius: 10,
-              padding: '10px 12px', fontSize: 14, color: '#3B2F1E', background: '#FFFFFF',
-            }}
-          />
-          <button
-            onClick={onAdd}
-            style={{
-              border: 'none', borderRadius: 10, background: '#4A7C59', color: '#F5F0E8',
-              fontSize: 14, fontWeight: 700, padding: '0 18px', cursor: 'pointer', flexShrink: 0,
-            }}
-          >
-            追加
-          </button>
-        </div>
+        <>
+          {/* ── AIでつくる：質問を選んで書き殴る → 生成 ── */}
+          <div style={{ marginTop: 22, borderTop: '1px solid rgba(212,184,150,0.6)', paddingTop: 18 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#3B2F1E', margin: '0 0 10px' }}>
+              ✦ 質問に答えて言葉をつくる
+            </p>
+
+            {/* 質問を選ぶ */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {questions.map((q, i) => {
+                const on = i === selectedQ
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedQ(i)}
+                    style={{
+                      textAlign: 'left', width: '100%', padding: '10px 12px', borderRadius: 12,
+                      cursor: 'pointer', fontSize: 13, lineHeight: 1.5,
+                      border: on ? `1.5px solid ${accent}` : '1px solid #D4B896',
+                      background: on ? 'rgba(74,124,89,0.08)' : '#FFFFFF',
+                      color: on ? '#3B2F1E' : '#7A6A50',
+                      fontWeight: on ? 700 : 400,
+                    }}
+                  >
+                    {q}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 書き殴る */}
+            <textarea
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              placeholder="ここに思うままに書いてみてください..."
+              rows={3}
+              style={{
+                width: '100%', border: '1px solid #D4B896', borderRadius: 12,
+                padding: '12px', color: '#3B2F1E', background: '#FFFFFF', resize: 'none',
+                // iOSでフォーカス時に自動ズームしないよう16px以上を確保
+                fontSize: 16, outline: 'none', marginBottom: 10,
+              }}
+            />
+
+            <button
+              onClick={handleGenerate}
+              disabled={!draft.trim() || generating}
+              style={{
+                width: '100%', border: 'none', borderRadius: 20, padding: '12px 0',
+                fontSize: 14, fontWeight: 700,
+                background: draft.trim() && !generating ? accent : 'rgba(0,0,0,0.08)',
+                color: draft.trim() && !generating ? '#F5F0E8' : 'rgba(0,0,0,0.28)',
+                cursor: draft.trim() && !generating ? 'pointer' : 'default',
+              }}
+            >
+              {generating ? '生成中...' : 'タグを生成する'}
+            </button>
+
+            {genError && (
+              <p style={{ color: '#C0392B', fontSize: 12, textAlign: 'center', margin: '8px 0 0' }}>{genError}</p>
+            )}
+
+            {/* 生成されたタグ（タップで追加） */}
+            {generated.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 11, color: 'rgba(59,47,30,0.45)', margin: '0 0 8px' }}>
+                  タップして追加
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {generated.map(t => {
+                    const added = isAdded(t)
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => { if (!added) onAdd(t) }}
+                        disabled={added}
+                        style={{
+                          borderRadius: 12, padding: '8px 12px', fontSize: 13,
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          border: `1px solid ${added ? 'rgba(0,0,0,0.12)' : accent}`,
+                          background: added ? 'rgba(0,0,0,0.04)' : '#FFFFFF',
+                          color: added ? 'rgba(0,0,0,0.3)' : '#3B2F1E',
+                          cursor: added ? 'default' : 'pointer',
+                        }}
+                      >
+                        {formatHashtag(t)}
+                        <span style={{ fontWeight: 700, color: added ? 'rgba(0,0,0,0.3)' : accent }}>
+                          {added ? '✓' : '+'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── 手動でも追加できる ── */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+            <input
+              value={manual}
+              onChange={e => setManual(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddManual() }}
+              placeholder="自分で言葉を追加"
+              style={{
+                flex: 1, minWidth: 0, border: '1px solid #D4B896', borderRadius: 10,
+                padding: '10px 12px', fontSize: 16, color: '#3B2F1E', background: '#FFFFFF',
+              }}
+            />
+            <button
+              onClick={handleAddManual}
+              style={{
+                border: 'none', borderRadius: 10, background: accent, color: '#F5F0E8',
+                fontSize: 14, fontWeight: 700, padding: '0 18px', cursor: 'pointer', flexShrink: 0,
+              }}
+            >
+              追加
+            </button>
+          </div>
+        </>
       )}
     </>
   )

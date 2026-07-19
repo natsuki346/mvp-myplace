@@ -4,18 +4,26 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { GoogleMap, useJsApiLoader, Marker, OverlayView } from '@react-google-maps/api'
 import { supabase } from '@/src/lib/supabase/client'
-import { getDistanceMeters } from '@/src/lib/geo'
 import { BottomNav } from '@/src/components/BottomNav'
 import { FireMarker } from '@/src/components/FireMarker'
 import { MatchModal } from '@/src/components/MatchModal'
 
-const RADIUS_METERS = 100
+// 半径3km・鮮度24時間・対面対応（meet/both）のフィルタは match-nearby Edge Function 側
+// （service role）で行う。
+// user_locations は RLS で anon から読めないため、クライアントは直接触らない。
 const JITTER_METERS = 30
 const METERS_PER_LAT = 111_000
 // BottomNavの高さ（固定）
 const BOTTOM_NAV_H = 72
 
 const MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''
+
+const EDGE_FUNCTIONS_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
+const EDGE_FUNCTION_HEADERS = {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+  'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+}
 
 function normalizeTag(text: string): string {
   return text.replace(/^#+/, '')
@@ -29,6 +37,8 @@ function jitterPosition(lat: number, lng: number): { lat: number; lng: number } 
 }
 
 type Match = {
+  userId: string
+  username: string
   distanceMeters: number
   commonTags: string[]
   jitteredPos: { lat: number; lng: number }
@@ -41,70 +51,39 @@ type PageState =
   | { status: 'done'; lat: number; lng: number; matches: Match[] }
   | { status: 'error'; message: string }
 
+type NearbyMatch = {
+  userId: string
+  username: string
+  distanceMeters: number
+  latitude: number
+  longitude: number
+  commonTags: string[]
+}
+
+// 位置の保存＋2km以内・24時間以内・経験/悩みマッチをサーバー側でまとめて行う
 async function findNearbyMatches(
   myUserId: string,
   myLat: number,
   myLng: number,
 ): Promise<Match[]> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: locations, error: locError } = await (supabase.from('user_locations') as any)
-    .select('user_id, latitude, longitude')
-    .neq('user_id', myUserId)
-
-  if (locError || !locations) return []
-
-  const nearby = (locations as { user_id: string; latitude: number; longitude: number }[])
-    .map(row => ({
-      userId: row.user_id,
-      lat: row.latitude,
-      lng: row.longitude,
-      distanceMeters: Math.round(getDistanceMeters(myLat, myLng, row.latitude, row.longitude)),
+  try {
+    const res = await fetch(`${EDGE_FUNCTIONS_BASE}/match-nearby`, {
+      method: 'POST',
+      headers: EDGE_FUNCTION_HEADERS,
+      body: JSON.stringify({ user_id: myUserId, lat: myLat, lng: myLng }),
+    })
+    if (!res.ok) return []
+    const data = await res.json().catch(() => ({}))
+    return (((data?.matches ?? []) as NearbyMatch[])).map(m => ({
+      userId: m.userId,
+      username: m.username,
+      distanceMeters: m.distanceMeters,
+      commonTags: m.commonTags,
+      jitteredPos: jitterPosition(m.latitude, m.longitude),
     }))
-    .filter(u => u.distanceMeters <= RADIUS_METERS)
-
-  if (nearby.length === 0) return []
-
-  const nearbyIds = nearby.map(u => u.userId)
-
-  const [myTagsRes, theirTagsRes] = await Promise.all([
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('tags') as any)
-      .select('text')
-      .eq('user_id', myUserId)
-      .eq('is_active', true),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.from('tags') as any)
-      .select('user_id, text')
-      .in('user_id', nearbyIds)
-      .eq('is_active', true),
-  ])
-
-  const myTexts = new Map<string, string>(
-    ((myTagsRes.data ?? []) as { text: string }[]).map(t => [normalizeTag(t.text), t.text]),
-  )
-
-  const tagsByUser = new Map<string, Set<string>>()
-  for (const row of (theirTagsRes.data ?? []) as { user_id: string; text: string }[]) {
-    if (!tagsByUser.has(row.user_id)) tagsByUser.set(row.user_id, new Set())
-    tagsByUser.get(row.user_id)!.add(normalizeTag(row.text))
+  } catch {
+    return []
   }
-
-  const matches: Match[] = []
-  for (const u of nearby) {
-    const theirNormalized = tagsByUser.get(u.userId) ?? new Set<string>()
-    const common = [...myTexts.entries()]
-      .filter(([normalized]) => theirNormalized.has(normalized))
-      .map(([, original]) => original)
-    if (common.length > 0) {
-      matches.push({
-        distanceMeters: u.distanceMeters,
-        commonTags: common,
-        jitteredPos: jitterPosition(u.lat, u.lng),
-      })
-    }
-  }
-
-  return matches.sort((a, b) => a.distanceMeters - b.distanceMeters)
 }
 
 // ── 通知ヘルパー ──────────────────────────────────────────────────────────────
@@ -159,7 +138,8 @@ async function fireMatchNotification() {
 type MapProps = {
   myPos: { lat: number; lng: number }
   matches: Match[]
-  onTagClick: (tag: string) => void
+  // マッチ相手とチャット（会う約束）を始める
+  onMatchChat: (m: Match, tag: string) => void
 }
 
 const MAP_OPTIONS: google.maps.MapOptions = {
@@ -172,7 +152,7 @@ const MAP_OPTIONS: google.maps.MapOptions = {
 // 親コンテナが高さを持つので 100% で追従させる
 const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' }
 
-function LotteryMap({ myPos, matches, onTagClick }: MapProps) {
+function LotteryMap({ myPos, matches, onMatchChat }: MapProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   const { isLoaded } = useJsApiLoader({ googleMapsApiKey: MAPS_API_KEY })
@@ -197,7 +177,7 @@ function LotteryMap({ myPos, matches, onTagClick }: MapProps) {
       <GoogleMap
         mapContainerStyle={MAP_CONTAINER_STYLE}
         center={myPos}
-        zoom={17}
+        zoom={13}
         options={MAP_OPTIONS}
         onClick={onMapClick}
       >
@@ -234,7 +214,9 @@ function LotteryMap({ myPos, matches, onTagClick }: MapProps) {
       <MatchModal
         match={activeIndex !== null ? matches[activeIndex] : null}
         onClose={() => setActiveIndex(null)}
-        onTagClick={onTagClick}
+        onTagClick={(tag) => {
+          if (activeIndex !== null) onMatchChat(matches[activeIndex], tag)
+        }}
       />
     </>
   )
@@ -246,6 +228,31 @@ export default function LotteryPage() {
   const router = useRouter()
   const [state, setState] = useState<PageState>({ status: 'idle' })
   const prevMatchCountRef = useRef(0)
+
+  // 会う約束/チャット：accepted な connection を用意してフレンドチャットへ（対面プリセット付き）
+  const startMeetChat = useCallback(async (m: Match, tag: string) => {
+    const uid = localStorage.getItem('user_id')
+    if (!uid || !m.userId) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (supabase.from('connections') as any)
+      .select('id')
+      .or(`and(requester_id.eq.${uid},receiver_id.eq.${m.userId}),and(requester_id.eq.${m.userId},receiver_id.eq.${uid})`)
+    if (!existing || existing.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from('connections') as any)
+        .insert({ requester_id: uid, receiver_id: m.userId, status: 'accepted' })
+    }
+
+    const q = new URLSearchParams({
+      friendId: m.userId,
+      name: m.username,
+      tag: normalizeTag(tag),
+      want: 'meet',
+      preset: 'こんにちは。どこで会いますか？',
+    }).toString()
+    router.push(`/room/friend/chat?${q}`)
+  }, [router])
 
   // 通知許可リクエスト（マウント時1回）
   useEffect(() => {
@@ -270,17 +277,7 @@ export default function LotteryPage() {
         const lat = pos.coords.latitude
         const lng = pos.coords.longitude
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: upsertError } = await (supabase.from('user_locations') as any).upsert(
-          { user_id: userId, latitude: lat, longitude: lng, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' },
-        )
-        if (upsertError) {
-          console.error('user_locations upsert error:', upsertError.message)
-          setState({ status: 'error', message: '位置情報の保存に失敗しました' })
-          return
-        }
-
+        // 位置の保存は match-nearby Edge Function 内で行う（anonからの直接書き込みはしない）
         setState({ status: 'searching', lat, lng })
         const matches = await findNearbyMatches(userId, lat, lng)
         setState({ status: 'done', lat, lng, matches })
@@ -325,7 +322,7 @@ export default function LotteryPage() {
             <LotteryMap
               myPos={{ lat: state.lat, lng: state.lng }}
               matches={state.matches}
-              onTagClick={(tag) => router.push(`/lottery/room?tag=${encodeURIComponent(tag)}`)}
+              onMatchChat={startMeetChat}
             />
           ) : (
             <div style={{

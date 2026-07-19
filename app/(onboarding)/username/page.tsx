@@ -123,7 +123,25 @@ export default function UsernamePage() {
 
       localStorage.setItem('user_id',  user.id)
       localStorage.setItem('username', user.username)
-      router.push('/welcome')
+
+      // オンボーディング済みか確認（済みなら初期登録をスキップしてトップへ）。
+      // onboarded_at 列が無い環境では未完了扱い＝/welcome へ。
+      let onboarded = false
+      try {
+        const { data: prof } = await supabase
+          .from('users')
+          .select('onboarded_at')
+          .eq('id', user.id)
+          .maybeSingle() as { data: { onboarded_at: string | null } | null }
+        onboarded = !!prof?.onboarded_at
+      } catch { /* 列なし等は未完了扱い */ }
+
+      if (onboarded) {
+        localStorage.setItem('onboarded_v2', 'true')
+        router.replace('/')
+      } else {
+        router.push('/welcome')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ログインに失敗しました。もう一度お試しください。')
     } finally {

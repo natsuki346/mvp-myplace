@@ -21,8 +21,13 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 function parseTags(raw: string): string[] {
+  // モデル出力の形式ゆれ（```json フェンス・前後の余計な文章など）に左右されないよう、
+  // フェンスを除去したうえで最初の { … } ブロックだけを取り出してからJSONとして解釈する。
   const cleaned = raw.replace(/```json|```/g, '').trim()
-  const parsed = JSON.parse(cleaned)
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  const json = start !== -1 && end > start ? cleaned.slice(start, end + 1) : cleaned
+  const parsed = JSON.parse(json)
   if (!Array.isArray(parsed.tags)) return []
   return parsed.tags.filter((t: unknown): t is string => typeof t === 'string')
 }

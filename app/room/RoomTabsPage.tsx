@@ -15,6 +15,7 @@ import { supabase } from '@/src/lib/supabase/client'
 
 type RoomType = 'light' | 'shadow' | 'friend'
 
+// Daisy(light)/Seed(shadow)/Private(friend) の3タブを表示する。
 const TAB_ORDER: RoomType[] = ['light', 'shadow', 'friend']
 
 const TAB_CONFIG: Record<RoomType, { label: string; icon: string }> = {

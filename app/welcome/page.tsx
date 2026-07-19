@@ -108,8 +108,8 @@ export default function WelcomePage() {
           background: '#FFFFFF', borderRadius: 20,
           padding: 32, textAlign: 'center',
         }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0 }}>
-            まず4つの質問に答えてみよう🌱
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: '#3B2F1E', margin: 0, lineHeight: 1.7 }}>
+            これまでの人生を思い出して、<br />思うままに答えてください🌱
           </h2>
           <button
             onClick={handleStartPopup}
