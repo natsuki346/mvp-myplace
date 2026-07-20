@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation'
 // Step1（light / 経験）：Rescue時のマッチングタグ
 // Step2（shadow / 悩み）：HELP時のマッチングタグ
 // 各ステップ：自由入力 → generate-tags でAI生成 → 生成タグを選択 → 保存
-// 完了 → complete-onboarding Edge Function でタグ保存＋onboarded_at記録 → /mode
+// 完了 → complete-onboarding でタグ保存（onboarded_at はまだ確定しない）
+//        → タグ可視化（/onboarding/visualize）→ 説明（/onboarding/about）
+//        → モード選択（/mode）でモードを選んだ時に onboarded_at を確定する。
 const EDGE_FUNCTIONS_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1`
 const EDGE_FUNCTION_HEADERS = {
   'Content-Type': 'application/json',
@@ -212,7 +214,8 @@ export default function OnboardingPage() {
     }
   }
 
-  // 最終ステップ：選択中のタグを保存してモード選択へ
+  // 最終ステップ：選択中のタグを保存し、タグ可視化画面へ。
+  // ここでは onboarded_at を確定しない（markOnboarded:false）。確定はモード選択時。
   const submitOnboarding = async () => {
     const userId = typeof window !== 'undefined' ? localStorage.getItem('user_id') : null
     if (!userId) { router.replace('/username'); return }
@@ -226,14 +229,19 @@ export default function OnboardingPage() {
           user_id: userId,
           experienceTags: selected.exp,
           worryTags: selected.worry,
+          markOnboarded: false,
         }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error ?? '保存に失敗しました')
 
-      // ゲートの主役はクライアント側のフラグ（onboarded_at 列が無くても動く）
-      localStorage.setItem('onboarded_v2', 'true')
-      router.replace('/mode')
+      // 可視化画面へ選択タグを引き継ぐ（DBフォールバックもあるが、まずはここから読む）
+      try {
+        sessionStorage.setItem('onboarding_light_tags', JSON.stringify(selected.exp))
+        sessionStorage.setItem('onboarding_shadow_tags', JSON.stringify(selected.worry))
+      } catch { /* 無視 */ }
+
+      router.replace('/onboarding/visualize')
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存に失敗しました。もう一度お試しください。')
       setSubmitting(false)

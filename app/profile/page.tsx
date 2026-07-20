@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/src/lib/supabase/client'
+import { clearSession } from '@/src/lib/session'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { BottomNav } from '@/src/components/BottomNav'
 import { UserAvatar } from '@/src/components/UserAvatar'
@@ -224,9 +225,8 @@ export default function ProfilePage() {
       }).catch(() => {})
     }
     await supabase.auth.signOut()
-    localStorage.removeItem('user_id')
-    localStorage.removeItem('username')
-    router.push('/welcome')
+    clearSession()
+    router.push('/username')
   }
 
   if (loading) {

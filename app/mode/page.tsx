@@ -7,13 +7,13 @@ type Mode = 'user' | 'host'
 type MethodKey = 'call' | 'meet' | 'both'
 
 const OPTIONS: { key: Mode; emoji: string; title: string; sub: string }[] = [
-  { key: 'user', emoji: '🤝', title: '話を聞いてほしい', sub: 'Talk to meやCome onで来てもらう' },
+  { key: 'user', emoji: '🤝', title: '話を聞いてほしい', sub: 'Talk meやCome onで来てもらう' },
   { key: 'host', emoji: '💬', title: '話を聞いてあげたい', sub: 'ワーカーとして稼働して依頼を受ける' },
 ]
 
 // ワーカーの対応手段（users.available_methods に保存）
 const METHOD_OPTIONS: { key: MethodKey; icon: string; label: string }[] = [
-  { key: 'call', icon: '📞', label: 'Talk to me（通話）' },
+  { key: 'call', icon: '📞', label: 'Talk me（通話）' },
   { key: 'meet', icon: '🤝', label: 'Come on（対面で会う）' },
   { key: 'both', icon: '✨', label: '両方OK' },
 ]
@@ -41,8 +41,25 @@ export default function ModePage() {
     if (skipToday) localStorage.setItem('skipModeSelect', new Date().toDateString())
     else localStorage.removeItem('skipModeSelect')
 
-    // ワーカー：対応手段を保存し、オンラインにする（失敗してもフローは止めない）
     const uid = localStorage.getItem('user_id')
+
+    // オンボーディング最終ステップ（onboarded_v2 未設定）でのモード選択なら、
+    // ここで初めて onboarded_at を確定する。以降はこの画面を通っても確定処理はしない。
+    const isOnboarding = localStorage.getItem('onboarded_v2') !== 'true'
+    if (isOnboarding && uid) {
+      setSaving(true)
+      try {
+        await fetch(`${EDGE_FUNCTIONS_BASE}/complete-onboarding`, {
+          method: 'POST',
+          headers: EDGE_FUNCTION_HEADERS,
+          body: JSON.stringify({ user_id: uid, markOnboarded: true }),
+        })
+      } catch { /* best-effort：確定失敗でもクライアント側フラグでゲートする */ }
+      localStorage.setItem('onboarded_v2', 'true')
+      setSaving(false)
+    }
+
+    // ワーカー：対応手段を保存し、オンラインにする（失敗してもフローは止めない）
     if (mode === 'host' && method && uid) {
       setSaving(true)
       try {

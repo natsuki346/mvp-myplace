@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/src/lib/supabase/client'
+import { clearSession } from '@/src/lib/session'
 import { formatHashtag } from '@/app/onboarding/garden-setup/garden-visuals'
 import { UserAvatar } from '@/src/components/UserAvatar'
 
@@ -178,10 +179,9 @@ export function ProfileDrawer({ isOpen = false, onClose = () => {}, isInline = f
         body: JSON.stringify({ user_id: uid, is_online: false }),
       }).catch(() => {})
     }
-    localStorage.removeItem('user_id')
-    localStorage.removeItem('username')
+    clearSession()
     onClose()
-    router.push('/welcome')
+    router.push('/username')
   }
 
   // 利用モードの切り替え → モード選択画面を再表示する
