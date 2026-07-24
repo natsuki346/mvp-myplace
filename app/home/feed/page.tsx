@@ -47,6 +47,10 @@ type Match = {
   preferredTime?: number
   lat?: number
   lng?: number
+  // Daisy×Seed のAI類似度スコア（0〜1）。ソートにのみ使い、UIには数値を出さない。
+  score?: number
+  // Rescue：両者が共通して持つ悩み（相手のSeedそのものは出さず、これだけ表示）。
+  commonSeed?: string[]
 }
 type Tab = 'help' | 'rescue'
 // Rescue 承認/辞退のローカル状態（userId → 状態）。MVP確認用でリロードで初期化されてよい。
@@ -68,6 +72,9 @@ const WANT_META: Record<WantMethod, { icon: string; label: string }> = {
 //   natsuki の light 例: #ポジティブ思考 / #秀才と呼ばれた元バカ / #挑戦心 / #目標志向 /
 //                        #前向きな行動力 / #自信に満ちた / #成長欲求旺盛 / #学びが原動力
 //   → あおい・けんたは「natsuki が乗り越えた側」の悩みを今まさに抱えている、という関係。
+// USE_MOCK_RESCUE=true のとき、モック各人に固定の類似度スコア（score）を設定しておく。
+// これにより、実APIを叩けない表示確認でも「スコア降順で並ぶ」挙動を検証できる。
+// （定義順は あおい→けんた→ゆい だが、score 降順で けんた→あおい→ゆい に並び替わる）
 const USE_MOCK_RESCUE = true
 const RESCUE_MOCKS: Match[] = [
   // あおい：将来・自信・進路の迷い（natsuki の #目標志向 #自信に満ちた #ポジティブ思考 に対応）
@@ -75,7 +82,8 @@ const RESCUE_MOCKS: Match[] = [
     userId: 'mock-aoi-001', username: 'あおい', avatar_url: null,
     tag: '将来が見えない', connectionId: 'mock-conn-aoi',
     tags: ['将来が見えない', '自信が持てない', '何がしたいかわからない'],
-    want: 'chat',
+    commonSeed: ['将来が見えない', '自信が持てない'],
+    want: 'chat', score: 0.81,
     note: '最近仕事のことで頭がいっぱいで、誰かに話を聞いてほしいです',
   },
   // けんた：挫折・停滞・ネガティブ（natsuki の #秀才と呼ばれた元バカ #挑戦心 #前向きな行動力 に対応）
@@ -83,7 +91,8 @@ const RESCUE_MOCKS: Match[] = [
     userId: 'mock-kenta-001', username: 'けんた', avatar_url: null,
     tag: '挫折から抜け出せない', connectionId: 'mock-conn-kenta',
     tags: ['挫折から抜け出せない', 'ネガティブ思考', '一歩踏み出せない'],
-    want: 'call',
+    commonSeed: ['挫折から抜け出せない', '一歩踏み出せない'],
+    want: 'call', score: 0.92,
     note: '同じ経験をした人と話したくて。少し背中を押してほしいです',
   },
   // ゆい：Come on（対面）の依頼。近くにいて、直接会って話したい。
@@ -92,7 +101,8 @@ const RESCUE_MOCKS: Match[] = [
     userId: 'mock-comeon-001', username: 'ゆい', avatar_url: null,
     tag: '将来が不安', connectionId: 'mock-conn-comeon',
     tags: ['将来が不安', '一歩踏み出せない'],
-    want: 'meet',
+    commonSeed: ['将来が不安', '一歩踏み出せない'],
+    want: 'meet', score: 0.68,
     note: 'はじめまして。30分ほどお時間あれば、会って話させてもらえませんか？🌿',
     isComeOn: true, distance: 1.2, preferredTime: 30, lat: 35.7354, lng: 139.4063,
   },
@@ -116,15 +126,6 @@ const RESCUE_MOCK_REPLIES = [
   'ありがとうございます…！勇気を出して話してよかったです。',
   '実は最近、仕事や将来のことで頭がいっぱいで…聞いてもらえますか？',
   'そう言ってもらえるだけで、少し心が軽くなりました🌱',
-]
-
-// Come on（対面）：Come on ボタンから直接つなぐモック相手（近くにいる想定）と希望時間の選択肢。
-// Lottery（近くで会える人の一覧）は廃止し、Come on はこの相手との地図付きチャットへ直行する。
-const COMEON_TARGET = { userId: 'mock-aoi-001', username: 'あおい', tag: '仕事の悩み', dist: '1.2km' }
-const COMEON_DURATIONS: { minutes: number; label: string }[] = [
-  { minutes: 30, label: '30分' },
-  { minutes: 60, label: '1時間' },
-  { minutes: 90, label: '1時間30分' },
 ]
 
 const TAB_META: Record<Tab, { label: string; emptyIcon: string; empty: string; hint: string }> = {
@@ -165,9 +166,6 @@ export default function HomePage() {
   // 初回訪問時の案内（①左上アイコンのプロフィール案内 → ②3ページ説明モーダル）
   const [showIntro, setShowIntro] = useState(false)
   const [showPeek, setShowPeek] = useState(false)
-  // Come on：希望時間の選択モーダル（30分/1時間/1時間30分）
-  const [comeOnOpen, setComeOnOpen] = useState(false)
-  const [comeOnMinutes, setComeOnMinutes] = useState(30)
 
   // モードに応じて初期タブを合わせる
   useEffect(() => {
@@ -214,6 +212,8 @@ export default function HomePage() {
       let users = (data?.users as Match[]) ?? []
       // Rescue：実マッチが0件のときはモックをフォールバック表示（USE_MOCK_RESCUE）
       if (tab === 'rescue' && USE_MOCK_RESCUE && users.length === 0) users = RESCUE_MOCKS
+      // AI類似度スコアの降順に並べる（バックエンドも並べ替え済みだが、モック含め念のため統一）。
+      users = [...users].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
       setMatches(prev => ({ ...prev, [tab]: users }))
     } catch {
       // 通信失敗時も Rescue はモックにフォールバック（それ以外は空）
@@ -343,24 +343,6 @@ export default function HomePage() {
     router.push(`/home/chat?${q}`)
   }
 
-  // ── Come on：希望時間を選んで、あおいとの地図付きチャット（?type=comeon）へ直行 ──
-  // Lottery（GPS一覧）は廃止。地図はチャット内の ComeOnMap で表示する。
-  const startComeOn = (minutes: number) => {
-    const t = COMEON_TARGET
-    ensureThread({ friendId: t.userId, name: t.username, tag: t.tag })
-    const q = new URLSearchParams({
-      friendId: t.userId,
-      name: t.username,
-      tag: t.tag,
-      want: 'meet',
-      type: 'comeon',
-      minutes: String(minutes),
-      dist: t.dist,
-    }).toString()
-    setComeOnOpen(false)
-    router.push(`/home/chat?${q}`)
-  }
-
   const list = matches[activeTab]
 
   // いま選んでいるモードに対応するタブ（help=user / rescue=host）。
@@ -475,8 +457,11 @@ export default function HomePage() {
             style={{
               display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24,
               minHeight: 'calc(100svh - 210px)',
+              // Talk me を一時非表示にしている間、Come on を画面中央に大きく置く
+              justifyContent: 'center',
             }}
           >
+            {/* 一時的に非表示（後で戻せるようコメントアウトのみ）。戻すときはこのブロックのコメントを外す。
             <button
               onClick={() => router.push('/help')}
               style={{
@@ -493,20 +478,21 @@ export default function HomePage() {
                 話したい・聞いてほしい
               </span>
             </button>
-            {/* 対面（Come on）→ 希望時間を選んで、地図付きチャットへ直行 */}
+            */}
+            {/* 対面（Come on）→ まず「いま近くで会える人」の一覧へ（相手を選んでからつながる） */}
             <button
-              onClick={() => { setComeOnMinutes(30); setComeOnOpen(true) }}
+              onClick={() => router.push('/come-on')}
               style={{
-                width: '100%', flex: 1, minHeight: 220,
+                width: '100%', flex: 1, maxHeight: 360, minHeight: 280,
                 border: 'none', borderRadius: 24, cursor: 'pointer',
                 background: 'linear-gradient(135deg, #E8654F 0%, #C0392B 100%)',
                 boxShadow: '0 6px 18px rgba(192,57,43,0.35)',
                 display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', gap: 12,
+                alignItems: 'center', justifyContent: 'center', gap: 14,
               }}
             >
-              <span style={{ fontSize: 36, fontWeight: 800, color: '#FFFFFF', letterSpacing: 1 }}>Come on</span>
-              <span style={{ fontSize: 18, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
+              <span style={{ fontSize: 44, fontWeight: 800, color: '#FFFFFF', letterSpacing: 1 }}>Come on</span>
+              <span style={{ fontSize: 19, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
                 近くで直接会いたい
               </span>
             </button>
@@ -555,8 +541,11 @@ export default function HomePage() {
                 if (activeTab === 'rescue') {
                   const st = rescueStatus[item.userId]
                   const grayed = st === 'declined'
-                  // shadowタグ（複数）。モック未設定の実データは先頭タグ1件にフォールバック。
-                  const shadowTags = item.tags && item.tags.length > 0 ? item.tags : [item.tag]
+                  // Rescue では相手の Seed そのものは出さず、両者が共通して持つ悩み（commonSeed）だけを表示。
+                  // commonSeed 未設定の実データは tags → 先頭タグ の順にフォールバック。
+                  const shadowTags = item.commonSeed && item.commonSeed.length > 0
+                    ? item.commonSeed
+                    : item.tags && item.tags.length > 0 ? item.tags : [item.tag]
                   const wantMeta = item.want ? WANT_META[item.want] : null
 
                   return (
@@ -711,74 +700,6 @@ export default function HomePage() {
           onSent={() => {}}
           onTalkNow={(method) => openChat(selectedMatch, method as WantKey)}
         />
-      )}
-
-      {/* ── Come on：希望時間の選択モーダル（30分 / 1時間 / 1時間30分） ── */}
-      {comeOnOpen && (
-        <div
-          onClick={() => setComeOnOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(59,47,30,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: '100%', maxWidth: 320, background: '#F5F0E8', borderRadius: 20, padding: '24px 20px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-            }}
-          >
-            <span style={{ fontSize: 34 }}>🤝</span>
-            <p style={{ fontSize: 16, fontWeight: 700, color: '#3B2F1E', margin: 0, textAlign: 'center' }}>
-              近くの人に会いに行きますか？
-            </p>
-            <p style={{ fontSize: 13, color: 'rgba(59,47,30,0.6)', margin: 0, textAlign: 'center', lineHeight: 1.7 }}>
-              どのくらいの時間、<br />会って話したいか選んでください。
-            </p>
-
-            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-              {COMEON_DURATIONS.map(o => {
-                const on = comeOnMinutes === o.minutes
-                return (
-                  <button
-                    key={o.minutes}
-                    onClick={() => setComeOnMinutes(o.minutes)}
-                    style={{
-                      flex: 1, padding: '10px 0', borderRadius: 14, cursor: 'pointer',
-                      background: on ? '#FBE4DE' : '#FFFFFF',
-                      border: on ? '2px solid #C0392B' : '1px solid rgba(139,115,85,0.3)',
-                      color: on ? '#C0392B' : '#5C3A1E', fontSize: 13, fontWeight: 700,
-                    }}
-                  >
-                    {o.label}
-                  </button>
-                )
-              })}
-            </div>
-
-            <button
-              onClick={() => startComeOn(comeOnMinutes)}
-              style={{
-                width: '100%', padding: '13px 0', borderRadius: 24, border: 'none', cursor: 'pointer',
-                background: 'linear-gradient(135deg, #E8654F 0%, #C0392B 100%)',
-                color: '#FFFFFF', fontSize: 15, fontWeight: 700, marginTop: 4,
-              }}
-            >
-              この時間で会いに行く
-            </button>
-            <button
-              onClick={() => setComeOnOpen(false)}
-              style={{
-                width: '100%', padding: '11px 0', borderRadius: 24,
-                border: '1px solid rgba(139,115,85,0.4)', background: 'transparent',
-                color: '#5C3A1E', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              キャンセル
-            </button>
-          </div>
-        </div>
       )}
 
       {/* ── プロフィールドロワー ── */}

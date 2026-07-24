@@ -1,16 +1,22 @@
-// match-users Edge Function
+// match-users Edge Function（Talk me マッチング）
 // POST { user_id, mode: 'help' | 'rescue' }
 //
-// HELPモード（話を聞いてほしい）:
-//   自分の「今の悩み」(shadow) と、他ユーザーの「乗り越えた経験」(light) が一致する人を返す。
-// Rescueモード（話を聞いてあげたい）:
-//   自分の「乗り越えた経験」(light) と、他ユーザーの「今の悩み」(shadow) が一致する人を返す。
+// 用語: Daisy = lightタグ（乗り越えた経験） / Seed = shadowタグ（今の悩み）
 //
-// Q3（経験）とQ4（悩み）はタグ語彙が異なるため、テキスト完全一致だけでなく
-// 意味カテゴリ（恋愛/仕事/家族/孤独/自己）でも突き合わせる。カテゴリ表に無い
-// 自由入力タグはテキスト完全一致で判定する。
+// HELPモード（話を聞いてほしい）:
+//   自分の Seed（悩み）テキストと、他ユーザーの Daisy（経験）テキストを
+//   Anthropic API で類似度判定。オンラインの Rescue ユーザーのみ対象。
+//   類似度スコア順に上から返す。
+// Rescueモード（話を聞いてあげたい）:
+//   自分の Daisy（経験）テキストと、HELP側の Seed（悩み）テキストを類似度判定。
+//   類似度スコア順に上から返す。相手の Seed そのものは返さず、両者が共通して
+//   持つ悩み（commonSeed）だけを返す。
+//
+// スコアが SIMILARITY_THRESHOLD 以上のユーザーのみ、スコア降順で返す。
+// スコアの数値は UI には表示しない（ソートにのみ使う）。
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { makeAnthropic, scoreManyDaisySeed, SIMILARITY_THRESHOLD } from '../_shared/similarity.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -19,16 +25,17 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 
-// 経験(Q3)・悩み(Q4)のプリセットタグ → 共通カテゴリ
+const anthropic = makeAnthropic()
+
+// 経験(Q3)・悩み(Q4)のプリセットタグ → 共通カテゴリ。
+// Rescue の「共通Seed」判定（両者が持つ似た悩み）に使う。自由入力タグはテキスト一致で判定。
 const CATEGORY: Record<string, string> = {
-  // 経験 (light / Q3)
   '失恋・別れ': 'love',
   '挫折・否定された経験': 'self',
   'いじめ・孤立': 'lonely',
   '仕事の挫折': 'work',
   '家族の問題': 'family',
   '起業・挑戦の失敗': 'work',
-  // 悩み (shadow / Q4)
   '恋愛・人間関係': 'love',
   '仕事・将来': 'work',
   '家族のこと': 'family',
@@ -57,11 +64,12 @@ Deno.serve(async (req: Request) => {
     if (!UUID_RE.test(user_id ?? '')) return json({ error: 'invalid user_id' }, 400)
     if (mode !== 'help' && mode !== 'rescue') return json({ error: 'invalid mode' }, 400)
 
-    // help: 自分=悩み(shadow) / 相手=経験(light)
-    // rescue: 自分=経験(light) / 相手=悩み(shadow)
+    // help  : 自分 = Seed(shadow)  / 相手 = Daisy(light)
+    // rescue: 自分 = Daisy(light)  / 相手 = Seed(shadow)
     const myType = mode === 'help' ? 'shadow' : 'light'
     const otherType = mode === 'help' ? 'light' : 'shadow'
 
+    // 自分のタグ（マッチ対象タイプ）を取得
     const { data: myTags } = await supabase
       .from('tags')
       .select('text')
@@ -69,17 +77,28 @@ Deno.serve(async (req: Request) => {
       .eq('type', myType)
       .eq('is_active', true)
 
-    const myTexts = new Set<string>()
-    const myCategories = new Set<string>()
-    for (const t of (myTags ?? []) as { text: string }[]) {
-      myTexts.add(t.text)
-      const c = CATEGORY[t.text]
-      if (c) myCategories.add(c)
+    const myTexts = ((myTags ?? []) as { text: string }[]).map((t) => t.text)
+    if (myTexts.length === 0) return json({ users: [] })
+    const myText = myTexts.join('、')
+
+    // Rescue の「共通Seed」判定用に、自分の Seed(shadow) も取得しておく。
+    const mySeedCats = new Set<string>()
+    const mySeedTexts = new Set<string>()
+    if (mode === 'rescue') {
+      const { data: myShadow } = await supabase
+        .from('tags')
+        .select('text')
+        .eq('user_id', user_id)
+        .eq('type', 'shadow')
+        .eq('is_active', true)
+      for (const t of (myShadow ?? []) as { text: string }[]) {
+        mySeedTexts.add(t.text)
+        const c = CATEGORY[t.text]
+        if (c) mySeedCats.add(c)
+      }
     }
 
-    if (myTexts.size === 0) return json({ users: [] })
-
-    // 他ユーザーの該当タイプのタグを取得（自分は除外）
+    // 他ユーザーの該当タイプのタグを取得（自分は除外）。user_id ごとにまとめる。
     const { data: otherTags } = await supabase
       .from('tags')
       .select('user_id, text')
@@ -87,58 +106,70 @@ Deno.serve(async (req: Request) => {
       .eq('is_active', true)
       .neq('user_id', user_id)
 
-    // user_id ごとに、最初にマッチしたタグを代表として保持しつつ一致数も数える
-    const matchedTagByUser = new Map<string, string>()
-    const matchCountByUser = new Map<string, number>()
+    const textsByUser = new Map<string, string[]>()
     for (const t of (otherTags ?? []) as TagRow[]) {
-      const cat = CATEGORY[t.text]
-      const isMatch = myTexts.has(t.text) || (cat ? myCategories.has(cat) : false)
-      if (!isMatch) continue
-      if (!matchedTagByUser.has(t.user_id)) matchedTagByUser.set(t.user_id, t.text)
-      matchCountByUser.set(t.user_id, (matchCountByUser.get(t.user_id) ?? 0) + 1)
+      if (!textsByUser.has(t.user_id)) textsByUser.set(t.user_id, [])
+      textsByUser.get(t.user_id)!.push(t.text)
     }
+    const candidateIds = [...textsByUser.keys()]
+    if (candidateIds.length === 0) return json({ users: [] })
 
-    const matchedIds = [...matchedTagByUser.keys()]
-    if (matchedIds.length === 0) return json({ users: [] })
-
-    // helpモード（Talk to me）：相手＝ワーカーは「オンライン」かつ「通話対応
-    // （call/both）」の人だけに絞る。available_methods / is_online カラムが
-    // 未追加の環境ではフィルタなしにフォールバックする。
+    // 表示する候補ユーザーを取得。
+    // help: 相手＝Rescueワーカーは「オンライン」かつ「通話対応（call/both）」のみ。
+    //       is_online / available_methods 未追加の環境ではフィルタなしにフォールバック。
     let users: UserRow[] = []
     if (mode === 'help') {
       const { data, error } = await supabase
         .from('users')
         .select('id, username, avatar_url, is_online, available_methods')
-        .in('id', matchedIds)
+        .in('id', candidateIds)
         .eq('is_online', true)
         .overlaps('available_methods', ['call', 'both'])
       if (error) {
         const { data: fallback } = await supabase
-          .from('users')
-          .select('id, username, avatar_url')
-          .in('id', matchedIds)
+          .from('users').select('id, username, avatar_url').in('id', candidateIds)
         users = (fallback ?? []) as UserRow[]
       } else {
         users = (data ?? []) as UserRow[]
       }
     } else {
       const { data } = await supabase
-        .from('users')
-        .select('id, username, avatar_url')
-        .in('id', matchedIds)
+        .from('users').select('id, username, avatar_url').in('id', candidateIds)
       users = (data ?? []) as UserRow[]
     }
+    if (users.length === 0) return json({ users: [] })
 
-    // マッチ度順（タグ一致数が多い順）
+    // 各候補について Daisy×Seed の類似度を Anthropic でまとめて並列採点する。
+    //   help  : Daisy = 相手の light   / Seed = 自分の shadow(myText)
+    //   rescue: Daisy = 自分の light(myText) / Seed = 相手の shadow
+    const scores = await scoreManyDaisySeed(
+      anthropic,
+      users.map((u) => {
+        const theirText = (textsByUser.get(u.id) ?? []).join('、')
+        return mode === 'help'
+          ? { key: u.id, daisyText: theirText, seedText: myText }
+          : { key: u.id, daisyText: myText, seedText: theirText }
+      }),
+    )
+
     const result = users
-      .map((u) => ({
-        userId: u.id,
-        username: u.username,
-        avatar_url: u.avatar_url,
-        tag: matchedTagByUser.get(u.id) ?? '',
-        matchCount: matchCountByUser.get(u.id) ?? 0,
-      }))
-      .sort((a, b) => b.matchCount - a.matchCount)
+      .map((u) => {
+        const theirTexts = textsByUser.get(u.id) ?? []
+        // rescue：両者が共通して持つ悩み（テキスト一致 or カテゴリ一致）だけを commonSeed に。
+        const commonSeed = mode === 'rescue'
+          ? theirTexts.filter((t) => mySeedTexts.has(t) || (CATEGORY[t] ? mySeedCats.has(CATEGORY[t]) : false))
+          : []
+        return {
+          userId: u.id,
+          username: u.username,
+          avatar_url: u.avatar_url,
+          tag: theirTexts[0] ?? '',
+          score: scores.get(u.id) ?? 0,
+          ...(mode === 'rescue' ? { commonSeed } : {}),
+        }
+      })
+      .filter((u) => u.score >= SIMILARITY_THRESHOLD)
+      .sort((a, b) => b.score - a.score)
 
     return json({ users: result })
   } catch (err) {

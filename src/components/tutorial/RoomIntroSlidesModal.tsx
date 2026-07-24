@@ -140,8 +140,8 @@ export default function RoomIntroSlidesModal({ onNext }: RoomIntroSlidesModalPro
               <h2 style={{ fontSize: 19, fontWeight: 700, color: '#3B2F1E', lineHeight: 1.6, margin: '0 0 16px' }}>
                 🏠 ルームとは
               </h2>
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 24, margin: '0 0 20px' }}>
-                <DaisyBubble size={58} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, margin: '0 0 20px' }}>
+                <DaisyBubble size={58} centered />
                 <SeedBubbleIllustration size={58} />
               </div>
               <p style={{ fontSize: 15, color: 'rgba(59,47,30,0.7)', lineHeight: 1.8, margin: '0 0 28px' }}>

@@ -1,17 +1,22 @@
-// match-nearby Edge Function（対面マッチング）
-// POST { user_id, lat, lng }
+// match-nearby Edge Function（Come on 対面マッチング）
+// POST { user_id, lat, lng, mode?: 'help' | 'rescue' }
+//
+// 用語: Daisy = lightタグ（乗り越えた経験） / Seed = shadowタグ（今の悩み）
 //
 // 1. 自分の現在地を user_locations に upsert（service role 経由。
 //    RLSで anon の直接読み書きを禁止しても動くよう、書き込みもここで行う）
 // 2. updated_at が24時間以内の他ユーザーの位置を取得（鮮度フィルタ）
-// 3. ハーバサイン距離 3km 以内に絞る
-// 4. シーカーの悩み(shadow) × ワーカーの経験(light) でカテゴリマッチ
-// 5. ワーカーは対面対応（available_methods に meet/both）の人だけに絞る
+// 3. ハーバサイン距離 3km 以内の全員に絞る
+// 4. HELP側・Rescue側共通で Daisy×Seed を Anthropic API で類似度判定
+//    （help: 自分Seed×相手Daisy / rescue: 自分Daisy×相手Seed）
+// 5. スコアが閾値以上の人だけ、スコア降順で返す（スコア数値は非表示・距離は残す）
+// 6. ワーカーは対面対応（available_methods に meet/both）の人だけに絞る
 //    （カラム未追加の環境ではフィルタなしにフォールバック）
 //
 // 位置座標のぼかし（±30m jitter）は既存どおりクライアント側で行う。
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { makeAnthropic, scoreManyDaisySeed, SIMILARITY_THRESHOLD } from '../_shared/similarity.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -23,22 +28,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 
-// 経験(Q3)・悩み(Q4)のプリセットタグ → 共通カテゴリ（match-users と同一）
-const CATEGORY: Record<string, string> = {
-  // 経験 (light / Q3)
-  '失恋・別れ': 'love',
-  '挫折・否定された経験': 'self',
-  'いじめ・孤立': 'lonely',
-  '仕事の挫折': 'work',
-  '家族の問題': 'family',
-  '起業・挑戦の失敗': 'work',
-  // 悩み (shadow / Q4)
-  '恋愛・人間関係': 'love',
-  '仕事・将来': 'work',
-  '家族のこと': 'family',
-  '自分自身のこと': 'self',
-  '孤独感': 'lonely',
-}
+const anthropic = makeAnthropic()
 
 function getDistanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6_371_000
@@ -69,12 +59,17 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
 
   try {
-    const { user_id, lat, lng } = await req.json()
+    const { user_id, lat, lng, mode } = await req.json()
     if (!UUID_RE.test(user_id ?? '')) return json({ error: 'invalid user_id' }, 400)
     if (typeof lat !== 'number' || typeof lng !== 'number' ||
         lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return json({ error: 'invalid coordinates' }, 400)
     }
+    // help（既定）: 自分 = Seed(shadow) / 相手 = Daisy(light)
+    // rescue      : 自分 = Daisy(light) / 相手 = Seed(shadow)
+    const isRescue = mode === 'rescue'
+    const myType = isRescue ? 'light' : 'shadow'
+    const otherType = isRescue ? 'shadow' : 'light'
 
     // 1. 自分の位置を保存
     const { error: upsertError } = await supabase
@@ -107,54 +102,46 @@ Deno.serve(async (req: Request) => {
 
     const nearbyIds = nearby.map((u) => u.userId)
 
-    // 4. シーカーの悩み(shadow) × ワーカーの経験(light) でマッチ
+    // 4. 自分と近くのユーザーのタグを取得（Daisy×Seed 判定用）。
     const [myTagsRes, theirTagsRes] = await Promise.all([
       supabase.from('tags')
         .select('user_id, type, text')
         .eq('user_id', user_id)
-        .eq('type', 'shadow')
+        .eq('type', myType)
         .eq('is_active', true),
       supabase.from('tags')
         .select('user_id, type, text')
         .in('user_id', nearbyIds)
-        .eq('type', 'light')
+        .eq('type', otherType)
         .eq('is_active', true),
     ])
 
-    const myTexts = new Set<string>()
-    const myCategories = new Set<string>()
-    for (const t of (myTagsRes.data ?? []) as TagRow[]) {
-      myTexts.add(t.text)
-      const c = CATEGORY[t.text]
-      if (c) myCategories.add(c)
-    }
+    const myText = ((myTagsRes.data ?? []) as TagRow[]).map((t) => t.text).join('、')
+    if (!myText) return json({ matches: [] })
 
-    const matchedTagsByUser = new Map<string, Set<string>>()
+    const textsByUser = new Map<string, string[]>()
     for (const t of (theirTagsRes.data ?? []) as TagRow[]) {
-      const cat = CATEGORY[t.text]
-      const isMatch = myTexts.has(t.text) || (cat ? myCategories.has(cat) : false)
-      if (!isMatch) continue
-      if (!matchedTagsByUser.has(t.user_id)) matchedTagsByUser.set(t.user_id, new Set())
-      matchedTagsByUser.get(t.user_id)!.add(t.text)
+      if (!textsByUser.has(t.user_id)) textsByUser.set(t.user_id, [])
+      textsByUser.get(t.user_id)!.push(t.text)
     }
-
-    const matchedIds = [...matchedTagsByUser.keys()]
-    if (matchedIds.length === 0) return json({ matches: [] })
 
     // 5. 対面対応（meet/both）のワーカーだけに絞る。
     //    available_methods カラム未追加の環境ではフィルタなしにフォールバック。
+    const taggedIds = nearbyIds.filter((id) => textsByUser.has(id))
+    if (taggedIds.length === 0) return json({ matches: [] })
+
     let users: UserRow[] = []
     {
       const { data, error } = await supabase
         .from('users')
         .select('id, username, avatar_url, available_methods')
-        .in('id', matchedIds)
+        .in('id', taggedIds)
         .overlaps('available_methods', ['meet', 'both'])
       if (error) {
         const { data: fallback } = await supabase
           .from('users')
           .select('id, username, avatar_url')
-          .in('id', matchedIds)
+          .in('id', taggedIds)
         users = (fallback ?? []) as UserRow[]
       } else {
         users = (data ?? []) as UserRow[]
@@ -162,8 +149,21 @@ Deno.serve(async (req: Request) => {
     }
     const userById = new Map(users.map((u) => [u.id, u]))
 
+    // 6. Daisy×Seed の類似度を Anthropic でまとめて並列採点。
+    //    help: Daisy=相手 / Seed=自分(myText) ／ rescue: Daisy=自分(myText) / Seed=相手
+    const scores = await scoreManyDaisySeed(
+      anthropic,
+      users.map((u) => {
+        const theirText = (textsByUser.get(u.id) ?? []).join('、')
+        return isRescue
+          ? { key: u.id, daisyText: myText, seedText: theirText }
+          : { key: u.id, daisyText: theirText, seedText: myText }
+      }),
+    )
+
+    // 類似スコアが閾値以上の人だけ、スコア降順で返す（距離は残す・スコア数値は非表示）。
     const matches = nearby
-      .filter((u) => matchedTagsByUser.has(u.userId) && userById.has(u.userId))
+      .filter((u) => userById.has(u.userId) && (scores.get(u.userId) ?? 0) >= SIMILARITY_THRESHOLD)
       .map((u) => ({
         userId: u.userId,
         username: userById.get(u.userId)?.username ?? '',
@@ -171,9 +171,10 @@ Deno.serve(async (req: Request) => {
         distanceMeters: u.distanceMeters,
         latitude: u.latitude,
         longitude: u.longitude,
-        commonTags: [...(matchedTagsByUser.get(u.userId) ?? [])],
+        commonTags: textsByUser.get(u.userId) ?? [],
+        score: scores.get(u.userId) ?? 0,
       }))
-      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .sort((a, b) => b.score - a.score)
 
     return json({ matches })
   } catch (err) {

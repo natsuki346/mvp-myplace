@@ -5,8 +5,8 @@ import { useRouter, usePathname } from 'next/navigation'
 // 「記録（予定 / 履歴 / 記録）」は左上アイコンのサイドバー（ProfileDrawer）へ移設したため、
 // ボトムナビは「ホーム」と「チャット」の2つのみ。
 const NAV_ITEMS = [
-  { id: 'feed', icon: '🏠', label: 'ホーム',   path: '/home/feed' },
-  { id: 'room', icon: '💬', label: 'チャット', path: '/room/light' },
+  { id: 'feed', icon: '🏠', label: 'Home', path: '/home/feed' },
+  { id: 'room', icon: '💬', label: 'Chat', path: '/room/light' },
 ]
 
 type BottomNavProps = {

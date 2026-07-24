@@ -29,14 +29,17 @@ type Worker = {
   avatar_url: string | null
   tag: string
   matchCount: number
+  // Daisy×Seed のAI類似度スコア（0〜1）。ソートにのみ使い、UIには数値を出さない。
+  score?: number
 }
 
 // ── 動作確認用モックデータ（一時的）─────────────────────────────────────────
 // 実データが無くてもリスト表示・導線を確認できるよう、
 // 取得結果が0件のときにこの2人を表示する。確認が済んだら削除する。
+// score は固定値。スコア降順で並ぶ挙動（さくら→ゆうき）を確認できる。
 const MOCK_WORKERS: Worker[] = [
-  { userId: 'mock-worker-1', username: 'さくら', avatar_url: null, tag: '挫折から立った', matchCount: 2 },
-  { userId: 'mock-worker-2', username: 'ゆうき', avatar_url: null, tag: '逆境を生きた', matchCount: 1 },
+  { userId: 'mock-worker-1', username: 'さくら', avatar_url: null, tag: '挫折から立った', matchCount: 2, score: 0.88 },
+  { userId: 'mock-worker-2', username: 'ゆうき', avatar_url: null, tag: '逆境を生きた', matchCount: 1, score: 0.71 },
 ]
 
 export default function HelpPage() {
@@ -44,6 +47,8 @@ export default function HelpPage() {
   const [workers, setWorkers] = useState<Worker[] | null>(null)
   // 「話してみる」で選んだ相手。null なら一覧、値があれば手段選択画面を表示。
   const [selected, setSelected] = useState<Worker | null>(null)
+  // タグ検索：表示中のユーザーをフロント側で絞り込む（AIマッチ結果はそのまま、表示だけ絞る）。
+  const [search, setSearch] = useState('')
 
   // オンライン＆通話対応（call/both）のワーカーをマッチ度順で取得
   useEffect(() => {
@@ -57,7 +62,9 @@ export default function HelpPage() {
           body: JSON.stringify({ user_id: uid, mode: 'help' }),
         })
         const data = await res.json().catch(() => ({}))
-        setWorkers((data?.users as Worker[]) ?? [])
+        // AI類似度スコアの降順に並べる（バックエンドも並べ替え済みだが念のため統一）。
+        const list = ((data?.users as Worker[]) ?? []).slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        setWorkers(list)
       } catch {
         setWorkers([])
       }
@@ -209,6 +216,18 @@ export default function HelpPage() {
           あなたの悩みを乗り越えた経験があり、いま話せる人です
         </p>
 
+        {/* タグ検索：表示中のユーザーをタグ文字列でフロント側フィルタ */}
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="タグで絞り込む（例：挫折）"
+          style={{
+            width: '100%', boxSizing: 'border-box', margin: '0 0 14px',
+            padding: '10px 14px', borderRadius: 12, fontSize: 14,
+            border: '1px solid rgba(139,115,85,0.3)', background: '#FFFFFF', color: '#3B2F1E',
+          }}
+        />
+
         {workers === null ? (
           <p style={{ textAlign: 'center', paddingTop: 40, fontSize: 13, color: 'rgba(59,47,30,0.45)' }}>
             探しています...
@@ -216,7 +235,9 @@ export default function HelpPage() {
         ) : (
           <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2 lg:grid-cols-3 md:items-start">
             {/* 実データが0件のときはモックデータを表示（動作確認用・確認後に削除） */}
-            {(workers.length > 0 ? workers : MOCK_WORKERS).map(w => (
+            {(workers.length > 0 ? workers : MOCK_WORKERS)
+              .filter(w => !search.trim() || w.tag.includes(search.trim()))
+              .map(w => (
               <div
                 key={w.userId}
                 style={{
