@@ -415,6 +415,7 @@ export default function HomePage() {
       {/* ── 本体：マッチ一覧 ── */}
       <div style={{
         flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehaviorY: 'none',
+        display: 'flex', flexDirection: 'column',
         WebkitOverflowScrolling: 'touch', padding: '20px 20px calc(100px + env(safe-area-inset-bottom))',
       }}>
         {isViewingOtherMode ? (
@@ -455,10 +456,9 @@ export default function HomePage() {
           <div
             className="md:max-w-md md:w-full md:mx-auto"
             style={{
-              display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24,
-              minHeight: 'calc(100svh - 210px)',
-              // Talk me を一時非表示にしている間、Come on を画面中央に大きく置く
-              justifyContent: 'center',
+              display: 'flex', flexDirection: 'column', gap: 14,
+              // 本体（flexカラム）いっぱいに広がり、Come on ボタンを中央に固定してスクロールさせない
+              flex: 1, justifyContent: 'center',
             }}
           >
             {/* 一時的に非表示（後で戻せるようコメントアウトのみ）。戻すときはこのブロックのコメントを外す。
@@ -483,7 +483,7 @@ export default function HomePage() {
             <button
               onClick={() => router.push('/come-on')}
               style={{
-                width: '100%', flex: 1, maxHeight: 360, minHeight: 280,
+                width: '100%', height: 300, flexShrink: 0,
                 border: 'none', borderRadius: 24, cursor: 'pointer',
                 background: 'linear-gradient(135deg, #E8654F 0%, #C0392B 100%)',
                 boxShadow: '0 6px 18px rgba(192,57,43,0.35)',
@@ -499,7 +499,9 @@ export default function HomePage() {
           </div>
         )}
 
-        {list === null || loadingTab ? (
+        {/* Talk me を一時非表示にしている間、HELPタブのマッチ一覧は出さず Come on だけを中央に見せる。
+            Rescue タブでは従来どおり一覧を表示する。 */}
+        {activeTab === 'rescue' && (list === null || loadingTab ? (
           <p style={{ textAlign: 'center', paddingTop: 48, fontSize: 13, color: 'rgba(59,47,30,0.45)' }}>
             探しています...
           </p>
@@ -682,7 +684,7 @@ export default function HomePage() {
               })}
             </div>
           </>
-        )}
+        ))}
         </>
         )}
       </div>

@@ -136,14 +136,17 @@ export default function ComeOnPage() {
           onClick={() => (selected ? setSelected(null) : router.back())}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 14, color: '#3B2F1E', padding: 0,
-            display: 'flex', alignItems: 'center', gap: 4,
+            fontSize: 14, color: '#3B2F1E', padding: 0, flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
           }}
         >
           ← 戻る
         </button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#3B2F1E' }}>
-          {selected ? '会う時間を選ぶ' : 'Come on — いま近くで会える人'}
+        <span style={{
+          fontSize: 15, fontWeight: 700, color: '#3B2F1E',
+          flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {selected ? '会う時間を選ぶ' : 'Come on'}
         </span>
       </div>
 
@@ -198,7 +201,7 @@ export default function ComeOnPage() {
               color: '#FFFFFF', fontSize: 15, fontWeight: 700,
             }}
           >
-            この時間で会いに行く
+            この時間できて欲しい
           </button>
         </div>
       ) : (
@@ -264,7 +267,7 @@ export default function ComeOnPage() {
                       color: '#FFFFFF', fontSize: 15, fontWeight: 700,
                     }}
                   >
-                    会いに行く
+                    きて欲しい
                   </button>
                 </div>
               ))}
